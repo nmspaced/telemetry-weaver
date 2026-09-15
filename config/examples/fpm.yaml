@@ -1,0 +1,13 @@
+# PHP-FPM / request-scoped pipeline example.
+open_telemetry:
+    runtime:
+        request_metrics:
+            # Safe default. Enable `delta` only with process/host writer identity and
+            # a downstream pipeline that understands independent request delta streams.
+            mode: disabled
+
+    sdk:
+        export:
+            flush_timeout_ms: 1000
+            failure_cooldown_ms: 30000
+            max_retries: 0

@@ -1,0 +1,160 @@
+{
+    "name": "nmspaced/telemetry-weaver",
+    "description": "OpenTelemetry traces, metrics and logs for Symfony applications running in worker mode (FrankenPHP, RoadRunner).",
+    "license": "MIT",
+    "type": "symfony-bundle",
+    "keywords": [
+        "opentelemetry",
+        "otel",
+        "symfony",
+        "symfony-bundle",
+        "tracing",
+        "metrics",
+        "logs",
+        "observability",
+        "frankenphp",
+        "roadrunner"
+    ],
+    "authors": [
+        {
+            "name": "Andrew Orinin",
+            "email": "andrew.orinin@tarkov.com"
+        }
+    ],
+    "homepage": "https://github.com/nmspaced/telemetry-weaver",
+    "support": {
+        "issues": "https://github.com/nmspaced/telemetry-weaver/issues",
+        "source": "https://github.com/nmspaced/telemetry-weaver"
+    },
+    "require": {
+        "php": "^8.4",
+        "open-telemetry/api": "^1.10",
+        "open-telemetry/context": "^1.5",
+        "open-telemetry/sdk": "^1.15",
+        "open-telemetry/sem-conv": "^1.44",
+        "psr/http-client-implementation": "^1.0",
+        "psr/http-factory-implementation": "^1.0",
+        "psr/log": "^3.0",
+        "symfony/config": "^8.1",
+        "symfony/dependency-injection": "^8.1",
+        "symfony/http-client-contracts": "^3.7",
+        "symfony/http-foundation": "^8.1",
+        "symfony/http-kernel": "^8.1"
+    },
+    "require-dev": {
+        "carthage-software/mago": "^1.47",
+        "doctrine/dbal": "^4",
+        "ergebnis/composer-normalize": "^2.53",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "igor-php/igor-php": "^0.9",
+        "monolog/monolog": "^3.5",
+        "nyholm/psr7": "^1.8",
+        "open-telemetry/exporter-otlp": "^1.4",
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^13.3",
+        "rector/rector": "^2.6",
+        "symfony/amazon-sqs-messenger": "^8.1",
+        "symfony/amqp-messenger": "^8.1",
+        "symfony/cache": "^8.1",
+        "symfony/console": "^8.1",
+        "symfony/event-dispatcher": "^8.1",
+        "symfony/framework-bundle": "^8.1",
+        "symfony/http-client": "^8.1",
+        "symfony/mailer": "^8.1",
+        "symfony/messenger": "^8.1",
+        "symfony/monolog-bundle": "^4.0",
+        "symfony/routing": "^8.1",
+        "symfony/scheduler": "^8.1",
+        "symfony/serializer": "^8.1",
+        "symfony/yaml": "^8.1"
+    },
+    "suggest": {
+        "doctrine/dbal": "Enables tracing and metrics for database queries",
+        "open-telemetry/exporter-otlp": "Export traces and metrics over OTLP",
+        "open-telemetry/gen-otlp-protobuf": "Protobuf encoding for the OTLP exporter",
+        "symfony/cache": "Enables tracing and metrics with TraceableCachePool",
+        "symfony/console": "Enables tracing for console commands",
+        "symfony/http-client": "Enables tracing and metrics for outgoing HTTP requests",
+        "symfony/mailer": "Enables tracing for outgoing mail transports",
+        "symfony/messenger": "Enables tracing for message consumption and dispatch",
+        "symfony/routing": "Adds http.route and the route template to server span names",
+        "symfony/scheduler": "Enables scheduler-aware attributes on scheduled message spans"
+    },
+    "autoload": {
+        "psr-4": {
+            "Nmspaced\\TelemetryWeaver\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Nmspaced\\TelemetryWeaver\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true,
+            "php-http/discovery": true,
+            "tbachert/spi": true
+        },
+        "lock": false,
+        "sort-packages": true
+    },
+    "scripts": {
+        "ci": [
+            "@composer validate --strict",
+            "@static",
+            "@test"
+        ],
+        "fix": [
+            "@rector:fix",
+            "@phpcs:fix",
+            "@mago:fix",
+            "@composer normalize"
+        ],
+        "igor": "igor-php .",
+        "mago": [
+            "@mago:lint",
+            "@mago:analyze",
+            "@mago:guard",
+            "@mago:format"
+        ],
+        "mago:analyze": "mago analyze",
+        "mago:analyze:fix": "mago analyze --fix --format-after-fix",
+        "mago:fix": [
+            "@mago:lint:fix",
+            "@mago:analyze:fix",
+            "@mago:format:fix"
+        ],
+        "mago:format": "mago format --check",
+        "mago:format:fix": "mago format",
+        "mago:guard": "mago guard",
+        "mago:lint": "mago lint",
+        "mago:lint:fix": "mago lint --fix --format-after-fix",
+        "phpcs": "php-cs-fixer fix --dry-run --diff",
+        "phpcs:fix": "php-cs-fixer fix",
+        "phpstan": "phpstan --configuration=phpstan.neon.dist",
+        "rector": "rector --dry-run",
+        "rector:fix": "rector",
+        "static": [
+            "@mago",
+            "@phpstan",
+            "@igor"
+        ],
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-text"
+    },
+    "scripts-descriptions": {
+        "ci": "What CI runs: manifest validation, static analysis, tests",
+        "fix": "Apply all automatic fixes",
+        "igor": "Detect worker-mode state leaks in Symfony services",
+        "mago": "All Mago checks: lint, analyze, guard, format (read-only)",
+        "mago:fix": "Apply every auto-fixable Mago finding, then reformat",
+        "phpcs": "Check code style with PHP CS Fixer (read-only; not part of static/ci — its statement_indentation rule disagrees with Mago's fluent-chain style, so it only runs before @mago:fix in @fix, which lets Mago have the final say)",
+        "phpcs:fix": "Apply PHP CS Fixer's fixes",
+        "phpstan": "Run PHPStan static analysis",
+        "rector": "Check for available Rector refactorings (read-only; not part of static/ci for the same reason as phpcs — see @fix)",
+        "rector:fix": "Apply Rector's refactorings",
+        "static": "Every static check that Mago's own formatter agrees with: Mago + PHPStan + Igor (read-only)",
+        "test": "Run the PHPUnit test suite"
+    }
+}

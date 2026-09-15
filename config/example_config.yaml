@@ -1,0 +1,329 @@
+# Every key the bundle understands, with its default and the reason behind it.
+# For the file a normal application actually writes, see minimal_config.yaml.
+#
+# Division of responsibility: OTEL_* environment variables own the SDK and export
+# (endpoint, protocol, headers, samplers, exporters, interval). This file owns what
+# gets instrumented and what is recorded. No key here duplicates an OTEL_* variable.
+open_telemetry:
+    # Master switch. With this off the bundle wires nothing at all — not even a
+    # no-op — and costs the application nothing.
+    enabled: true
+
+    # -------------------------------------------------------------------------
+    # Signals
+    # -------------------------------------------------------------------------
+    #
+    # These two are the master switches per signal. A component switched on below
+    # still produces nothing when its signal is off here.
+
+    traces:
+        enabled: true
+
+    metrics:
+        enabled: true
+
+        # Minimum interval between metric flushes at an execution boundary — the end
+        # of a request, or a worker between messages. Every flush is a blocking
+        # export, so this is what keeps a busy application from exporting on every
+        # boundary.
+        #
+        # null follows OTEL_METRIC_EXPORT_INTERVAL: flushing more often than the
+        # exporter would run on its own buys nothing.
+        #
+        # Metrics only. Spans and log records never export from the code that writes
+        # them; they queue until a boundary drains them on OTEL_BSP_SCHEDULE_DELAY /
+        # OTEL_BLRP_SCHEDULE_DELAY, and a queue that fills first (OTEL_BSP_MAX_QUEUE_SIZE,
+        # OTEL_BLRP_MAX_QUEUE_SIZE) drops rather than blocks.
+        flush_interval_ms: null
+
+    logs:
+        # Adds trace_id and span_id to log records, so a log line can be found from
+        # a trace and the other way round.
+        correlation:
+            enabled: true
+
+        # Exporting the log records themselves through OpenTelemetry. Off: most
+        # applications already ship logs another way, and two pipelines for one stream
+        # is a cost, not a feature. Needs symfony/monolog-bundle — the handler is
+        # inserted into Monolog's own stack — and an OTEL_LOGS_EXPORTER that names
+        # somewhere to send.
+        export:
+            enabled: false
+
+            # Lowest level exported. Not debug: shipping every debug line off the box
+            # is a bandwidth decision, not a logging one.
+            level: info
+
+            # Monolog channels never exported, whatever their level.
+            excluded_channels: []
+
+    # -------------------------------------------------------------------------
+    # Execution lifetime
+    # -------------------------------------------------------------------------
+    #
+    # Whether the pipeline outlives a request is not configured here: it follows
+    # Symfony's kernel.runtime_mode.web / kernel.runtime_mode.worker, set from
+    # APP_RUNTIME_MODE. "web=1&worker=0" (FPM) and "worker=2" (a worker that clones
+    # its kernel after each request) finish the pipeline on kernel.terminate;
+    # "worker=1" keeps it across requests and finishes it when PHP shuts down.
+
+    runtime:
+        request_metrics:
+            # Metrics from a pipeline that lives for one request. Off by default:
+            # cumulative series restart on every request, and gauges and worker
+            # memory/uptime mean nothing there. `delta` exports counters and
+            # histograms with delta temporality chosen before aggregation; every
+            # other instrument stays cumulative and describes that request alone.
+            # An explicit cumulative OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+            # conflicts with it. It needs a resource that tells writers
+            # apart (process.pid plus host or container attributes) and a backend
+            # or collector that accepts delta; otherwise metrics stay off and a
+            # diagnostic says why. Traces and logs are unaffected either way.
+            mode: disabled
+
+    # -------------------------------------------------------------------------
+    # What gets instrumented
+    # -------------------------------------------------------------------------
+    #
+    # One node per component. `traces` and `metrics` are booleans; where a signal
+    # needs its own options, the same key takes the long form
+    # `{enabled: true, ...}` — see http_server below.
+
+    instrumentation:
+        http_server:
+            traces: true
+            metrics: true
+
+            # Path prefixes to skip, for both signals unless a signal overrides it.
+            excluded_paths:
+                - /_profiler
+                - /_wdt
+                - /health
+
+            # The asymmetry this long form exists for: a health check is noise in a
+            # trace and load in a metric, so it is worth excluding from one and not
+            # the other. Uncomment to keep /health out of traces but counted.
+            #
+            # traces:
+            #     enabled: true
+            #     excluded_paths: ['/_profiler', '/_wdt', '/health']
+            # metrics:
+            #     enabled: true
+            #     excluded_paths: ['/_profiler', '/_wdt']
+
+            # client.address is personal data in most jurisdictions.
+            record_client_ip: false
+
+            # Lowest status at which the exception is recorded as a span event. The
+            # span's error status is not configurable — the conventions say >= 500, and
+            # a 404 from a NotFoundHttpException is not a failure of the server.
+            record_exception_min_status: 500
+
+        http_client:
+            traces: true
+            metrics: true
+
+            # Typically the collector itself, so telemetry does not trace telemetry.
+            excluded_hosts: []
+
+        console:
+            traces: true
+            metrics: false
+
+            # Setting this replaces the list below, but never the Messenger workers:
+            # messenger:consume and messenger:consume-messages are always excluded.
+            # A span covering a whole worker process is never exported — the SDK
+            # exports on end, and the end is the process exiting — it swallows every
+            # message into one unbounded trace, and it defeats
+            # doctrine.only_with_parent, because an always-valid active span makes the
+            # transport's idle polling look like work inside a unit of work. The work a
+            # worker really does is traced per message by the Messenger instrumentation.
+            excluded_commands:
+                - cache:clear
+                - cache:warmup
+                - assets:install
+                - lint:container
+                - lint:yaml
+
+        doctrine:
+            traces: true
+            metrics: true
+
+            # Records the statement as db.query.text. Raw SQL may carry literals and
+            # personal data, so this is opt-in.
+            query_text: false
+
+            # Query spans only inside an existing trace. Keeps the orphan spans of
+            # background polling — a Messenger transport doing BEGIN/SELECT/COMMIT
+            # every idle second — out of the traces. Metrics are recorded either way:
+            # that polling is real load on the database.
+            only_with_parent: true
+
+            # BEGIN, COMMIT and ROLLBACK as operations of their own: one span per round
+            # trip and a db.client.operation.duration series per boundary, labelled by
+            # db.operation.name. A slow or failing COMMIT is otherwise invisible. Nested
+            # transactions are savepoint statements and are traced as statements.
+            transactions: true
+
+        messenger:
+            traces: true
+            metrics: true
+
+        serializer:
+            # Spans require an existing trace. Work outside a trace (such as Messenger
+            # decoding before consumption) still contributes duration metrics.
+            traces: true
+            metrics: false
+
+        scheduler:
+            traces: true
+            metrics: false
+
+        mailer:
+            traces: true
+            metrics: false
+
+            # Mail subjects carry user-generated content.
+            record_subject: false
+
+        # The PHP runtime serving each worker, sampled at each export: php.memory.usage
+        # (the Zend allocator heap) and php.worker.uptime. In worker mode this is the only
+        # place a slow leak is visible — a collector scraping the host sees one long-lived
+        # process, not its heap. Workers are told apart by service.instance.id on the
+        # resource, not by a label on these metrics.
+        # No traces: there is no operation here, only state that exists continuously.
+        #
+        # Reported only by processes that serve work repeatedly — an HTTP request, a
+        # Messenger worker loop. A one-shot console command never starts reporting: its
+        # two-second lifetime is noise in a series meant to show a slow climb.
+        runtime:
+            metrics: true
+
+        cache:
+            traces: true
+            metrics: true
+
+            # Pool service ids to instrument. ["*"] takes every supported pool
+            # tagged cache.pool; [] takes none.
+            pools:
+                - '*'
+
+            # The framework's own pools: infrastructure, not application behaviour.
+            excluded_pools:
+                - cache.system
+                - cache.validator
+                - cache.serializer
+                - cache.property_info
+                - cache.messenger.restart_workers_signal
+
+    # -------------------------------------------------------------------------
+    # SDK
+    # -------------------------------------------------------------------------
+
+    sdk:
+        # Merged into OTEL_RESOURCE_ATTRIBUTES.
+        resource_attributes:
+            service.name: '%app.name%'
+            deployment.environment.name: '%kernel.environment%'
+
+        # Merged over OTEL_EXPORTER_OTLP_HEADERS: these entries win on a collision, and
+        # a null value drops a header the variable set. Applies to OTLP exporters only.
+        exporter_otlp_headers: []
+
+        # Retry behaviour of the OTLP transport. Deliberately not an OTEL_* variable:
+        # the specification defines none, and the SDK hard-codes 3 retries with a
+        # 100 ms backoff that cannot be reached from the outside.
+        #
+        # Retries are NOT asynchronous: the transport sleeps in the calling process
+        # between attempts, so a collector that is down costs (max_retries + 1)
+        # export timeouts plus the backoff — tens of seconds of a blocked worker.
+        # Losing the telemetry is the cheaper outcome, which is why this is 0.
+        export:
+            # One shared budget per HTTP/Console/Messenger boundary, including all
+            # OTLP batches. It is divided between collectors (scheme://host:port),
+            # not signals: each gets the time left divided by those not yet served,
+            # so a hung trace collector cannot starve a healthy metrics collector,
+            # and signals bound for a collector that already timed out are refused
+            # at once. The share caps each transport timeout; boundary sends never
+            # retry. Custom clients must honour the timeout themselves.
+            flush_timeout_ms: 1000
+
+            # Failed signals — and collectors that timed out — pause independently.
+            # A final flush — request terminate
+            # under FPM, a stopped Messenger worker, a console command's end, PHP
+            # shutdown of a long-lived worker — ignores this pause and the normal
+            # interval, but still shares the same budget.
+            failure_cooldown_ms: 30000
+
+            max_retries: 0
+            retry_delay_ms: 100
+
+        # Your own link of the export pipeline, as a service id. Each replaces what
+        # the bundle would build, and each keeps what sits around it:
+        #
+        #   otlp.transport_factories.<family>
+        #                           one factory per protocol family: grpc, and http for
+        #                           http/protobuf, http/json and http/ndjson (it tells
+        #                           them apart by content type). Per family, because a
+        #                           factory cannot tell gRPC from http/protobuf by its
+        #                           arguments. Signals on that family stay behind the
+        #                           resilient exporter and the export gate, but lose the
+        #                           flush budget, the retry override and
+        #                           exporter_otlp_headers; a family left ~ keeps the
+        #                           bundle's transport (setting those keys next to
+        #                           factories for both families is an error). A
+        #                           transport that ignores its timeout holds the boundary
+        #                           flush for as long as it waits. The SDK still needs
+        #                           its own transport for the protocol registered.
+        #   <signal>.exporter       used instead of OTEL_<SIGNAL>_EXPORTER; still
+        #                           wrapped, and metrics still follow
+        #                           runtime.request_metrics.
+        #   <signal>.provider       still flushed at boundaries, shut down once and
+        #                           handed to Globals; nothing inside it is wrapped or
+        #                           gated. An exporter for the same signal is an error.
+        otlp:
+            transport_factories:
+                grpc: ~            # OpenTelemetry\SDK\Common\Export\TransportFactoryInterface
+                http: ~            # OpenTelemetry\SDK\Common\Export\TransportFactoryInterface
+        traces:
+            provider: ~            # OpenTelemetry\SDK\Trace\TracerProviderInterface
+            exporter: ~            # OpenTelemetry\SDK\Trace\SpanExporterInterface
+        metrics:
+            provider: ~            # OpenTelemetry\SDK\Metrics\MeterProviderInterface
+            exporter: ~            # OpenTelemetry\SDK\Metrics\MetricExporterInterface
+        logs:
+            provider: ~            # OpenTelemetry\SDK\Logs\LoggerProviderInterface
+            exporter: ~            # OpenTelemetry\SDK\Logs\LogRecordExporterInterface
+
+    # -------------------------------------------------------------------------
+    # Instrumentation scope
+    # -------------------------------------------------------------------------
+    #
+    # Becomes otel.scope.name, otel.scope.version and otel.scope.schema_url on
+    # everything the bundle produces.
+    #
+    # schema_url names the semantic conventions release the bundle's telemetry was
+    # checked against. The resource is published under the same release.
+
+    scope:
+        name: nmspaced/telemetry-weaver
+        version: null
+        schema_url: 'https://opentelemetry.io/schemas/1.44.0'
+
+    # -------------------------------------------------------------------------
+    # Diagnostics
+    # -------------------------------------------------------------------------
+    #
+    # Reporting for the bundle's own failures: an instrumentation that threw, a
+    # context scope closed out of order, an export that failed. Rate-limited, because
+    # a broken collector must not turn into a flood of log lines.
+
+    diagnostics:
+        enabled: true
+        detailed_per_process: 10
+        min_interval_seconds: 60.0
+
+when@test:
+    open_telemetry:
+        # No collector is expected during tests, and export only adds time and noise.
+        enabled: false

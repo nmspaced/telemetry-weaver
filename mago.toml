@@ -1,0 +1,161 @@
+#:schema https://mago.carthage.software/1.48.1/schema.json
+
+version = "1"
+php-version = "8.4.0"
+
+[source]
+paths = ["src", "config", "tests"]
+includes = ["vendor"]
+
+[source.glob]
+literal-separator = true
+
+[formatter]
+empty-line-after-control-structure = true
+empty-line-after-class-like-constant = true
+empty-line-after-enum-case = true
+empty-line-after-trait-use = true
+empty-line-after-property = true
+empty-line-before-return = true
+
+method-chain-breaking-style = "next-line"
+first-method-chain-on-new-line = true
+
+preserve-breaking-member-access-chain = true
+preserve-breaking-member-access-chain-first-method-on-same-line = false
+
+[linter]
+integrations = ["symfony", "phpunit"]
+minimum-fail-level = "warning"
+
+[linter.rules]
+# Hard correctness / safety.
+strict-types = { level = "error" }
+no-debug-symbols = { level = "error" }
+identity-comparison = { level = "error" }
+
+ambiguous-function-call = { enabled = true }
+ambiguous-constant-access = { enabled = true }
+
+# Intentionally disabled: named arguments couple callers to parameter names.
+literal-named-argument = { enabled = false }
+
+# Boolean parameters can be legitimate configuration values.
+no-boolean-flag-parameter = { enabled = false }
+
+# Complexity.
+halstead = { effort-threshold = 7000 }
+
+# Symfony / worker-mode safety.
+no-service-state-mutation = { enabled = true, level = "error" }
+
+# Architecture / conventions.
+no-literal-namespace-string = { enabled = true, exclude = ["tests/"] }
+
+disallowed-type-instantiation = {
+    enabled = true,
+    level = "error",
+    types = ["DateTime"],
+}
+
+# PHPUnit.
+assertion-style = { enabled = true, style = "self" }
+
+# Dead / suspicious state.
+no-dead-store = { enabled = true }
+no-unused-static = { enabled = true }
+no-unused-global = { enabled = true }
+no-unused-closure-capture = { enabled = true }
+
+# Explicit control flow.
+no-assign-in-argument = { enabled = true }
+no-parameter-shadowing = { enabled = true }
+prefer-early-return = { enabled = true }
+
+# Performance traps.
+no-array-accumulation-in-loop = { enabled = true }
+no-iterator-to-array-in-foreach = { enabled = true }
+
+# RecordingTransportFactory::create() implements OpenTelemetry\SDK\Common\Export\
+# TransportFactoryInterface, whose 10-parameter signature is not ours to change.
+excessive-parameter-list = { enabled = true, exclude = ["tests/Fake/RecordingTransportFactory.php"] }
+
+# File structure.
+no-side-effects-with-declarations = { enabled = true }
+no-inline = { enabled = true }
+require-namespace = { enabled = true }
+
+# Readability.
+no-redundant-else = { enabled = true }
+no-redundant-variable = { enabled = true }
+redundant-static = { enabled = true }
+no-negated-ternary = { enabled = true }
+no-is-null = { enabled = true }
+no-short-bool-cast = { enabled = true }
+no-null-property-init = { enabled = true }
+no-alternative-syntax = { enabled = true }
+switch-continue-to-break = { enabled = true }
+
+prefer-pre-increment = { enabled = true }
+prefer-self-return-type = { enabled = true }
+prefer-array-spread = { enabled = true }
+prefer-explode-over-preg-split = { enabled = true }
+prefer-datetimeimmutable-create-from-timestamp = { enabled = true }
+
+# Deliberately different from Symfony core coding style.
+yoda-conditions = { enabled = true, mode = "deny" }
+
+method-name = { enabled = true }
+property-name = { enabled = true }
+variable-name = { enabled = true }
+
+
+[analyzer]
+ignore = [
+    { code = "mixed-assignment", in = [
+        "tests/",
+    ] },
+]
+minimum-fail-level = "warning"
+
+plugins = ["psr-container"]
+
+analyze-dead-code = true
+check-throws = true
+
+unchecked-exceptions = [
+    "Error",
+    "LogicException",
+    "PHPUnit\\Framework\\ExpectationFailedException",
+    "PHPUnit\\Framework\\Exception",
+    "SebastianBergmann\\RecursionContext\\InvalidArgumentException",
+]
+
+check-missing-override = true
+find-unused-parameters = true
+find-overly-wide-return-types = true
+
+strict-list-index-checks = true
+strict-array-index-existence = true
+no-boolean-literal-comparison = true
+
+check-missing-type-hints = true
+check-closure-missing-type-hints = true
+check-arrow-function-missing-type-hints = true
+
+check-property-initialization = true
+check-use-statements = true
+check-name-casing = true
+
+check-experimental = true
+enforce-class-finality = true
+
+# Particularly useful for reusable libraries/packages.
+require-api-or-internal = true
+
+# Keep runtime feature detection usable in Symfony bundles.
+trust-existence-checks = true
+
+class-initializers = [
+    "PHPUnit\\Framework\\TestCase::setUp",
+]

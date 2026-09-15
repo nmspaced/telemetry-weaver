@@ -1,0 +1,474 @@
+{
+  "files": {
+    "src/Instrumentation/Cache/CacheTelemetry.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->lookups). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (a counter's add()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      }
+    ],
+    "src/Instrumentation/Cache/TraceableCachePool.php": [
+      {
+        "message": "Property 'delegate' of TraceableCachePool is mutated but not reset in reset().",
+        "reason": "The class is readonly: 'delegate' is assigned once in the constructor and cannot be mutated. What Igor reads as a mutation is a local copy of it; reset() forwards to the inner pool, which owns whatever it caches."
+      }
+    ],
+    "src/Instrumentation/Console/CommandExecution.php": [
+      {
+        "message": "Mutation of state 'error' in CommandExecution::error()",
+        "reason": "Execution-owned object, not a service: one instance per command run, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'exitCode' in CommandExecution::exitCode()",
+        "reason": "Execution-owned object, not a service: one instance per command run, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'error' in CommandExecution::complete()",
+        "reason": "Execution-owned object, not a service: one instance per command run, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'error' in CommandExecution::abandon()",
+        "reason": "Execution-owned object, not a service: one instance per command run, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Instrumentation/Doctrine/DoctrineTelemetry.php": [
+      {
+        "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
+        "reason": "The closure is passed to a call and dropped when it returns (a future's catch() / Operation::run()); it is never stored on the service. It captures only process-scoped collaborators, never a request, span or context."
+      }
+    ],
+    "src/Instrumentation/Http/Client/PendingOperations.php": [
+      {
+        "message": "Mutation of state 'operations' in PendingOperations::add()",
+        "reason": "Per-client set of in-flight requests, weakly keyed: a dropped response takes its entry with it, and TraceableHttpClient::reset() (kernel.reset) calls abandonAll(), which replaces the map before abandoning. Bounded by what is still reachable."
+      },
+      {
+        "message": "Mutation of state 'operations' in PendingOperations::abandonAll()",
+        "reason": "Per-client set of in-flight requests, weakly keyed: a dropped response takes its entry with it, and TraceableHttpClient::reset() (kernel.reset) calls abandonAll(), which replaces the map before abandoning. Bounded by what is still reachable."
+      }
+    ],
+    "src/Instrumentation/Http/Client/TraceableHttpClient.php": [
+      {
+        "message": "Property 'pending' of TraceableHttpClient is mutated but not reset in reset().",
+        "reason": "'pending' is replaced only on a clone (withOptions) and emptied by reset() through PendingOperations::abandonAll(); the service is tagged kernel.reset."
+      }
+    ],
+    "src/Instrumentation/Http/KnownHttpMethods.php": [
+      {
+        "message": "Usage of PHP Superglobal $_SERVER is discouraged in Worker mode.",
+        "reason": "Reads OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS once in the constructor, as process configuration (Symfony Dotenv does not putenv). Nothing per request is read from $_SERVER."
+      }
+    ],
+    "src/Instrumentation/Http/Server/Metrics/RequestMeasurement.php": [
+      {
+        "message": "Mutation of state 'attributes' in RequestMeasurement::route()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'attributes' in RequestMeasurement::protocol()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'exceptionType' in RequestMeasurement::exception()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'status' in RequestMeasurement::response()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'responseBodySize' in RequestMeasurement::response()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'finished' in RequestMeasurement::complete()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'attributes' in RequestMeasurement::complete()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'finished' in RequestMeasurement::abandon()",
+        "reason": "Execution-owned object, not a service: one instance per main request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Instrumentation/Http/Server/Tracing/RequestTrace.php": [
+      {
+        "message": "Mutation of state 'route' in RequestTrace::route()",
+        "reason": "Execution-owned object, not a service: one instance per request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'error' in RequestTrace::exception()",
+        "reason": "Execution-owned object, not a service: one instance per request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'status' in RequestTrace::response()",
+        "reason": "Execution-owned object, not a service: one instance per request, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Instrumentation/Messenger/MessengerTelemetry.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->sentMessages). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (a counter's add()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->consumedMessages). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (a counter's add()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      }
+    ],
+    "src/Instrumentation/Monolog/ChannelLoggers.php": [
+      {
+        "message": "Mutation of state 'loggers' in ChannelLoggers::of()",
+        "reason": "Process-scoped by design and hard-capped at ChannelLoggers::MAX (128) entries; past the cap loggers are not retained. Holds SDK loggers keyed by channel name, never a record or a request."
+      }
+    ],
+    "src/Instrumentation/Monolog/OtelLogHandler.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->loggers). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (ChannelLoggers::of() and a LogRecordBuilder local to emit()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call. The logger cache itself is bounded in ChannelLoggers."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->loggers). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (ChannelLoggers::of() and a LogRecordBuilder local to emit()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call. The logger cache itself is bounded in ChannelLoggers."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->loggers). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (ChannelLoggers::of() and a LogRecordBuilder local to emit()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call. The logger cache itself is bounded in ChannelLoggers."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->loggers). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (ChannelLoggers::of() and a LogRecordBuilder local to emit()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call. The logger cache itself is bounded in ChannelLoggers."
+      },
+      {
+        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (ChannelLoggers::of() and a LogRecordBuilder local to emit()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call. The logger cache itself is bounded in ChannelLoggers."
+      },
+      {
+        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (ChannelLoggers::of() and a LogRecordBuilder local to emit()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call. The logger cache itself is bounded in ChannelLoggers."
+      },
+      {
+        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (ChannelLoggers::of() and a LogRecordBuilder local to emit()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call. The logger cache itself is bounded in ChannelLoggers."
+      }
+    ],
+    "src/Instrumentation/Runtime/ProcessMetrics.php": [
+      {
+        "message": "Mutation of state 'callbacks' in ProcessMetrics::register()",
+        "reason": "Holds the two observable-callback handles for the life of the process on purpose (a callback reports only while its handle is held). register() is idempotent, so the list never grows past two."
+      },
+      {
+        "message": "Mutation of state 'callbacks' in ProcessMetrics::register()",
+        "reason": "Holds the two observable-callback handles for the life of the process on purpose (a callback reports only while its handle is held). register() is idempotent, so the list never grows past two."
+      }
+    ],
+    "src/Internal/Diagnostics/RateLimiter.php": [
+      {
+        "message": "Mutation of state 'total' in RateLimiter::allow()",
+        "reason": "Process-scoped rate limit for diagnostics: three integers (total, burst used, next allowed time). Fixed size, and a limit that reset per request would not limit anything."
+      },
+      {
+        "message": "Mutation of state 'passed' in RateLimiter::allow()",
+        "reason": "Process-scoped rate limit for diagnostics: three integers (total, burst used, next allowed time). Fixed size, and a limit that reset per request would not limit anything."
+      },
+      {
+        "message": "Mutation of state 'nextAllowedAtNanos' in RateLimiter::allow()",
+        "reason": "Process-scoped rate limit for diagnostics: three integers (total, burst used, next allowed time). Fixed size, and a limit that reset per request would not limit anything."
+      }
+    ],
+    "src/Internal/Execution/OperationExecution.php": [
+      {
+        "message": "Mutation of state 'error' in OperationExecution::fail()",
+        "reason": "Execution-owned object, not a service: one instance per operation registered in ExecutionRegistry, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'error' in OperationExecution::complete()",
+        "reason": "Execution-owned object, not a service: one instance per operation registered in ExecutionRegistry, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'error' in OperationExecution::abandon()",
+        "reason": "Execution-owned object, not a service: one instance per operation registered in ExecutionRegistry, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Internal/Exporter/ResilientLogsExporter.php": [
+      {
+        "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
+        "reason": "The closure is passed to a call and dropped when it returns (a future's catch() / Operation::run()); it is never stored on the service. It captures only process-scoped collaborators, never a request, span or context."
+      }
+    ],
+    "src/Internal/Exporter/ResilientTracesExporter.php": [
+      {
+        "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
+        "reason": "The closure is passed to a call and dropped when it returns (a future's catch() / Operation::run()); it is never stored on the service. It captures only process-scoped collaborators, never a request, span or context."
+      }
+    ],
+    "src/Internal/Metrics/DurationTimer.php": [
+      {
+        "message": "Mutation of state 'stopped' in DurationTimer::stop()",
+        "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'context' in DurationTimer::stop()",
+        "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'stopped' in DurationTimer::cancel()",
+        "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'context' in DurationTimer::cancel()",
+        "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Internal/Metrics/SafeCounter.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->delegate). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (a counter's add()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      }
+    ],
+    "src/Internal/Metrics/SafeMeasurement.php": [
+      {
+        "message": "Mutation of state 'timer' in SafeMeasurement::stop()",
+        "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'timer' in SafeMeasurement::cancel()",
+        "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Internal/Operation/ActiveOperation.php": [
+      {
+        "message": "Mutation of state 'attributes' in ActiveOperation::metricAttributes()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'failure' in ActiveOperation::fail()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'attributes' in ActiveOperation::fail()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'finished' in ActiveOperation::finish()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'measurement' in ActiveOperation::finish()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'attributes' in ActiveOperation::finish()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'failure' in ActiveOperation::finish()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'finished' in ActiveOperation::abandon()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'measurement' in ActiveOperation::abandon()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'attributes' in ActiveOperation::abandon()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'failure' in ActiveOperation::abandon()",
+        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Internal/Runtime/FlushPolicy.php": [
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      },
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      },
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      },
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::resetProcessState()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      }
+    ],
+    "src/Internal/Tracing/OwnedSpan.php": [
+      {
+        "message": "Mutation of state 'activation' in OwnedSpan::detach()",
+        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'span' in OwnedSpan::end()",
+        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'finished' in OwnedSpan::end()",
+        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Usage of __destruct() magic method is dangerous in Worker mode.",
+        "reason": "OwnedSpan is execution-owned, not a shared service. Normal completion explicitly detaches in finally. This destructor is only a no-export fallback for a dropped owner or exit destroying stack locals before shutdown callbacks; it releases the scope and never waits for the end of a request. ShutdownScopeCleanupTest verifies both exit and non-retention."
+      }
+    ],
+    "src/Internal/Tracing/ShutdownScopeCleanup.php": [
+      {
+        "message": "Mutation of state 'static::$owners' in ShutdownScopeCleanup::register()",
+        "reason": "Deliberately process-scoped shutdown fallback, registered once. The WeakMap has only currently activated OwnedSpan keys and null values; detach removes each entry and dropping an owner removes its weak key. It retains no operation, provider, message or request. Shutdown detaches in reverse activation order without ending or exporting spans. Explicit finally cleanup remains the normal lifecycle."
+      }
+    ],
+    "src/Internal/Tracing/SpanOpener.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      },
+      {
+        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      }
+    ],
+    "src/Internal/Tracing/SpanView.php": [
+      {
+        "message": "Mutation of state 'delegate' in SpanView::release()",
+        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
+      },
+      {
+        "message": "Mutation of state 'errorType' in SpanView::release()",
+        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
+      },
+      {
+        "message": "Mutation of state 'errorType' in SpanView::rememberErrorType()",
+        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
+      }
+    ],
+    "src/OpenTelemetry/GlobalsRegistrar.php": [
+      {
+        "message": "Mutation of state 'registered' in GlobalsRegistrar::register()",
+        "reason": "An idempotency flag, set once per container: the kernel may boot several times in a worker and Globals must receive one initializer, not one per boot."
+      }
+    ],
+    "src/OpenTelemetry/MeterProviderFactory.php": [
+      {
+        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (a MeterProviderBuilder local to create(), run once when the container builds the provider). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      }
+    ],
+    "src/Internal/Runtime/SignalFlusher.php": [
+      {
+        "message": "Mutation of state 'retryAt' in SignalFlusher::flush()",
+        "reason": "Bounded process state: a single monotonic cooldown deadline per signal/provider. Successful flush resets it; no request, span, payload or growing collection is retained."
+      }
+    ],
+    "src/Internal/Runtime/FlushBudget.php": [
+      {
+        "message": "Mutation of state 'window' in FlushBudget::begin()",
+        "reason": "Opens the one FlushWindow of a synchronous flush. TelemetryFlusher always ends it in finally; nested flushes return before begin(), so a window is never replaced while in use."
+      },
+      {
+        "message": "Mutation of state 'window' in FlushBudget::end()",
+        "reason": "Drops the whole per-flush state (deadline, destination shares) in TelemetryFlusher's finally. Nothing about one flush survives into the next."
+      },
+      {
+        "message": "Mutation of state 'destinations' in FlushBudget::register()",
+        "reason": "The collector origins of the transports this container built, registered once per exporter creation: at most one per signal. Strings only; no request data."
+      }
+    ],
+    "src/Internal/Runtime/DestinationCooldowns.php": [
+      {
+        "message": "Mutation of state 'until' in DestinationCooldowns::start()",
+        "reason": "One integer deadline per collector origin that timed out, bounded by the transports this container built (at most one per signal). Deliberately outlives a flush: it keeps a hung collector from costing every boundary its share."
+      }
+    ],
+    "src/Internal/Runtime/FlushWindow.php": [
+      {
+        "message": "Mutation of state 'shares' in FlushWindow::share()",
+        "reason": "Execution-owned object: one window per flush, at most one share per registered destination, dropped whole by FlushBudget::end()."
+      }
+    ],
+    "src/Internal/Runtime/DestinationShare.php": [
+      {
+        "message": "Mutation of state 'exhausted' in DestinationShare::allowance()",
+        "reason": "Execution-owned object inside one FlushWindow: a terminal flag refusing further sends to a collector for the rest of that flush."
+      },
+      {
+        "message": "Mutation of state 'exhausted' in DestinationShare::settle()",
+        "reason": "Execution-owned object inside one FlushWindow: a send that used its share or timed out sets the terminal flag for the rest of that flush."
+      }
+    ],
+    "src/Internal/Runtime/SendAllowance.php": [
+      {
+        "message": "Mutation of state 'settled' in SendAllowance::settle()",
+        "reason": "Execution-owned object for a single OTLP send: guards against the future's success, failure and synchronous-throw paths reporting one outcome twice."
+      }
+    ],
+    "src/OpenTelemetry/TransportFactory.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->gate). Risk of State Leak in a worker.",
+        "reason": "Registers the transport's collector origin with the container's FlushBudget, once per exporter creation (at most one per signal). Bounded, idempotent per origin, no request data."
+      }
+    ],
+    "src/OpenTelemetry/BudgetedTransport.php": [
+      {
+        "message": "Mutation of state 'closed' in BudgetedTransport::shutdown()",
+        "reason": "Terminal transport lifecycle flag, intentionally retained for the lifetime of the provider. Prevents a boundary from creating another transport after shutdown; no execution data is stored."
+      }
+    ],
+    "src/Instrumentation/Console/ConsoleFlushSubscriber.php": [
+      {
+        "message": "Mutation of state 'depth' in ConsoleFlushSubscriber::onCommand()",
+        "reason": "A scalar nesting depth balanced by Console command/terminate events. Inner commands must not close the outer pipeline; no command or request is retained."
+      },
+      {
+        "message": "Mutation of state 'depth' in ConsoleFlushSubscriber::onTerminate()",
+        "reason": "A scalar nesting depth balanced by Console command/terminate events. Inner commands must not close the outer pipeline; no command or request is retained."
+      }
+    ],
+    "src/Internal/Runtime/ExportGate.php": [
+      {
+        "message": "Mutation of state 'closed' in ExportGate::close()",
+        "reason": "Terminal per-container flag: once closed, exporters and transports of that pipeline refuse I/O. A boolean that is never reopened; no request data."
+      },
+      {
+        "message": "Mutation of state 'finisher' in ExportGate::close()",
+        "reason": "Releases the weak reference to the pipeline's flusher when the pipeline is sealed. Clearing only; nothing is retained."
+      },
+      {
+        "message": "Mutation of state 'finisher' in ExportGate::finishOnExit()",
+        "reason": "One WeakReference to the container's TelemetryFlusher, set once for long-lived pipelines so PHP shutdown can run a budgeted final flush. Weak: a replaced container is not kept alive."
+      },
+      {
+        "message": "Mutation of state 'static::$live' in ExportGate::forBudget()",
+        "reason": "Process-scoped registry created once, together with the single PHP shutdown callback. A WeakMap: it never keeps a gate or its container alive."
+      },
+      {
+        "message": "Mutation of state 'static::$live' in ExportGate::forBudget()",
+        "reason": "Adds the new gate as a weak key with a null value. Bounded by live containers; closing a gate removes its key."
+      }
+    ],
+    "src/Internal/Runtime/ProviderRegistry.php": [
+      {
+        "message": "Mutation of state 'signals' in ProviderRegistry::add()",
+        "reason": "At most three already-created SDK providers, keyed by validated signal names and living as long as the container. Final shutdown clears it; no per-request objects accumulate."
+      },
+      {
+        "message": "Mutation of state 'signals' in ProviderRegistry::discard()",
+        "reason": "At most three already-created SDK providers, keyed by validated signal names and living as long as the container. Final shutdown clears it; no per-request objects accumulate."
+      }
+    ]
+  }
+}

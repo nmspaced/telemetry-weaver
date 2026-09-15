@@ -1,0 +1,11 @@
+{
+  "name": "telemetry-weaver",
+
+  "dockerComposeFile": "../compose.yaml",
+  "service": "php",
+  "workspaceFolder": "/workspace",
+
+  "overrideCommand": true,
+
+  "postCreateCommand": "composer install"
+}

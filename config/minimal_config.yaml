@@ -1,0 +1,10 @@
+# What a typical application needs.
+#
+# Endpoint, protocol, sampler and export interval belong to OTEL_* environment
+# variables — they are the SDK's business and are the same for every bundle that
+# speaks OpenTelemetry. This file only says what gets instrumented, and the
+# defaults already say "everything, safely".
+open_telemetry:
+    enabled: true
+
+# For everything that can be configured, see example_config.yaml.

@@ -1,0 +1,15 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+
+    working_dir: /workspace
+
+    volumes:
+      - .:/workspace
+
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"
+
+    init: true
