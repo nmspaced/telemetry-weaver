@@ -219,7 +219,7 @@ final class TelemetryWeaverBundle extends AbstractBundle
         parent::build($container);
 
         $container->addCompilerPass(new SdkComponentsCompilerPass());
-        $container->addCompilerPass(new MonologInstrumentationCompilerPass(), priority: -20);
+        $container->addCompilerPass(new MonologInstrumentationCompilerPass(), priority: 10);
         $container->addCompilerPass(new ConsoleInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new SchedulerInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new MailerInstrumentationCompilerPass(), priority: -20);
