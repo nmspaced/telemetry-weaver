@@ -6,14 +6,14 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 
 use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
-use Nmspaced\TelemetryWeaver\Api\RunningOperation;
 use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\MessagingOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
+use Nmspaced\TelemetryWeaver\Internal\Operation\ScopedOperation;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use OpenTelemetry\API\Metrics\CounterInterface;
-use OpenTelemetry\API\Trace\SpanContextInterface;
-use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 
 /**
@@ -30,9 +30,9 @@ final readonly class MessengerTelemetry
     private CounterInterface $consumedMessages;
 
     public function __construct(
-        private Telemetry $telemetry,
+        private BoundaryTelemetry $telemetry,
+        OperationBuckets $buckets = DefaultBuckets::Messaging,
     ) {
-        $buckets = new MessagingOperationBuckets();
         $metrics = $telemetry->metrics();
         $this->clientDuration = $metrics->duration(
             'messaging.client.operation.duration',
@@ -147,26 +147,23 @@ final readonly class MessengerTelemetry
      * @param non-empty-string $name
      * @param array<non-empty-string, string> $attributes
      * @param array<non-empty-string, bool|string> $spanAttributes
-     * @param list<SpanContextInterface> $links
+     * @param bool $linkActiveSpan keep the span the worker is running inside, when the
+     *                             message's own creation context is taking the parent slot
      */
     public function begin(
         string $name,
         array $attributes,
         array $spanAttributes,
-        ContextInterface $parent,
-        array $links = [],
-    ): RunningOperation {
+        IncomingTrace $parent,
+        bool $linkActiveSpan = false,
+    ): ScopedOperation {
         $operation = $this->telemetry
-            ->operation($name)
+            ->boundary($name)
             ->kind(SpanKind::Consumer)
             ->attributes($spanAttributes)
             ->duration($this->processDuration, attributes: $attributes)
-            ->parent($parent);
+            ->from($parent);
 
-        foreach ($links as $link) {
-            $operation = $operation->link($link);
-        }
-
-        return $operation->start();
+        return ($linkActiveSpan ? $operation->linkedToActiveSpan() : $operation)->start();
     }
 }

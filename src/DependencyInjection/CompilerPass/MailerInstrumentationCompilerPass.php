@@ -50,7 +50,8 @@ final readonly class MailerInstrumentationCompilerPass implements CompilerPassIn
             ->setArgument(
                 '$recordSubject',
                 $container->getParameter('open_telemetry.instrumentation.mailer.record_subject'),
-            );
+            )
+            ->setArgument('$buckets', new Reference('open_telemetry.mailer.buckets'));
 
         $innerId = DecoratedService::innerId(self::TRANSPORTS_ID);
 

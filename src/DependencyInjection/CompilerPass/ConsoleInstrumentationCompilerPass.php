@@ -8,7 +8,7 @@ use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationGate;
 use Nmspaced\TelemetryWeaver\Instrumentation\Console\ConsoleFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Console\ConsoleTelemetrySubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
+use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -38,7 +38,7 @@ final readonly class ConsoleInstrumentationCompilerPass implements CompilerPassI
 
         $container
             ->register(ConsoleFlushSubscriber::class, ConsoleFlushSubscriber::class)
-            ->setArgument('$flusher', new Reference(TelemetryFlusher::class))
+            ->setArgument('$flusher', new Reference(BoundaryFlush::class))
             ->addTag('kernel.event_subscriber');
 
         if ($gate->instruments('console')->isClosed()) {
@@ -53,6 +53,7 @@ final readonly class ConsoleInstrumentationCompilerPass implements CompilerPassI
                 '$excludedCommands',
                 $container->getParameter('open_telemetry.instrumentation.console.excluded_commands'),
             )
+            ->setArgument('$buckets', new Reference('open_telemetry.console.buckets'))
             ->addTag('kernel.event_subscriber')
             ->addTag('kernel.reset', ['method' => 'reset']);
     }

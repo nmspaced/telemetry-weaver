@@ -14,6 +14,10 @@ namespace Nmspaced\TelemetryWeaver\Internal\Tracing;
  *
  * This is the only place in the bundle where a tracing on/off flag is read. Everything
  * below it works with whatever opener it was handed.
+ *
+ * Switching a signal off asks the delegate for its silent twin rather than building a bare
+ * no-op, so the signal's durations keep naming the trace they were recorded inside. A
+ * Doctrine query with its spans switched off is still a query this request made.
  */
 final readonly class SignalSpanOpener
 {
@@ -22,6 +26,6 @@ final readonly class SignalSpanOpener
         bool $tracesEnabled,
         bool $signalEnabled,
     ): SpanOpenerInterface {
-        return $tracesEnabled && $signalEnabled ? $delegate : new NoOpSpanOpener();
+        return $tracesEnabled && $signalEnabled ? $delegate : $delegate->suppressed();
     }
 }

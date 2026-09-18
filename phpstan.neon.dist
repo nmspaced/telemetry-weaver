@@ -2,4 +2,11 @@ parameters:
     level: 10
     paths:
         - src/
+    # The Symfony DI configurator's `param()` / `service()` helpers are plain functions
+    # declared at the bottom of ContainerConfigurator.php, and that file is not on
+    # composer's `files` list — so nothing pulls their declarations in for analysis. They
+    # only reached `src/` once the per-component service definitions moved into
+    # InstrumentationServices.
+    scanFiles:
+        - vendor/symfony/dependency-injection/Loader/Configurator/ContainerConfigurator.php
     tmpDir: /tmp/phpstan

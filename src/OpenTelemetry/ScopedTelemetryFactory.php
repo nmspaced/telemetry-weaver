@@ -7,10 +7,13 @@ namespace Nmspaced\TelemetryWeaver\OpenTelemetry;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Api\TelemetryFactory;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
 use Nmspaced\TelemetryWeaver\Internal\Operation\DefaultTelemetry;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelTraceCorrelationSource;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use OpenTelemetry\API\Metrics\MeterProviderInterface;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use OpenTelemetry\API\Trace\NoopTracerProvider;
@@ -31,6 +34,7 @@ final readonly class ScopedTelemetryFactory implements TelemetryFactory
         private TracerProviderInterface $tracers,
         private MeterProviderInterface $meters,
         private ContextStorageInterface $contextStorage,
+        private DurationRecorder $recorder,
         private InstrumentationFailureReporter $reporter,
     ) {}
 
@@ -41,7 +45,7 @@ final readonly class ScopedTelemetryFactory implements TelemetryFactory
             throw new \InvalidArgumentException('An instrumentation scope name must not be empty.');
         }
 
-        $opener = new NoOpSpanOpener();
+        $opener = NoOpSpanOpener::suppressing(new OtelTraceCorrelationSource($this->contextStorage));
         $meter = new NoopMeter();
         try {
             if (!$this->tracers instanceof NoopTracerProvider) {
@@ -63,9 +67,9 @@ final readonly class ScopedTelemetryFactory implements TelemetryFactory
 
         return new DefaultTelemetry(
             $opener,
-            new SafeMetrics($meter, $this->reporter),
+            new SafeMetrics($meter, $this->reporter, $this->recorder),
             $this->reporter,
-            $this->contextStorage,
+            new OtelBaggageReader(),
         );
     }
 }

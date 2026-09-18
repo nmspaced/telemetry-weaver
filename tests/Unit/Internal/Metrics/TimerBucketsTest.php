@@ -5,44 +5,31 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Metrics;
 
 use Nmspaced\TelemetryWeaver\Api\DurationUnit;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\CacheOperationBuckets;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\CommandOperationBuckets;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\CustomOperationBuckets;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DatabaseOperationBuckets;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\HttpOperationBuckets;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\MailOperationBuckets;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\MessagingOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\ScheduledTaskBuckets;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\SerializerOperationBuckets;
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(HttpOperationBuckets::class)]
-#[CoversClass(DatabaseOperationBuckets::class)]
-#[CoversClass(CacheOperationBuckets::class)]
-#[CoversClass(MessagingOperationBuckets::class)]
-#[CoversClass(SerializerOperationBuckets::class)]
-#[CoversClass(MailOperationBuckets::class)]
-#[CoversClass(ScheduledTaskBuckets::class)]
-#[CoversClass(CommandOperationBuckets::class)]
+#[CoversClass(DefaultBuckets::class)]
 #[CoversClass(CustomOperationBuckets::class)]
 #[CoversClass(DurationUnit::class)]
 final class TimerBucketsTest extends TestCase
 {
-    /** @return iterable<string, array{OperationBuckets}> */
+    /**
+     * Every case, found by reflection rather than listed: a preset added without a test is
+     * the way an unordered boundary set would get in.
+     *
+     * @return iterable<string, array{DefaultBuckets}>
+     */
     public static function buckets(): iterable
     {
-        yield 'http' => [new HttpOperationBuckets()];
-        yield 'database' => [new DatabaseOperationBuckets()];
-        yield 'cache' => [new CacheOperationBuckets()];
-        yield 'messaging' => [new MessagingOperationBuckets()];
-        yield 'serializer' => [new SerializerOperationBuckets()];
-        yield 'mail' => [new MailOperationBuckets()];
-        yield 'scheduled task' => [new ScheduledTaskBuckets()];
-        yield 'console command' => [new CommandOperationBuckets()];
+        foreach (DefaultBuckets::cases() as $case) {
+            yield $case->value => [$case];
+        }
     }
 
     /**
@@ -68,14 +55,39 @@ final class TimerBucketsTest extends TestCase
         self::assertGreaterThan(0, $buckets->boundaries()[0]);
     }
 
+    /**
+     * The duration conventions specify `s` for the operation-duration instruments, and a
+     * histogram whose unit varies by component cannot be compared across them.
+     */
     #[Test]
-    public function unitsMatchTheScaleOfTheOperation(): void
+    #[DataProvider('buckets')]
+    public function everyPresetMeasuresInSeconds(DefaultBuckets $buckets): void
     {
-        self::assertSame(DurationUnit::Seconds, new HttpOperationBuckets()->unit());
-        self::assertSame(DurationUnit::Seconds, new DatabaseOperationBuckets()->unit());
-        self::assertSame(DurationUnit::Seconds, new CacheOperationBuckets()->unit());
-        self::assertSame(DurationUnit::Seconds, new MessagingOperationBuckets()->unit());
-        self::assertSame(DurationUnit::Seconds, new SerializerOperationBuckets()->unit());
+        self::assertSame(DurationUnit::Seconds, $buckets->unit());
+    }
+
+    /**
+     * The presets the component defaults name, and the shape each promises. A set that
+     * quietly changed range would change every dashboard built on it.
+     */
+    #[Test]
+    public function theDocumentedPresetsKeepTheirRange(): void
+    {
+        self::assertSame([0.005, 10], self::range(DefaultBuckets::Http));
+        self::assertSame([0.0001, 1], self::range(DefaultBuckets::Serializer));
+        self::assertSame([0.001, 10], self::range(DefaultBuckets::Database));
+        self::assertSame([0.001, 60], self::range(DefaultBuckets::Mail));
+        self::assertSame([0.05, 600], self::range(DefaultBuckets::Command));
+        self::assertSame([0.01, 300], self::range(DefaultBuckets::ScheduledTask));
+    }
+
+    /** @return array{float|int, float|int} the first and last boundary */
+    private static function range(DefaultBuckets $buckets): array
+    {
+        $boundaries = $buckets->boundaries();
+        $last = \array_slice($boundaries, -1);
+
+        return [$boundaries[0], $last[0] ?? Assert::fail('a preset with no boundaries')];
     }
 
     #[Test]

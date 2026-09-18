@@ -8,7 +8,8 @@ use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\MailOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Message;
 use Symfony\Component\Mime\RawMessage;
@@ -45,7 +46,7 @@ final readonly class MailerTelemetry
         private Telemetry $telemetry,
         private InstrumentationFailureReporter $reporter,
         private bool $recordSubject = false,
-        MailOperationBuckets $buckets = new MailOperationBuckets(),
+        OperationBuckets $buckets = DefaultBuckets::Mail,
     ) {
         $this->duration = $telemetry->metrics()->duration(
             'mailer.send.duration',

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Console;
 
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
+use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -14,7 +14,7 @@ final class ConsoleFlushSubscriber implements EventSubscriberInterface
     private int $depth = 0;
 
     public function __construct(
-        private readonly TelemetryFlusher $flusher,
+        private readonly BoundaryFlush $flusher,
     ) {}
 
     /** @return array<string, array{string, int}> */

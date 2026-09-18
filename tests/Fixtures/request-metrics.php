@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 // Run against delta-collector.yaml with OTEL_EXPORTER_OTLP_METRICS_ENDPOINT set.
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientExporters;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\BudgetedOtlpTransports;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\MeterProviderFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\MetricExporterFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\RequestMetricPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\BudgetedOtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientExporters;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MeterProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MetricExporterFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\RequestMetricPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use Psr\Log\NullLogger;

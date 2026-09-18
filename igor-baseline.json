@@ -30,6 +30,16 @@
         "reason": "Execution-owned object, not a service: one instance per command run, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       }
     ],
+    "src/Instrumentation/Console/ConsoleFlushSubscriber.php": [
+      {
+        "message": "Mutation of state 'depth' in ConsoleFlushSubscriber::onCommand()",
+        "reason": "A scalar nesting depth balanced by Console command/terminate events. Inner commands must not close the outer pipeline; no command or request is retained."
+      },
+      {
+        "message": "Mutation of state 'depth' in ConsoleFlushSubscriber::onTerminate()",
+        "reason": "A scalar nesting depth balanced by Console command/terminate events. Inner commands must not close the outer pipeline; no command or request is retained."
+      }
+    ],
     "src/Instrumentation/Doctrine/DoctrineTelemetry.php": [
       {
         "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
@@ -190,25 +200,13 @@
         "reason": "Execution-owned object, not a service: one instance per operation registered in ExecutionRegistry, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       }
     ],
-    "src/Internal/Exporter/ResilientLogsExporter.php": [
-      {
-        "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
-        "reason": "The closure is passed to a call and dropped when it returns (a future's catch() / Operation::run()); it is never stored on the service. It captures only process-scoped collaborators, never a request, span or context."
-      }
-    ],
-    "src/Internal/Exporter/ResilientTracesExporter.php": [
-      {
-        "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
-        "reason": "The closure is passed to a call and dropped when it returns (a future's catch() / Operation::run()); it is never stored on the service. It captures only process-scoped collaborators, never a request, span or context."
-      }
-    ],
     "src/Internal/Metrics/DurationTimer.php": [
       {
         "message": "Mutation of state 'stopped' in DurationTimer::stop()",
         "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       },
       {
-        "message": "Mutation of state 'context' in DurationTimer::stop()",
+        "message": "Mutation of state 'correlation' in DurationTimer::stop()",
         "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       },
       {
@@ -216,7 +214,7 @@
         "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       },
       {
-        "message": "Mutation of state 'context' in DurationTimer::cancel()",
+        "message": "Mutation of state 'correlation' in DurationTimer::cancel()",
         "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       }
     ],
@@ -234,6 +232,12 @@
       {
         "message": "Mutation of state 'timer' in SafeMeasurement::cancel()",
         "reason": "Execution-owned object, not a service: one instance per measurement, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      }
+    ],
+    "src/Internal/Metrics/SafeUpDownCounter.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->delegate). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (an up-down counter's add()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
       }
     ],
     "src/Internal/Operation/ActiveOperation.php": [
@@ -282,122 +286,10 @@
         "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       }
     ],
-    "src/Internal/Runtime/FlushPolicy.php": [
-      {
-        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
-        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
-      },
-      {
-        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
-        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
-      },
-      {
-        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
-        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
-      },
-      {
-        "message": "Mutation of state 'static::$state' in FlushPolicy::resetProcessState()",
-        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
-      }
-    ],
-    "src/Internal/Tracing/OwnedSpan.php": [
-      {
-        "message": "Mutation of state 'activation' in OwnedSpan::detach()",
-        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'span' in OwnedSpan::end()",
-        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'finished' in OwnedSpan::end()",
-        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Usage of __destruct() magic method is dangerous in Worker mode.",
-        "reason": "OwnedSpan is execution-owned, not a shared service. Normal completion explicitly detaches in finally. This destructor is only a no-export fallback for a dropped owner or exit destroying stack locals before shutdown callbacks; it releases the scope and never waits for the end of a request. ShutdownScopeCleanupTest verifies both exit and non-retention."
-      }
-    ],
-    "src/Internal/Tracing/ShutdownScopeCleanup.php": [
-      {
-        "message": "Mutation of state 'static::$owners' in ShutdownScopeCleanup::register()",
-        "reason": "Deliberately process-scoped shutdown fallback, registered once. The WeakMap has only currently activated OwnedSpan keys and null values; detach removes each entry and dropping an owner removes its weak key. It retains no operation, provider, message or request. Shutdown detaches in reverse activation order without ending or exporting spans. Explicit finally cleanup remains the normal lifecycle."
-      }
-    ],
-    "src/Internal/Tracing/SpanOpener.php": [
-      {
-        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
-        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
-      },
-      {
-        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
-        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
-      },
-      {
-        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
-        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
-      },
-      {
-        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
-        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
-      }
-    ],
-    "src/Internal/Tracing/SpanView.php": [
-      {
-        "message": "Mutation of state 'delegate' in SpanView::release()",
-        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
-      },
-      {
-        "message": "Mutation of state 'errorType' in SpanView::release()",
-        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
-      },
-      {
-        "message": "Mutation of state 'errorType' in SpanView::rememberErrorType()",
-        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
-      }
-    ],
-    "src/OpenTelemetry/GlobalsRegistrar.php": [
-      {
-        "message": "Mutation of state 'registered' in GlobalsRegistrar::register()",
-        "reason": "An idempotency flag, set once per container: the kernel may boot several times in a worker and Globals must receive one initializer, not one per boot."
-      }
-    ],
-    "src/OpenTelemetry/MeterProviderFactory.php": [
-      {
-        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
-        "reason": "Calls into an OpenTelemetry SDK object (a MeterProviderBuilder local to create(), run once when the container builds the provider). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
-      }
-    ],
-    "src/Internal/Runtime/SignalFlusher.php": [
-      {
-        "message": "Mutation of state 'retryAt' in SignalFlusher::flush()",
-        "reason": "Bounded process state: a single monotonic cooldown deadline per signal/provider. Successful flush resets it; no request, span, payload or growing collection is retained."
-      }
-    ],
-    "src/Internal/Runtime/FlushBudget.php": [
-      {
-        "message": "Mutation of state 'window' in FlushBudget::begin()",
-        "reason": "Opens the one FlushWindow of a synchronous flush. TelemetryFlusher always ends it in finally; nested flushes return before begin(), so a window is never replaced while in use."
-      },
-      {
-        "message": "Mutation of state 'window' in FlushBudget::end()",
-        "reason": "Drops the whole per-flush state (deadline, destination shares) in TelemetryFlusher's finally. Nothing about one flush survives into the next."
-      },
-      {
-        "message": "Mutation of state 'destinations' in FlushBudget::register()",
-        "reason": "The collector origins of the transports this container built, registered once per exporter creation: at most one per signal. Strings only; no request data."
-      }
-    ],
     "src/Internal/Runtime/DestinationCooldowns.php": [
       {
         "message": "Mutation of state 'until' in DestinationCooldowns::start()",
         "reason": "One integer deadline per collector origin that timed out, bounded by the transports this container built (at most one per signal). Deliberately outlives a flush: it keeps a hung collector from costing every boundary its share."
-      }
-    ],
-    "src/Internal/Runtime/FlushWindow.php": [
-      {
-        "message": "Mutation of state 'shares' in FlushWindow::share()",
-        "reason": "Execution-owned object: one window per flush, at most one share per registered destination, dropped whole by FlushBudget::end()."
       }
     ],
     "src/Internal/Runtime/DestinationShare.php": [
@@ -408,34 +300,6 @@
       {
         "message": "Mutation of state 'exhausted' in DestinationShare::settle()",
         "reason": "Execution-owned object inside one FlushWindow: a send that used its share or timed out sets the terminal flag for the rest of that flush."
-      }
-    ],
-    "src/Internal/Runtime/SendAllowance.php": [
-      {
-        "message": "Mutation of state 'settled' in SendAllowance::settle()",
-        "reason": "Execution-owned object for a single OTLP send: guards against the future's success, failure and synchronous-throw paths reporting one outcome twice."
-      }
-    ],
-    "src/OpenTelemetry/TransportFactory.php": [
-      {
-        "message": "Mutation detected on an injected dependency ($this->gate). Risk of State Leak in a worker.",
-        "reason": "Registers the transport's collector origin with the container's FlushBudget, once per exporter creation (at most one per signal). Bounded, idempotent per origin, no request data."
-      }
-    ],
-    "src/OpenTelemetry/BudgetedTransport.php": [
-      {
-        "message": "Mutation of state 'closed' in BudgetedTransport::shutdown()",
-        "reason": "Terminal transport lifecycle flag, intentionally retained for the lifetime of the provider. Prevents a boundary from creating another transport after shutdown; no execution data is stored."
-      }
-    ],
-    "src/Instrumentation/Console/ConsoleFlushSubscriber.php": [
-      {
-        "message": "Mutation of state 'depth' in ConsoleFlushSubscriber::onCommand()",
-        "reason": "A scalar nesting depth balanced by Console command/terminate events. Inner commands must not close the outer pipeline; no command or request is retained."
-      },
-      {
-        "message": "Mutation of state 'depth' in ConsoleFlushSubscriber::onTerminate()",
-        "reason": "A scalar nesting depth balanced by Console command/terminate events. Inner commands must not close the outer pipeline; no command or request is retained."
       }
     ],
     "src/Internal/Runtime/ExportGate.php": [
@@ -460,7 +324,135 @@
         "reason": "Adds the new gate as a weak key with a null value. Bounded by live containers; closing a gate removes its key."
       }
     ],
-    "src/Internal/Runtime/ProviderRegistry.php": [
+    "src/Internal/Runtime/FlushBudget.php": [
+      {
+        "message": "Mutation of state 'window' in FlushBudget::begin()",
+        "reason": "Opens the one FlushWindow of a synchronous flush. TelemetryFlusher always ends it in finally; nested flushes return before begin(), so a window is never replaced while in use."
+      },
+      {
+        "message": "Mutation of state 'window' in FlushBudget::end()",
+        "reason": "Drops the whole per-flush state (deadline, destination shares) in TelemetryFlusher's finally. Nothing about one flush survives into the next."
+      },
+      {
+        "message": "Mutation of state 'destinations' in FlushBudget::register()",
+        "reason": "The collector origins of the transports this container built, registered once per exporter creation: at most one per signal. Strings only; no request data."
+      }
+    ],
+    "src/Internal/Runtime/FlushWindow.php": [
+      {
+        "message": "Mutation of state 'shares' in FlushWindow::share()",
+        "reason": "Execution-owned object: one window per flush, at most one share per registered destination, dropped whole by FlushBudget::end()."
+      }
+    ],
+    "src/Internal/Runtime/SendAllowance.php": [
+      {
+        "message": "Mutation of state 'settled' in SendAllowance::settle()",
+        "reason": "Execution-owned object for a single OTLP send: guards against the future's success, failure and synchronous-throw paths reporting one outcome twice."
+      }
+    ],
+    "src/OpenTelemetry/Adapter/OwnedSpan.php": [
+      {
+        "message": "Mutation of state 'activation' in OwnedSpan::detach()",
+        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'span' in OwnedSpan::end()",
+        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'correlation' in OwnedSpan::end()",
+        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Mutation of state 'finished' in OwnedSpan::end()",
+        "reason": "Execution-owned object, not a service: one instance per span, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
+      },
+      {
+        "message": "Usage of __destruct() magic method is dangerous in Worker mode.",
+        "reason": "OwnedSpan is execution-owned, not a shared service. Normal completion explicitly detaches in finally. This destructor is only a no-export fallback for a dropped owner or exit destroying stack locals before shutdown callbacks; it releases the scope and never waits for the end of a request. ShutdownScopeCleanupTest verifies both exit and non-retention."
+      }
+    ],
+    "src/OpenTelemetry/Adapter/ShutdownScopeCleanup.php": [
+      {
+        "message": "Mutation of state 'static::$owners' in ShutdownScopeCleanup::register()",
+        "reason": "Deliberately process-scoped shutdown fallback, registered once. The WeakMap has only currently activated OwnedSpan keys and null values; detach removes each entry and dropping an owner removes its weak key. It retains no operation, provider, message or request. Shutdown detaches in reverse activation order without ending or exporting spans. Explicit finally cleanup remains the normal lifecycle."
+      }
+    ],
+    "src/OpenTelemetry/Adapter/SpanOpener.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      },
+      {
+        "message": "Mutation detected on an injected dependency ($this->tracer). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      },
+      {
+        "message": "Mutation detected on a local reference to a shared service ($builder). Risk of State Leak in a worker.",
+        "reason": "Calls into an OpenTelemetry SDK object (Tracer::spanBuilder() and a SpanBuilder local to open()). Recording a measurement, adding to a builder or starting a span is not a mutation of this service's state; the SDK owns and bounds that state and the builder is local to the call."
+      }
+    ],
+    "src/OpenTelemetry/Adapter/SpanView.php": [
+      {
+        "message": "Mutation of state 'delegate' in SpanView::release()",
+        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
+      },
+      {
+        "message": "Mutation of state 'errorType' in SpanView::release()",
+        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
+      },
+      {
+        "message": "Mutation of state 'errorType' in SpanView::rememberErrorType()",
+        "reason": "Execution-owned view, not a service: release() is how its owner revokes it and drops the SDK span when the span ends; rememberErrorType() records the outcome of that one span."
+      }
+    ],
+    "src/OpenTelemetry/GlobalsRegistrar.php": [
+      {
+        "message": "Mutation of state 'registered' in GlobalsRegistrar::register()",
+        "reason": "An idempotency flag, set once per container: the kernel may boot several times in a worker and Globals must receive one initializer, not one per boot."
+      }
+    ],
+    "src/OpenTelemetry/Sdk/BudgetedTransport.php": [
+      {
+        "message": "Mutation of state 'closed' in BudgetedTransport::shutdown()",
+        "reason": "Terminal transport lifecycle flag, intentionally retained for the lifetime of the provider. Prevents a boundary from creating another transport after shutdown; no execution data is stored."
+      }
+    ],
+    "src/OpenTelemetry/Sdk/Exporter/ResilientLogsExporter.php": [
+      {
+        "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
+        "reason": "The closure is passed to a call and dropped when it returns (a future's catch() / Operation::run()); it is never stored on the service. It captures only process-scoped collaborators, never a request, span or context."
+      }
+    ],
+    "src/OpenTelemetry/Sdk/Exporter/ResilientTracesExporter.php": [
+      {
+        "message": "Potential Memory Leak: Injection of a closure capturing local state into a shared service.",
+        "reason": "The closure is passed to a call and dropped when it returns (a future's catch() / Operation::run()); it is never stored on the service. It captures only process-scoped collaborators, never a request, span or context."
+      }
+    ],
+    "src/OpenTelemetry/Sdk/FlushPolicy.php": [
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      },
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      },
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::shouldFlush()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      },
+      {
+        "message": "Mutation of state 'static::$state' in FlushPolicy::resetProcessState()",
+        "reason": "Deliberate process state, documented on the class: one entry per signal (at most three), holding a flag and a timestamp. It schedules flushes across executions, which is exactly what must outlive a request; resetProcessState() exists for tests."
+      }
+    ],
+    "src/OpenTelemetry/Sdk/ProviderRegistry.php": [
       {
         "message": "Mutation of state 'signals' in ProviderRegistry::add()",
         "reason": "At most three already-created SDK providers, keyed by validated signal names and living as long as the container. Final shutdown clears it; no per-request objects accumulate."
@@ -468,6 +460,18 @@
       {
         "message": "Mutation of state 'signals' in ProviderRegistry::discard()",
         "reason": "At most three already-created SDK providers, keyed by validated signal names and living as long as the container. Final shutdown clears it; no per-request objects accumulate."
+      }
+    ],
+    "src/OpenTelemetry/Sdk/SignalFlusher.php": [
+      {
+        "message": "Mutation of state 'retryAt' in SignalFlusher::flush()",
+        "reason": "Bounded process state: a single monotonic cooldown deadline per signal/provider. Successful flush resets it; no request, span, payload or growing collection is retained."
+      }
+    ],
+    "src/OpenTelemetry/Sdk/TransportFactory.php": [
+      {
+        "message": "Mutation detected on an injected dependency ($this->gate). Risk of State Leak in a worker.",
+        "reason": "Registers the transport's collector origin with the container's FlushBudget, once per exporter creation (at most one per signal). Bounded, idempotent per origin, no request data."
       }
     ]
   }

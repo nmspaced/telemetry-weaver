@@ -7,6 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Monolog;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\Level;
 use Monolog\LogRecord;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\DiagnosticsLogger;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use OpenTelemetry\API\Logs\LoggerProviderInterface;
 use OpenTelemetry\API\Logs\Severity;
@@ -63,6 +64,9 @@ final class OtelLogHandler extends AbstractProcessingHandler
      */
     private bool $emitting = false;
 
+    /** @var list<string> */
+    private readonly array $refused;
+
     /**
      * @param non-empty-string $level a PSR-3 level name; the configuration tree is what
      *                                constrains it to one of the eight
@@ -73,10 +77,15 @@ final class OtelLogHandler extends AbstractProcessingHandler
         private readonly InstrumentationFailureReporter $reporter,
         string $level = 'info',
         bool $bubble = true,
-        private readonly array $excludedChannels = [],
+        array $excludedChannels = [],
     ) {
         parent::__construct(self::level($level), $bubble);
         $this->loggers = new ChannelLoggers($loggerProvider);
+        // Added rather than left to configuration: the bundle's own diagnostics channel
+        // carries the reports about failing exports, and exporting those is what turns one
+        // unreachable collector into a queue that refills itself on every flush. A default
+        // an application could overwrite would make that a foot-gun.
+        $this->refused = [...$excludedChannels, DiagnosticsLogger::CHANNEL];
     }
 
     /**
@@ -86,7 +95,7 @@ final class OtelLogHandler extends AbstractProcessingHandler
     #[\Override]
     public function isHandling(LogRecord $record): bool
     {
-        return parent::isHandling($record) && !\in_array($record->channel, $this->excludedChannels, true);
+        return parent::isHandling($record) && !\in_array($record->channel, $this->refused, true);
     }
 
     #[\Override]

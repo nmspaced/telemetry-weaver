@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Client;
 
-use Nmspaced\TelemetryWeaver\Api\RunningOperation;
+use Nmspaced\TelemetryWeaver\Internal\Operation\ScopedOperation;
 
 /**
  * One outgoing request being observed: the operation, and what it is about.
@@ -19,7 +19,7 @@ use Nmspaced\TelemetryWeaver\Api\RunningOperation;
 final readonly class ClientCall
 {
     public function __construct(
-        public RunningOperation $operation,
+        public ScopedOperation $operation,
         public OutgoingRequest $request,
     ) {}
 }

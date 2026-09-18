@@ -36,6 +36,7 @@ final readonly class SchedulerInstrumentationCompilerPass implements CompilerPas
             ->register(SchedulerTelemetrySubscriber::class, SchedulerTelemetrySubscriber::class)
             ->setArgument('$telemetry', new Reference('open_telemetry.scheduler.telemetry'))
             ->setArgument('$reporter', new Reference(InstrumentationFailureReporter::class))
+            ->setArgument('$buckets', new Reference('open_telemetry.scheduler.buckets'))
             ->addTag('kernel.event_subscriber')
             ->addTag('kernel.reset', ['method' => 'reset']);
     }

@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Api;
 
-use OpenTelemetry\API\Trace\SpanContextInterface;
-use OpenTelemetry\Context\ContextInterface;
-
 /**
  * Immutable description. Nothing starts until run() or start(); each fluent call returns a new description.
  *
@@ -21,21 +18,25 @@ interface Operation
 
     public function kind(SpanKind $kind): self;
 
-    public function parent(ContextInterface $context): self;
-
-    public function root(): self;
-
     /**
-     * Relate the span to another one it does not descend from — the ambient span a
-     * message was processed inside, when the message's own creation context is the
-     * parent. An invalid context is ignored.
+     * Values carried with the trace, into this operation and every service it calls.
+     *
+     * Baggage is not an attribute. An attribute describes the span it is set on and stops
+     * there; baggage is added to the outgoing headers of every request made inside the
+     * operation, so it leaves this process and reaches services that are not yours. Put a
+     * tenant or a feature-flag cohort in it — something the whole call graph needs to
+     * agree on — and never a token, a personal identifier, or anything whose disclosure
+     * you would have to report. There is no way to unsend it.
+     *
+     * Entries add to whatever the caller already propagated; a repeated key replaces it
+     * for this operation and everything it calls, not for the caller.
+     *
+     * An operation whose span is suppressed carries no baggage: the entries live in the
+     * context activation the span owns, and there is none.
+     *
+     * @param array<non-empty-string, string> $entries
      */
-    public function link(SpanContextInterface $context): self;
-
-    /**
-     * Suppress this operation's span while preserving metrics and the ambient parent.
-     */
-    public function withoutSpan(): self;
+    public function baggage(array $entries): self;
 
     /**
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes

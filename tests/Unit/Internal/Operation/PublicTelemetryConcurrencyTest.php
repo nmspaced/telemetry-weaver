@@ -6,6 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Operation;
 
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Api\Span;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTraceIdentity;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Trace\Span as OtelSpan;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,23 +27,24 @@ final class PublicTelemetryConcurrencyTest extends PublicTelemetryTestCase
     {
         $this->useFiberBoundStorage();
         $telemetry = $this->telemetry();
+        $identity = new OtelActiveTraceIdentity($this->contextStorage);
         $run =
             /**
              * @param non-empty-string $name
              *
              * @throws \Throwable
              */
-            static function (string $name) use ($telemetry): void {
+            static function (string $name) use ($telemetry, $identity): void {
                 $telemetry->trace(
                     $name,
                     /** @throws \Throwable */
-                    static function (Span $span) use ($telemetry): void {
-                        $id = $span->context()->getSpanId();
+                    static function (Span $span) use ($identity): void {
+                        $id = $span->spanId();
                         \Fiber::suspend();
-                        self::assertSame($id, $telemetry->currentSpan()->context()->getSpanId());
+                        self::assertSame($id, $identity->current()['span_id'] ?? null);
                     },
                 );
-                self::assertFalse($telemetry->currentSpan()->context()->isValid());
+                self::assertNull($identity->current());
             };
         $first = new \Fiber(
             /** @throws \Throwable */

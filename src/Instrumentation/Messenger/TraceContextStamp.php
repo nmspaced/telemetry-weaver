@@ -24,7 +24,7 @@ use Symfony\Component\Messenger\Stamp\StampInterface;
 final readonly class TraceContextStamp implements StampInterface
 {
     /**
-     * @param array<string, string> $carrier
+     * @param array<non-empty-string, string> $carrier
      */
     public function __construct(
         public array $carrier,

@@ -6,8 +6,8 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpTransportSettings;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\TransportFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpTransportSettings;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingTransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\StallingTransportFactory;

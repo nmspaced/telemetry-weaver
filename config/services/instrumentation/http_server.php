@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationServices;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Lifecycle\TelemetryFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Metrics\HttpServerMetrics;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Metrics\HttpServerMetricsSubscriber;
@@ -15,18 +16,14 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\HttpServerTraci
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ParentContext;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTraceRegistry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ServerSpanAttributes;
+use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ServerTraceResponseSubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
-use Nmspaced\TelemetryWeaver\Internal\Operation\DefaultTelemetry;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
+use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SignalSpanOpener;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpenerInterface;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalMeter;
-use OpenTelemetry\API\Metrics\MeterInterface;
-use OpenTelemetry\Context\ContextStorageInterface;
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelationSource;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
@@ -36,31 +33,7 @@ return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
     // Incoming requests: the HTTP server subscribers.
-    $services
-        ->set('open_telemetry.http_server.span_opener', SpanOpenerInterface::class)
-        ->factory(SignalSpanOpener::create(...))
-        ->arg('$delegate', service(SpanOpener::class))
-        ->arg('$tracesEnabled', param('open_telemetry.traces.enabled'))
-        ->arg('$signalEnabled', param('open_telemetry.instrumentation.http_server.traces'));
-
-    $services
-        ->set('open_telemetry.http_server.meter', MeterInterface::class)
-        ->factory(SignalMeter::create(...))
-        ->arg('$delegate', service(MeterInterface::class))
-        ->arg('$metricsEnabled', param('open_telemetry.metrics.enabled'))
-        ->arg('$signalEnabled', param('open_telemetry.instrumentation.http_server.metrics'));
-
-    $services
-        ->set('open_telemetry.http_server.metrics', SafeMetrics::class)
-        ->arg('$meter', service('open_telemetry.http_server.meter'))
-        ->arg('$reporter', service(InstrumentationFailureReporter::class));
-
-    $services
-        ->set('open_telemetry.http_server.telemetry', DefaultTelemetry::class)
-        ->arg('$opener', service('open_telemetry.http_server.span_opener'))
-        ->arg('$instruments', service('open_telemetry.http_server.metrics'))
-        ->arg('$reporter', service(InstrumentationFailureReporter::class))
-        ->arg('$contextStorage', service(ContextStorageInterface::class));
+    InstrumentationServices::register($services, 'http_server', DefaultBuckets::Http);
 
     $services
         ->set(RouteTemplateProvider::class)
@@ -94,7 +67,12 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$debug', param('kernel.debug'))
         ->tag('kernel.cache_warmer');
 
-    $services->set(HttpServerMetrics::class)->arg('$metrics', service('open_telemetry.http_server.metrics'));
+    $services
+        ->set(HttpServerMetrics::class)
+        ->arg('$metrics', service('open_telemetry.http_server.metrics'))
+        ->arg('$buckets', service('open_telemetry.http_server.buckets'))
+        ->arg('$correlations', service(TraceCorrelationSource::class))
+        ->arg('$reporter', service(InstrumentationFailureReporter::class));
 
     $services
         ->set(RequestMeasurementRegistry::class)
@@ -104,8 +82,7 @@ return static function (ContainerConfigurator $container): void {
 
     $services
         ->set(ParentContext::class)
-        ->arg('$propagator', service(TextMapPropagatorInterface::class))
-        ->arg('$contextStorage', service(ContextStorageInterface::class));
+        ->arg('$propagation', service(Propagation::class));
 
     $services
         ->set(RequestTraceRegistry::class)
@@ -130,6 +107,12 @@ return static function (ContainerConfigurator $container): void {
         ->tag('kernel.event_subscriber');
 
     $services
+        ->set(ServerTraceResponseSubscriber::class)
+        ->arg('$responsePropagation', service(ResponsePropagation::class))
+        ->arg('$requestPolicy', service('open_telemetry.http_server.traces.request_policy'))
+        ->tag('kernel.event_subscriber');
+
+    $services
         ->set(HttpServerMetricsSubscriber::class)
         ->arg('$measurements', service(RequestMeasurementRegistry::class))
         ->arg('$requestPolicy', service('open_telemetry.http_server.metrics.request_policy'))
@@ -138,6 +121,6 @@ return static function (ContainerConfigurator $container): void {
     $services
         ->set(TelemetryFlushSubscriber::class)
         ->arg('$runtime', service(SymfonyRuntimeProfile::class))
-        ->arg('$flusher', service(TelemetryFlusher::class))
+        ->arg('$flusher', service(BoundaryFlush::class))
         ->tag('kernel.event_subscriber');
 };

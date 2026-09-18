@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Client;
 
 use Nmspaced\TelemetryWeaver\Api\Duration;
-use Nmspaced\TelemetryWeaver\Api\RunningOperation;
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\HttpOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
+use Nmspaced\TelemetryWeaver\Internal\Operation\ScopedOperation;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 use OpenTelemetry\SemConv\Attributes\HttpAttributes;
@@ -46,9 +47,9 @@ final readonly class HttpClientTelemetry
     private HistogramInterface $responseBodySize;
 
     public function __construct(
-        private Telemetry $telemetry,
+        private BoundaryTelemetry $telemetry,
         private HostPolicy $policy,
-        HttpOperationBuckets $buckets = new HttpOperationBuckets(),
+        OperationBuckets $buckets = DefaultBuckets::Http,
     ) {
         $metrics = $telemetry->metrics();
         $this->duration = $metrics->duration(
@@ -69,11 +70,11 @@ final readonly class HttpClientTelemetry
     }
 
     /**
-     * @return RunningOperation|null null when the host is excluded from both signals,
-     *                               so the caller does not have to track an operation
-     *                               that would record nothing
+     * @return ScopedOperation|null null when the host is excluded from both signals,
+     *                              so the caller does not have to track an operation
+     *                              that would record nothing
      */
-    public function start(OutgoingRequest $request): ?RunningOperation
+    public function start(OutgoingRequest $request): ?ScopedOperation
     {
         $trace = $this->policy->trace($request->host);
         $measure = $this->policy->measure($request->host);
@@ -83,7 +84,7 @@ final readonly class HttpClientTelemetry
         }
 
         $plan = $this->telemetry
-            ->operation($request->method->spanName())
+            ->boundary($request->method->spanName())
             ->kind(SpanKind::Client)
             ->attributes($request->spanAttributes());
 

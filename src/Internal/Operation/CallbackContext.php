@@ -23,6 +23,12 @@ final readonly class CallbackContext implements OperationContext
     }
 
     #[\Override]
+    public function baggage(): array
+    {
+        return $this->execution->baggage();
+    }
+
+    #[\Override]
     public function metricAttributes(array $attributes): void
     {
         $this->execution->metricAttributes($attributes);

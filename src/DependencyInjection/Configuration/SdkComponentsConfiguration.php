@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\DependencyInjection\Configuration;
 
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpProtocol;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpProtocol;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
 /**
@@ -40,6 +40,65 @@ final class SdkComponentsConfiguration
             ->append($factories);
 
         return $node;
+    }
+
+    /**
+     * The traces signal, plus the three trace decisions no OTEL_* variable can express.
+     *
+     * They live on `traces` rather than in {@see self::signal()} because there is nothing
+     * equivalent for metrics or logs: a meter has no sampler, and a log record no trace id
+     * of its own to generate.
+     *
+     * @throws \RuntimeException
+     */
+    public static function traces(): ArrayNodeDefinition
+    {
+        $processors = new ArrayNodeDefinition('span_processors');
+        $processors
+            ->info(
+                "Services implementing the SDK's SpanProcessorInterface, added in front of the bundle's own so that a processor editing a span as it ends sees it before it is queued. Added to the pipeline, never instead of it.",
+            )
+            ->scalarPrototype()
+            ->end()
+            ->defaultValue([]);
+
+        $node = self::signal('traces');
+        $node
+            ->children()
+            ->scalarNode('sampler')
+            ->info(
+                'Service implementing the SDK SamplerInterface, used instead of OTEL_TRACES_SAMPLER. For a decision the variable cannot express: per route, per tenant, per anything the request carries.',
+            )
+            ->defaultNull()
+            ->end()
+            ->scalarNode('id_generator')
+            ->info(
+                "Service implementing the SDK IdGeneratorInterface. Needed by backends that read structure out of the trace id — AWS X-Ray requires the id's first bytes to be the start timestamp.",
+            )
+            ->defaultNull()
+            ->end()
+            ->end();
+
+        return $node->append($processors);
+    }
+
+    /**
+     * The metrics signal, plus the views the SDK has no other way to register.
+     *
+     * @throws \RuntimeException
+     */
+    public static function metrics(): ArrayNodeDefinition
+    {
+        $views = new ArrayNodeDefinition('views');
+        $views
+            ->info(
+                'Services of type MetricView, each pairing a selection criteria with a view template. For what instrumentation.<component>.duration_buckets cannot reach: an instrument the bundle did not create, or an attribute key whose cardinality has to be cut at the source.',
+            )
+            ->scalarPrototype()
+            ->end()
+            ->defaultValue([]);
+
+        return self::signal('metrics')->append($views);
     }
 
     /** @throws \RuntimeException */

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Runtime;
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushPolicy;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\SignalFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\FlushPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SignalFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Fake\ThrowingMeterProvider;
@@ -47,31 +47,39 @@ final class BoundaryFlushTest extends TestCase
     {
         return new SignalFlusher(
             $this->provider,
-            new FlushPolicy('metrics', 60_000, $this->clock),
+            FlushPolicy::every('metrics', 60_000, $this->clock),
             new ExportFailureReporter(new RecordingLogger()),
         );
     }
 
     #[Test]
-    public function theFirstBoundaryExportsNothing(): void
+    public function theFirstBoundaryExports(): void
     {
         $this->provider->getMeter('test')->createCounter('probe')->add(1);
 
         $this->flush()->atBoundary();
 
-        self::assertSame([], $this->exporter->collect(true));
+        self::assertNotSame([], $this->exporter->collect(true));
     }
 
+    /**
+     * The interval is what keeps a busy worker from paying a blocking export at the end of
+     * every request; the first boundary starts it rather than being exempt from it.
+     */
     #[Test]
-    public function aLaterBoundaryExports(): void
+    public function aBoundaryInsideTheIntervalExportsNothing(): void
     {
         $this->provider->getMeter('test')->createCounter('probe')->add(1);
 
         $flush = $this->flush();
         $flush->atBoundary();
+
+        $this->exporter->collect(true);
+
+        $this->provider->getMeter('test')->createCounter('probe')->add(1);
         $flush->atBoundary();
 
-        self::assertNotSame([], $this->exporter->collect(true));
+        self::assertSame([], $this->exporter->collect(true));
     }
 
     /**
@@ -83,7 +91,7 @@ final class BoundaryFlushTest extends TestCase
         $logger = new RecordingLogger();
         $flush = new SignalFlusher(
             new ThrowingMeterProvider(),
-            new FlushPolicy('metrics', 60_000, $this->clock),
+            FlushPolicy::every('metrics', 60_000, $this->clock),
             new ExportFailureReporter($logger),
         );
 

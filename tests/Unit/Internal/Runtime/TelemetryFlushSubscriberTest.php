@@ -8,9 +8,9 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Lifecycle\TelemetryFlus
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\HttpServerTracingSubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushPolicy;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\SignalFlusher;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\FlushPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SignalFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
@@ -71,13 +71,13 @@ final class TelemetryFlushSubscriberTest extends TestCase
 
         $subscriber = new TelemetryFlushSubscriber(
             Flushers::coordinating(
-                new SignalFlusher($tracers, new FlushPolicy('traces', 60_000, new FrozenClock()), $reporter),
+                new SignalFlusher($tracers, FlushPolicy::every('traces', 60_000, new FrozenClock()), $reporter),
                 new SignalFlusher(
                     new NoopLoggerProvider(),
-                    new FlushPolicy('logs', 60_000, new FrozenClock()),
+                    FlushPolicy::every('logs', 60_000, new FrozenClock()),
                     $reporter,
                 ),
-                new SignalFlusher($provider, new FlushPolicy('metrics', 60_000, new FrozenClock()), $reporter),
+                new SignalFlusher($provider, FlushPolicy::every('metrics', 60_000, new FrozenClock()), $reporter),
                 new FlushBudget(),
                 $reporter,
             ),

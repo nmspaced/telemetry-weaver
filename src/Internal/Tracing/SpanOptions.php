@@ -4,67 +4,51 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Internal\Tracing;
 
-use OpenTelemetry\API\Trace\SpanContextInterface;
-use OpenTelemetry\API\Trace\SpanKind;
-use OpenTelemetry\Context\Context;
-use OpenTelemetry\Context\ContextInterface;
+use Nmspaced\TelemetryWeaver\Api\SpanKind;
 
 /**
+ * @internal
+ *
  * @phpstan-type AttributeValue string|int|float|bool|null|list<string|int|float|bool>
  */
 final readonly class SpanOptions
 {
+    public TraceRelations $relations;
+
     /**
      * @param array<non-empty-string, AttributeValue> $attributes
-     * @param int<0, 4> $kind one of the SpanKind constants
-     * @param ContextInterface|null $parent null means "current context at creation time"
-     * @param list<SpanContextInterface> $links spans this one is related to without descending from
+     * @param TraceRelations|null $relations null is {@see TraceRelations::ambient()} — the
+     *                                       span descends from whatever is already running
+     * @param bool $onlyInsideTrace open no span unless something is already being traced
+     * @param array<non-empty-string, string> $baggage entries to carry for the operation's scope
      */
     public function __construct(
         public array $attributes = [],
-        public int $kind = SpanKind::KIND_INTERNAL,
-        public ?ContextInterface $parent = null,
-        public array $links = [],
-    ) {}
-
-    /**
-     * @param array<non-empty-string, AttributeValue> $attributes
-     */
-    public static function server(array $attributes = [], ?ContextInterface $parent = null): self
-    {
-        return new self($attributes, SpanKind::KIND_SERVER, $parent);
+        public SpanKind $kind = SpanKind::Internal,
+        ?TraceRelations $relations = null,
+        public bool $onlyInsideTrace = false,
+        public array $baggage = [],
+    ) {
+        $this->relations = $relations ?? TraceRelations::ambient();
     }
 
     /**
-     * @param array<non-empty-string, AttributeValue> $attributes
+     * @param array<non-empty-string, AttributeValue>|null $attributes
+     * @param array<non-empty-string, string>|null $baggage
      */
-    public static function consumer(array $attributes = [], ?ContextInterface $parent = null): self
-    {
-        return new self($attributes, SpanKind::KIND_CONSUMER, $parent);
-    }
-
-    /**
-     * @param array<non-empty-string, AttributeValue> $attributes
-     */
-    public static function producer(array $attributes = [], ?ContextInterface $parent = null): self
-    {
-        return new self($attributes, SpanKind::KIND_PRODUCER, $parent);
-    }
-
-    /**
-     * @param array<non-empty-string, AttributeValue> $attributes
-     */
-    public static function client(array $attributes = [], ?ContextInterface $parent = null): self
-    {
-        return new self($attributes, SpanKind::KIND_CLIENT, $parent);
-    }
-
-    /**
-     * @param int<0, 4> $kind
-     * @param array<non-empty-string, AttributeValue> $attributes
-     */
-    public static function root(int $kind = SpanKind::KIND_INTERNAL, array $attributes = []): self
-    {
-        return new self($attributes, $kind, Context::getRoot());
+    public function with(
+        ?array $attributes = null,
+        ?SpanKind $kind = null,
+        ?TraceRelations $relations = null,
+        ?bool $onlyInsideTrace = null,
+        ?array $baggage = null,
+    ): self {
+        return new self(
+            $attributes ?? $this->attributes,
+            $kind ?? $this->kind,
+            $relations ?? $this->relations,
+            $onlyInsideTrace ?? $this->onlyInsideTrace,
+            $baggage ?? $this->baggage,
+        );
     }
 }

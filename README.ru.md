@@ -1,31 +1,49 @@
 # 🧵 Telemetry Weaver
 
-**OpenTelemetry для Symfony-приложений, где PHP-процесс может переживать один запрос.**
+**OpenTelemetry для Symfony-приложений, PHP-процесс которых живёт дольше запроса.**
 
 [English](README.md) · Русский
 
-Telemetry Weaver добавляет traces, metrics и logs для **FrankenPHP, RoadRunner, Symfony Messenger и обычного request-based PHP**, но главным объектом архитектуры считает lifecycle. Пакет изолирует контекст запросов и сообщений в долгоживущих workers и ограничивает время, которое observability может отнять у приложения.
+PHP 8.4+ · Symfony 8.1+ · OpenTelemetry PHP SDK · MIT
 
-**PHP 8.4+ · Symfony 8.1+ · OpenTelemetry PHP SDK · MIT**
+Telemetry Weaver подключает трассировку, метрики и логи к Symfony и берёт на себя две вещи,
+которые становятся сложными, когда процесс не заканчивается вместе с запросом: **не пустить
+контекст одной единицы работы в следующую** и **не дать телеметрии тратить время приложения**.
+Сэмплирование, propagation, агрегация и OTLP остаются за официальным SDK.
 
-## Почему Telemetry Weaver
+## Чем силён
 
-- **Worker-first lifecycle.** HTTP request, Messenger message и Console command — явные execution boundaries. State одной работы не должен попадать в следующую.
-- **Fail-open instrumentation.** Ошибка telemetry не меняет return value и не подменяет исходное исключение бизнес-кода.
-- **Ограниченная стоимость экспорта.** Batch-очереди, один deadline на boundary, budget по destination и cooldown ограничивают влияние медленного или недоступного Collector.
-- **OpenTelemetry-native.** Sampling, propagation, aggregation и OTLP остаются в официальном PHP SDK; bundle добавляет Symfony lifecycle, instrumentation и resilience.
-- **Консервативный сбор данных.** SQL text, client IP и mail subject включаются явно. Span attributes не копируются в metric labels.
-- **Заменяемый SDK pipeline.** HTTP/gRPC transport, exporter и provider можно подменить через Symfony DI, если стандартной модели недостаточно.
+- **Изоляция контекста в worker-режиме.** Запрос, сообщение и команда — явные границы
+  выполнения. Спаны, активации контекста и измерения, созданные Weaver, закрываются на границе;
+  незавершённая работа сбрасывается, а не достаётся следующему запросу. Это устройство пакета,
+  а не опция: FrankenPHP, RoadRunner и `messenger:consume` — основная цель, процесс на запрос —
+  частный простой случай.
+- **Сбои остаются внутри телеметрии.** Упавшая инструментация не подменяет возвращаемое
+  значение и никогда не подменяет исходное исключение бизнес-логики. Всё, на чём пакет
+  спотыкается, попадает с ограничением частоты в один канал Monolog — вместе с диагностикой
+  самого SDK.
+- **Экспорт не может забрать запрос себе.** Один дедлайн на всю границу выполнения, сколько бы
+  сигналов ни пришлось отправить. Коллектор, который отвалился по таймауту, пропускается на
+  время cooldown; зависший коллектор не съедает время, нужное здоровому. Синхронные ретраи
+  выключены по умолчанию: в PHP это sleep внутри воркера.
+- **Публичный API без типов OpenTelemetry.** `Telemetry`, `Operation`, `Span`, `Metrics` —
+  достаточно, чтобы трассировать и измерять бизнес-операцию, не разбираясь в Context, scope и
+  экспортёрах. Полный API метрик OpenTelemetry доступен одним вызовом, когда он нужен.
+- **Инструментация, знающая Symfony.** HTTP-сервер и клиент, Doctrine, Messenger, Console,
+  Cache, Serializer, Mailer, Scheduler, Monolog и PHP-рантайм — включаются compiler pass'ами
+  только тогда, когда компонент действительно установлен.
+- **Осторожные значения по умолчанию.** Текст SQL, IP клиента, идентификатор пользователя и
+  темы писем — opt-in, каждое отдельным ключом. Атрибуты спанов никогда не копируются в метки
+  метрик: включение любого из них меняет содержимое трейса, но не количество временных рядов.
+- **Заменяемо там, где это важно.** Sampler, генератор id, span processor'ы, metric views,
+  экспортёры, транспорты и целые провайдеры заменяются через Symfony DI. Идентификаторы
+  сервисов проверяются при компиляции контейнера, а не на первом запросе.
 
 ## Установка
-
-Для OTLP через HTTP/protobuf:
 
 ```bash
 composer require nmspaced/telemetry-weaver open-telemetry/exporter-otlp symfony/http-client nyholm/psr7
 ```
-
-Зарегистрируйте bundle:
 
 ```php
 // config/bundles.php
@@ -35,172 +53,60 @@ return [
 ];
 ```
 
-Опциональные интеграции включаются при наличии зависимостей. Doctrine instrumentation требует DBAL 4. Для OTLP log export нужны Monolog и Symfony MonologBundle.
+Необязательная инструментация включается вместе со своим компонентом: Doctrine требует DBAL 4,
+экспорт логов по OTLP — Monolog и MonologBundle, `user.roles` на серверном спане —
+`symfony/security-core`. Для OTLP через gRPC добавьте `open-telemetry/transport-grpc` и
+`ext-grpc`.
 
-Для OTLP/gRPC дополнительно установите gRPC transport OpenTelemetry и `ext-grpc`:
+## Быстрый старт
 
-```bash
-composer require open-telemetry/transport-grpc
-```
-
-## Рекомендуемая production-топология
-
-Предпочтительный вариант — **локальный или близкий OpenTelemetry Collector / Grafana Alloy**, который берёт на себя удалённые очереди, retries, credentials и маршрутизацию по backend'ам:
-
-```text
-PHP worker
-   │ короткий и ограниченный OTLP handoff
-   ▼
-Collector / Alloy на том же host, sidecar или в локальной сети
-   │ queue / retry / batching / routing
-   ▼
-удалённые observability backend'ы
-```
-
-Это соответствует agent deployment pattern OpenTelemetry Collector. Telemetry Weaver защищает application-side handoff, но специально **не является durable delivery queue**.
-
-Хороший старт для worker с локальным OTLP/HTTP receiver:
+SDK настраивается переменными окружения, пакет — YAML. Рабочий минимум:
 
 ```dotenv
 OTEL_SERVICE_NAME=orders-api
-OTEL_RESOURCE_ATTRIBUTES=service.namespace=backend,deployment.environment.name=production
-
-# Providers создаёт Telemetry Weaver. Второй SDK bootstrap не нужен.
-OTEL_PHP_AUTOLOAD_ENABLED=false
-OTEL_PROPAGATORS=tracecontext,baggage
-
-OTEL_TRACES_EXPORTER=otlp
-OTEL_METRICS_EXPORTER=otlp
-OTEL_LOGS_EXPORTER=none
-
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
-OTEL_EXPORTER_OTLP_TIMEOUT=500
 
-# Сохранять решение родителя и сэмплировать 10% новых root traces.
-OTEL_TRACES_SAMPLER=parentbased_traceidratio
-OTEL_TRACES_SAMPLER_ARG=0.1
-
-# Batch processor: Weaver выключает auto-flush и дренирует очередь на boundaries.
-OTEL_PHP_TRACES_PROCESSOR=batch
-OTEL_BSP_SCHEDULE_DELAY=1000
-OTEL_BSP_MAX_QUEUE_SIZE=2048
-OTEL_BSP_MAX_EXPORT_BATCH_SIZE=512
-
-# Используется как default cadence для metric flush на boundaries.
-OTEL_METRIC_EXPORT_INTERVAL=15000
+# Провайдеры создаёт Weaver; SDK не должен создавать второй комплект.
+OTEL_PHP_AUTOLOAD_ENABLED=false
 ```
-
-Минимальная Symfony-конфигурация:
 
 ```yaml
 # config/packages/open_telemetry.yaml
 open_telemetry:
-    instrumentation:
-        http_client:
-            # Укажите hostname, к которому реально обращается приложение.
-            excluded_hosts: ['127.0.0.1', 'localhost', 'otel-collector', 'alloy']
-
-    sdk:
-        export:
-            flush_timeout_ms: 1000
-            failure_cooldown_ms: 30000
-            max_retries: 0
+    enabled: true
 ```
 
-Это стартовые значения, а не универсальные лимиты. Sampling и размеры очередей нужно подбирать под объём **одного worker**. Если Collector локальный, OTLP timeout порядка 250–500 ms обычно уже достаточно большой и хорошо выявляет нездоровый local handoff.
+Это полноценная конфигурация. Инструментируется всё, ни один чувствительный захват не включён,
+бюджет экспорта — одна секунда на границу без ретраев.
 
-Примеры:
+Отправить настоящий трейс в OTLP-приёмник за десять минут: [Быстрый старт](docs/ru/getting-started.md).
+Перед продакшеном прочитайте [Конфигурацию](docs/ru/configuration.md): сэмплирование, бюджет
+flush, request-метрики под FPM и идентичность воркера — четыре решения, которые стоит принять
+осознанно.
 
-- [worker OTLP/HTTP environment](config/examples/worker.env)
-- [FPM environment](config/examples/fpm.env)
-- [gRPC environment](config/examples/grpc.env)
-- [раздельные endpoints по signals](config/examples/split-endpoints.env)
-- [worker YAML](config/examples/worker.yaml)
-- [FPM YAML](config/examples/fpm.yaml)
+## Встроенная инструментация
 
-Перед включением request metrics в FPM или прямым экспортом в удалённый backend прочитайте [production configuration](docs/ru/production-configuration.md).
+| Компонент | Спаны | Метрики |
+|---|---|---|
+| HTTP-сервер | `{method} {route}`, kind server, шаблон маршрута, статус | `http.server.request.duration`, размеры тела запроса и ответа |
+| HTTP-клиент | `{method}`, контекст передаётся вызываемому сервису | `http.client.request.duration`, размеры тела запроса и ответа |
+| Doctrine DBAL | спаны запросов со сводкой SQL, границы транзакций | `db.client.operation.duration` |
+| Messenger | спаны dispatch, send и process; контекст едет с сообщением | отправлено, получено, `messaging.process.duration` |
+| Console | один спан на команду, код выхода и ошибки | `console.command.duration`, по умолчанию выкл |
+| Cache | один спан на операцию пула | `cache.operation.duration`, `cache.lookup.count` с hit/miss |
+| Serializer | спаны сериализации внутри существующего трейса | `serializer.operation.duration`, по умолчанию выкл |
+| Mailer | один спан на отправку транспортом | `mailer.send.duration`, по умолчанию выкл |
+| Scheduler | спаны запланированных задач внутри обработки сообщения | `scheduler.task.duration`, по умолчанию выкл |
+| Monolog | `trace_id`/`span_id` в каждой записи, опциональный экспорт логов по OTLP | — |
+| PHP-рантайм | — | `php.memory.usage`, `php.worker.uptime` по воркерам |
 
-## Lifecycle за минуту
+Телеметрия следует семантическим соглашениям `1.44.0`. Ключи каждого компонента, значения по
+умолчанию и причины за ними: [Инструментация](docs/ru/instrumentation.md).
 
-Telemetry Weaver различает lifetime PHP process, Symfony container и отдельной единицы работы:
+## Трассировка своего кода
 
-```text
-PHP-FPM
-request
-  └─ provider lifecycle
-       └─ shutdown
-
-FrankenPHP / RoadRunner shared worker
-worker
-  ├─ request A ─ forceFlush
-  ├─ request B ─ forceFlush
-  └─ worker shutdown ─ shutdown
-
-Messenger
-worker
-  ├─ message A ─ forceFlush
-  ├─ message B ─ forceFlush
-  └─ worker shutdown ─ shutdown
-```
-
-`forceFlush()` дренирует долгоживущий pipeline, но не уничтожает его. `shutdown()` — terminal operation. Owned spans/scopes/measurements очищаются на execution boundary, поэтому следующий request или message не должен унаследовать state предыдущего.
-
-Подробнее: [архитектура и lifecycle](docs/ru/architecture.md).
-
-## Отказоустойчивый экспорт
-
-Default OTLP path намеренно opinionated:
-
-- spans и logs попадают в очередь вместо network export из `span->end()` / log emission;
-- у всей execution boundary один `flush_timeout_ms` deadline;
-- время делится между **destinations** (`scheme://host:port`), а не вслепую между signals;
-- traces/logs/metrics на одном Collector разделяют один failure domain;
-- destination, исчерпавший долю, больше не получает новый полный timeout в той же boundary;
-- независимые destinations продолжают получать шанс на export;
-- неиспользованное время быстрого destination остаётся доступно следующим;
-- слишком маленький остаток budget не тратится на заведомо бессмысленный network call;
-- cooldown начинается только после достаточно убедительного timeout;
-- synchronous retries на boundary по умолчанию выключены.
-
-Пример:
-
-```text
-traces ─┐
-logs   ─┴─→ collector-a:4318  (hung)
-
-metrics ──→ collector-b:4318  (healthy)
-```
-
-Зависший Collector не получает новый полный timeout для каждого signal и не может бесконечно вытеснять независимый metrics destination.
-
-Подробнее: [export resilience и budgets](docs/ru/export-resilience.md).
-
-## Встроенная instrumentation
-
-| Компонент | Telemetry |
-|---|---|
-| HTTP server | server spans, route templates, duration и HTTP metrics |
-| Symfony HttpClient | client spans, propagation, duration, lazy responses и streaming |
-| Doctrine DBAL | query spans, query summary, duration, transaction boundaries и errors |
-| Messenger | dispatch/send/process spans, propagation и send/process metrics |
-| Console | command spans, duration и exit code; worker-команды трассируются по сообщениям |
-| Cache | операции с pool, duration и hit/miss measurements |
-| Serializer | serialization operations и duration |
-| Mailer | transport send spans и duration |
-| Scheduler | выполнение scheduled task внутри message processing |
-| Monolog | trace/span correlation и optional OTLP log export |
-| PHP runtime | memory и uptime долгоживущего worker |
-
-Bundle использует Semantic Conventions schema `1.44.0`. Потенциально чувствительные значения вроде SQL text, client IP и mail subject по умолчанию выключены там, где пакет даёт такой выбор.
-
-Подробнее: [тонкости instrumentation](docs/ru/instrumentation.md).
-
-## Application API
-
-`Telemetry` доступен через Symfony autowiring.
-
-### Trace бизнес-операции
+`Telemetry` доступен через autowiring.
 
 ```php
 use Nmspaced\TelemetryWeaver\Api\Span;
@@ -212,88 +118,74 @@ final readonly class OrderWorkflow
 
     public function place(string $orderId, \Closure $work): mixed
     {
-        return $this->telemetry->trace(
-            'order.place',
-            function (Span $span) use ($orderId, $work): mixed {
-                $span->attribute('app.order.id', $orderId);
+        return $this->telemetry->trace('order.place', function (Span $span) use ($orderId, $work): mixed {
+            $span->attribute('app.order.id', $orderId);
 
-                return $work();
-            },
-        );
+            return $work();
+        });
     }
 }
 ```
 
-Callback выполняется ровно один раз. Span закрывается автоматически, в том числе при исключении; telemetry failure не подменяет исходный результат приложения.
+Колбэк выполняется ровно один раз. Спан закрывается на выходе, включая выход по исключению, и
+сбой телеметрии не становится сбоем приложения.
 
-### Trace и duration одной операции
+Чтобы трассировать и измерять одну и ту же операцию, опишите её один раз. Инструмент создаётся
+однократно — инструменты различаются по имени — и передаётся каждой операции, которую он
+измеряет:
 
 ```php
-use Nmspaced\TelemetryWeaver\Api\Duration;
-use Nmspaced\TelemetryWeaver\Api\DurationUnit;
-use Nmspaced\TelemetryWeaver\Api\OperationContext;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
+$this->duration = $telemetry->metrics()->duration(
+    'app.payment.duration',
+    unit: DurationUnit::Seconds,
+    boundaries: [0.01, 0.05, 0.1, 0.5, 1, 5],
+);
 
-final readonly class PaymentTelemetry
-{
-    private Duration $duration;
+$accepted = $telemetry
+    ->operation('payment.charge')
+    ->duration($this->duration, attributes: ['app.payment.method' => 'card'])
+    ->run(function (OperationContext $context) use ($charge): bool {
+        $accepted = $charge();
 
-    public function __construct(private Telemetry $telemetry)
-    {
-        $this->duration = $telemetry->metrics()->duration(
-            'app.payment.duration',
-            unit: DurationUnit::Seconds,
-            boundaries: [0.01, 0.05, 0.1, 0.5, 1, 5],
-        );
-    }
+        if (!$accepted) {
+            $context->fail('payment.declined');
+        }
 
-    /** @param \Closure(): bool $charge */
-    public function charge(\Closure $charge): bool
-    {
-        return $this->telemetry
-            ->operation('payment.charge')
-            ->duration($this->duration, attributes: ['app.payment.method' => 'card'])
-            ->run(function (OperationContext $context) use ($charge): bool {
-                $accepted = $charge();
-                if (!$accepted) {
-                    $context->fail('payment.declined');
-                }
-
-                return $accepted;
-            });
-    }
-}
+        return $accepted;
+    });
 ```
 
-`fail()` отмечает ошибку и в span, и в measurement без искусственного exception. Span attributes и metric attributes разделены специально: ID, payload и другие неограниченные значения не стоит помещать в metric labels.
+Часами владеет операция, поэтому измерение соотнесено со своим спаном и не может быть запущено
+не в тот момент. `fail()` помечает спан и гистограмму сразу, не выдумывая исключение. Атрибуты
+метрик намеренно отделены от атрибутов спана: идентификатор заказа уместен в трейсе, а в метке
+метрики это новый временной ряд.
 
-Также доступны counters, histograms, observable gauges/up-down counters, `currentSpan()` и `TelemetryFactory::scope()`.
+Также в API: все инструменты OpenTelemetry через `metrics()`, `Operation::baggage()` для
+значений, которые должны доехать до вызываемых сервисов, и `Span::traceId()`, чтобы показать
+trace id на странице ошибки. См. [API приложения](docs/ru/getting-started.md#api-приложения).
 
-## Подмена transport, exporter или provider
+## Жизненный цикл в воркере
 
-Defaults безопасны, но не обязательны. Через Symfony DI можно заменить всё более глубокие части signal pipeline:
+Weaver различает PHP-процесс, контейнер Symfony, одну единицу работы и одну операцию — и
+сливает их только там, где их действительно сливает рантайм:
 
 ```text
-default
-provider → resilient exporter → budget-aware OTLP transport
-
-transport override
-provider → resilient exporter → ваш transport
-
-exporter override
-provider → resilient wrapper → ваш exporter
-
-provider override
-ваш provider (Weaver только принимает его в boundary lifecycle)
+FPM / процесс на запрос             Общий воркер (FrankenPHP, RoadRunner, Messenger)
+───────────────────────────        ────────────────────────────────────────────────
+запрос                             воркер стартовал
+  └─ работа                          ├─ запрос A ───── flush
+  └─ terminate ──── shutdown         ├─ запрос B ───── flush
+                                     └─ воркер остановлен ─ shutdown
 ```
 
-HTTP и gRPC transport families подменяются независимо. Чем глубже override, тем меньше гарантий стандартного Weaver pipeline остаётся у пакета.
-
-См. [SDK customization](docs/ru/sdk-customization.md) с матрицей гарантий и примерами.
+Flush опустошает конвейер, который продолжает жить; shutdown его завершает. Что именно делает
+граница, определяет runtime mode Symfony, а не `PHP_SAPI`. Всё, чем Weaver владеет в этой
+единице работы, освобождается на границе в обоих случаях. См.
+[Архитектуру и жизненный цикл](docs/ru/architecture.md).
 
 ## Тестирование
 
-Для application tests используйте `InMemoryTelemetry`; Collector не требуется:
+`InMemoryTelemetry` — публичный тестовый дубль: без контейнера и без коллектора.
 
 ```php
 use Nmspaced\TelemetryWeaver\Testing\InMemoryTelemetry;
@@ -301,11 +193,10 @@ use Nmspaced\TelemetryWeaver\Testing\InMemoryTelemetry;
 $telemetry = InMemoryTelemetry::create();
 
 try {
-    $workflow = new OrderWorkflow($telemetry);
-    $result = $workflow->place('order-42', static fn(): bool => true);
+    (new OrderWorkflow($telemetry))->place('order-42', static fn(): bool => true);
 
-    assert($result === true);
-    assert($telemetry->spans()[0]->getName() === 'order.place');
+    self::assertSame('order.place', $telemetry->spans()[0]->getName());
+    self::assertNull($telemetry->activeTrace());  // операция ничего не оставила активным
 } finally {
     $telemetry->shutdown();
 }
@@ -313,13 +204,12 @@ try {
 
 ## Документация
 
-- [Production configuration](docs/ru/production-configuration.md)
-- [Архитектура и lifecycle](docs/ru/architecture.md)
-- [Export resilience и budgets](docs/ru/export-resilience.md)
-- [Тонкости instrumentation](docs/ru/instrumentation.md)
-- [SDK customization](docs/ru/sdk-customization.md)
-- [Минимальная конфигурация bundle](config/minimal_config.yaml)
-- [Полный reference конфигурации](config/example_config.yaml)
-- [OpenTelemetry PHP](https://opentelemetry.io/docs/languages/php/)
+- [Быстрый старт](docs/ru/getting-started.md) — первый трейс, первая метрика, API приложения
+- [Конфигурация](docs/ru/configuration.md) — окружение, бюджет, сэмплирование, FPM, идентичность воркера
+- [Инструментация](docs/ru/instrumentation.md) — по компонентам: что даёт и чего стоит
+- [Архитектура и жизненный цикл](docs/ru/architecture.md) — владение, границы, слои
+- [Устойчивость экспорта](docs/ru/export-resilience.md) — бюджет flush и от чего он защищает
+- [Кастомизация SDK](docs/ru/sdk-customization.md) — замена частей конвейера
+- [`config/minimal_config.yaml`](config/minimal_config.yaml) · [`config/example_config.yaml`](config/example_config.yaml) — все ключи со значениями по умолчанию
 
-Лицензия — **MIT**.
+Лицензия **MIT**.

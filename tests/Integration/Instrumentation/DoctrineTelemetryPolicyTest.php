@@ -82,7 +82,7 @@ final class DoctrineTelemetryPolicyTest extends DoctrineTelemetryTestCase
     #[Test]
     public function aNoOpSpanOpenerLeavesTheMetricAndRecordsNoSpan(): void
     {
-        $connection = $this->connection(spanOpener: new NoOpSpanOpener());
+        $connection = $this->connection(spanOpener: NoOpSpanOpener::disabled());
         $connection->executeQuery('SELECT id FROM users');
 
         $this->reader->collect();

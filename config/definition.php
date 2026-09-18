@@ -95,8 +95,8 @@ return new class {
             ->end()
             ->end()
             ->append(SdkComponentsConfiguration::otlp())
-            ->append(SdkComponentsConfiguration::signal('traces'))
-            ->append(SdkComponentsConfiguration::signal('metrics'))
+            ->append(SdkComponentsConfiguration::traces())
+            ->append(SdkComponentsConfiguration::metrics())
             ->append(SdkComponentsConfiguration::signal('logs'))
             ->end();
 

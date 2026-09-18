@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  # The package ships no composer.lock ("lock": false), so a green pull request says
+  # nothing about what `composer update` resolves next week. The scheduled run is the
+  # only thing that catches a dependency release breaking the bundle.
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Superseded pull request pushes are pointless work; pushes to main and the weekly
+  # run are the record of what was actually green, so they are never cancelled.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  COMPOSER_NO_INTERACTION: '1'
+  # Both tools ship a downloader, not a binary: Mago fetches its release archive into
+  # vendor/, Igor resolves its version from Composer's installed metadata and does the
+  # same. Composer's own cache does not cover either, hence the explicit cache below.
+  MAGO_BIN: vendor/carthage-software/mago/composer/bin
+  IGOR_BIN: vendor/igor-php/igor-php/resources/bin
+
+jobs:
+  # `composer static` on both ends of the dependency range: PHPStan at level 10 and
+  # Mago analyze read vendor/ sources, so the lowest end can fail where the highest
+  # end passes. PHP 8.4 only — the analysis targets the minimum supported runtime.
+  static:
+    name: static (PHP 8.4, ${{ matrix.dependencies }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        dependencies:
+          - lowest
+          - highest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          # ext-amqp is not the bundle's own requirement: symfony/amqp-messenger
+          # declares it, and without it `composer update` refuses to resolve the dev
+          # dependencies at all. If a PHP version ever ships without a prebuilt amqp,
+          # `--ignore-platform-req=ext-amqp` is the fallback — no test needs the
+          # extension at runtime, only the resolver does.
+          extensions: amqp, pcntl, sockets
+          ini-values: error_reporting=-1, memory_limit=-1
+          coverage: none
+          tools: composer:v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install dependencies (${{ matrix.dependencies }})
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
+          # --prefer-stable pins the lowest end to released versions; without it the
+          # resolver is free to pick an old dev branch, which is not what the support
+          # window claims. Harmless on the highest end.
+          composer-options: --prefer-stable
+
+      - name: Restore the Mago and Igor binaries
+        uses: actions/cache@v4
+        with:
+          # Restored after the install: `composer update` rewrites the packages these
+          # directories live in, so caching before it would be undone.
+          path: |
+            ${{ env.MAGO_BIN }}
+            ${{ env.IGOR_BIN }}
+          key: tools-${{ runner.os }}-${{ matrix.dependencies }}-${{ hashFiles('composer.json') }}
+          restore-keys: tools-${{ runner.os }}-
+
+      - name: Report the resolved dependency tree
+        run: composer show --direct
+
+      - name: Run static analysis
+        run: composer static
+
+  tests:
+    name: tests (PHP ${{ matrix.php }}, ${{ matrix.dependencies }}${{ matrix.fpm && ', FPM' || '' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # 8.4 is the floor the manifest declares, 8.5 is what the same constraint
+        # currently resolves to for an application installing the bundle today.
+        php:
+          - '8.4'
+          - '8.5'
+        dependencies:
+          - lowest
+          - highest
+        # FpmRuntimeTest boots a real FPM pool. Running it once is enough: it proves
+        # the request lifecycle, not anything version-specific, and it is the only
+        # test in the suite that needs a second SAPI installed.
+        include:
+          - php: '8.4'
+            dependencies: highest
+            fpm: true
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: amqp, pcntl, sockets
+          ini-values: error_reporting=-1, memory_limit=-1
+          coverage: none
+          tools: composer:v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install PHP-FPM
+        if: matrix.fpm
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends php${{ matrix.php }}-fpm
+
+      - name: Install dependencies (${{ matrix.dependencies }})
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
+          composer-options: --prefer-stable
+
+      - name: Report the resolved dependency tree
+        run: composer show --direct
+
+      - name: Run the test suite
+        run: composer test
+        env:
+          # The runner image can carry an unrelated php-fpm in /usr/sbin, which is
+          # what FpmRuntimeTest globs for. Naming the binary explicitly — empty on
+          # every other entry — keeps the test from booting the wrong interpreter.
+          PHP_FPM_BINARY: ${{ matrix.fpm && format('/usr/sbin/php-fpm{0}', matrix.php) || '' }}
+
+  # One check to require on the branch: matrix entries come and go, and a required
+  # check that names a matrix entry silently stops being required when it is renamed.
+  ci:
+    name: ci
+    if: always()
+    needs:
+      - static
+      - tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
