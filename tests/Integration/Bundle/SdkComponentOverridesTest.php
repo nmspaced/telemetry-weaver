@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SdkComponentsCompilerPass;
+use Nmspaced\TelemetryWeaver\DependencyInjection\SdkComponentIds;
+use Nmspaced\TelemetryWeaver\DependencyInjection\SdkComponentRules;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientLogsExporter;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientMetricsExporter;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientTracesExporter;
@@ -30,6 +32,8 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
  * asks is what the bundle still guarantees around the replaced link.
  */
 #[CoversClass(SdkComponentsCompilerPass::class)]
+#[CoversClass(SdkComponentIds::class)]
+#[CoversClass(SdkComponentRules::class)]
 final class SdkComponentOverridesTest extends ContainerTestCase
 {
     #[\Override]

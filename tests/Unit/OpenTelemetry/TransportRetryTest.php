@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(TransportFactory::class)]
+#[CoversClass(OtlpTransportSettings::class)]
 final class TransportRetryTest extends TestCase
 {
     /**

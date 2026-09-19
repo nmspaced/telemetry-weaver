@@ -6,15 +6,18 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\BudgetedTransport;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpTransportSettings;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingTransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\StallingTransportFactory;
 use OpenTelemetry\SDK\Common\Export\TransportInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(BudgetedTransport::class)]
 final class BudgetedTransportTest extends TestCase
 {
     #[Test]
