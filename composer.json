@@ -69,9 +69,6 @@
         "symfony/serializer": "^8.1",
         "symfony/yaml": "^8.1"
     },
-    "conflict": {
-        "symfony/polyfill-php83": "<1.30"
-    },
     "suggest": {
         "doctrine/dbal": "Enables tracing and metrics for database queries",
         "open-telemetry/exporter-otlp": "Export traces and metrics over OTLP",
