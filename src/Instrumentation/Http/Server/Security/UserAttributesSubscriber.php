@@ -23,6 +23,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * same attributes again would be at best a no-op and at worst a different user's identity on
  * a span that already names one.
  *
+ * The token is read only once there is a span to write it to, and never before. That ordering
+ * is not an optimisation: reading the token has consequences for the response — see
+ * {@see UserAttributes} — so a request the bundle is not tracing must not pay them.
+ *
  * @internal
  */
 final readonly class UserAttributesSubscriber implements EventSubscriberInterface

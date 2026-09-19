@@ -24,6 +24,18 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  *
  * Nothing is registered unless a key asks for it. Both are off by default, so the common
  * case costs the container two definitions it never creates and a request zero work.
+ *
+ * ## Why `security.untracked_token_storage`
+ *
+ * `security.token_storage` is a `UsageTrackingTokenStorage`, and reading it does more than
+ * answer the question: it increments the session's usage index, and
+ * `AbstractSessionListener` turns that into `Cache-Control: private, must-revalidate` with
+ * `max-age=0` on the response. Behind a lazy firewall that is *every* response, including the
+ * public ones an application deliberately made cacheable.
+ *
+ * Observing who is logged in must not change what the application sends. The untracked
+ * storage is the service Symfony provides for exactly this — its own profiler data collector
+ * uses it — and it answers the same question without the side effect.
  */
 final readonly class SecurityInstrumentationCompilerPass implements CompilerPassInterface
 {
@@ -32,7 +44,7 @@ final readonly class SecurityInstrumentationCompilerPass implements CompilerPass
     {
         $gate = InstrumentationGate::bundle($container)
             ->requires('symfony/security-core', TokenStorageInterface::class)
-            ->needs('security.token_storage')
+            ->needs('security.untracked_token_storage')
             ->instruments('http_server');
 
         if ($gate->isClosed() || !$container->hasDefinition(RequestTraceRegistry::class)) {
@@ -49,7 +61,7 @@ final readonly class SecurityInstrumentationCompilerPass implements CompilerPass
 
         $container
             ->register(UserAttributes::class, UserAttributes::class)
-            ->setArgument('$tokenStorage', new Reference('security.token_storage'))
+            ->setArgument('$tokenStorage', new Reference('security.untracked_token_storage'))
             ->setArgument('$recordUserId', $recordUserId)
             ->setArgument('$recordUserRoles', $recordRoles);
 

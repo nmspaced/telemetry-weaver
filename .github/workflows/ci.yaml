@@ -128,7 +128,6 @@ jobs:
           tools: composer:v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
           # setup-php installs FPM alongside CLI when updating PHP. Keep both SAPIs
           # on the same build instead of installing FPM from apt after setup.
           update: ${{ matrix.fpm && 'true' || 'false' }}

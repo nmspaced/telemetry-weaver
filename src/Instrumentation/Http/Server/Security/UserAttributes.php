@@ -27,6 +27,12 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  * returns nothing rather than a placeholder — "anonymous" as an attribute value is a series
  * and a lie at the same time.
  *
+ * The storage handed in is `security.untracked_token_storage`, not `security.token_storage`.
+ * The latter tracks reads, and behind a lazy firewall a single read turns every response
+ * into `Cache-Control: private, must-revalidate` — telemetry changing what the application
+ * sends, which is the one thing instrumentation must never do. See
+ * {@see \Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SecurityInstrumentationCompilerPass}.
+ *
  * @internal
  */
 final readonly class UserAttributes

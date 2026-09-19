@@ -86,6 +86,13 @@ It is written on `kernel.controller` — at the priority the server span opens a
 has not authenticated yet — and only for the main request, since a sub-request runs inside the
 same trace and two identities on one trace are worse than none.
 
+The token comes from `security.untracked_token_storage`, and is read only once there is a span
+to write it to. `security.token_storage` tracks reads: a single one behind a lazy firewall
+increments the session usage index, and `AbstractSessionListener` answers that with
+`Cache-Control: private, must-revalidate` and `max-age=0` — on every response, including the
+ones an application deliberately made public. Turning this key on must not change what your
+application sends, and it does not.
+
 ## HTTP client
 
 *Defaults: traces on, metrics on.*

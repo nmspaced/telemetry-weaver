@@ -6,6 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Security\UserAttributes;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Security\UserAttributesSubscriber;
+use Nmspaced\TelemetryWeaver\Tests\Fake\SpyTokenStorage;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpTelemetryTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -88,6 +89,33 @@ final class HttpUserAttributesTest extends HttpTelemetryTestCase
         self::assertCount(2, $this->exported());
         self::assertNull($this->exportedSpan(0)->getAttributes()->get('user.id'), 'the sub-request span carries none');
         self::assertSame('alice', $this->exportedSpan(1)->getAttributes()->get('user.id'));
+    }
+
+    /**
+     * Reading the token is not free: Symfony's tracking storage turns one read behind a lazy
+     * firewall into `Cache-Control: private, must-revalidate` on the response. The bundle asks
+     * for the untracked storage, and on top of that reads nothing at all for a request it is
+     * not tracing — an excluded path, or tracing switched off.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function anUntracedRequestReadsNoToken(): void
+    {
+        $this->boot(excludedPaths: ['/orders']);
+        $spy = new SpyTokenStorage();
+        $this->dispatcher->addSubscriber(
+            new UserAttributesSubscriber(
+                $this->scopes,
+                new UserAttributes($spy, recordUserId: true, recordUserRoles: true),
+                $this->reporter,
+            ),
+        );
+
+        $this->handle($this->request(static fn(): Response => new Response(), '/orders/7'));
+
+        self::assertSame([], $this->exported(), 'the path is excluded, so there is no span');
+        self::assertSame(0, $spy->reads, 'and therefore nothing to read the token for');
     }
 
     /**
