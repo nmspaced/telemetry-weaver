@@ -129,11 +129,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install PHP-FPM
+          # setup-php installs FPM alongside CLI when updating PHP. Keep both SAPIs
+          # on the same build instead of installing FPM from apt after setup.
+          update: ${{ matrix.fpm && 'true' || 'false' }}
+
+      - name: Verify PHP-FPM
         if: matrix.fpm
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends php${{ matrix.php }}-fpm
+        run: /usr/sbin/php-fpm${{ matrix.php }} --version
 
       - name: Install dependencies (${{ matrix.dependencies }})
         uses: ramsey/composer-install@v3

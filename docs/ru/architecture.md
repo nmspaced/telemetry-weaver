@@ -133,9 +133,10 @@ Api\                   единственная публичная поверх�
 Instrumentation\       по каталогу на компонент Symfony. Операции описываются через Api\,
                        границы выполнения — через более широкий SPI Internal\Operation.
         │
-Internal\              рантайм, выраженный портами: SpanOpenerInterface, Propagation,
-                       IncomingTrace, TraceCorrelation, ActiveTraceIdentity, DurationRecorder,
-                       BoundaryFlush. Ни одного типа Trace или Context из OpenTelemetry.
+Internal\              рантайм, выраженный портами: SpanOpenerInterface, SpanOwner,
+                       Propagation, IncomingTrace, TraceCorrelation, ActiveTraceIdentity,
+                       DurationRecorder, BoundaryFlush. Ни одного типа Trace или Context
+                       из OpenTelemetry.
         │
 OpenTelemetry\Adapter\ единственное место, где существуют Context, SpanContext, Scope и
                        TextMapPropagator. Говорит на API OpenTelemetry, но не на SDK.
@@ -150,6 +151,18 @@ DependencyInjection\   корень композиции, которому ви�
 `OpenTelemetry\Sdk`, инвертировал зависимость ровно настолько же, насколько тот, кто импортирует
 SDK, — и ошибка эта легче, потому что имя выглядит локальным. Так случалось дважды; теперь guard
 это запрещает.
+
+Правило действует без исключений, и baseline у guard пустой. Последним ушёл сам спан:
+`SpanOpenerInterface::open()` возвращал конкретного владельца, и порт в `Internal` называл
+`ScopeInterface` своим возвращаемым типом. Теперь он возвращает `SpanOwner` — пять вещей,
+которые операции нужны от спана, которым она владеет, и ни одна из них не является понятием
+OpenTelemetry, — а спан, его активация и его контекст доходят ровно до адаптера.
+
+Операция, которая не записывает спана вовсе, не доходит и туда: `InertSpan` — владелец и
+представление в одном объекте, без единого объекта OpenTelemetry внутри, так что приложение,
+выключившее бандл, не платит за типы SDK, которые никогда не понадобятся. Инертен он не во
+всём: подавленная операция по-прежнему даёт метрику длительности, поэтому трейс, которому та
+принадлежит, и `error.type`, которым она размечена, сохраняются.
 
 `BoundaryFlush` — то, во что правило обходится, и то, что оно даёт. Всё, что завершает единицу
 работы — terminate HTTP, завершившаяся консольная команда, Messenger-воркер между сообщениями,

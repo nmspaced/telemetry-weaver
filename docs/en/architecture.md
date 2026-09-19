@@ -133,9 +133,10 @@ Api\                   the only public surface. No OpenTelemetry Context and no 
 Instrumentation\       one directory per Symfony component. Describes operations through
                        Api\, and execution boundaries through Internal\Operation's wider SPI.
         │
-Internal\              the runtime, expressed as ports: SpanOpenerInterface, Propagation,
-                       IncomingTrace, TraceCorrelation, ActiveTraceIdentity, DurationRecorder,
-                       BoundaryFlush. Not one OpenTelemetry Trace or Context type.
+Internal\              the runtime, expressed as ports: SpanOpenerInterface, SpanOwner,
+                       Propagation, IncomingTrace, TraceCorrelation, ActiveTraceIdentity,
+                       DurationRecorder, BoundaryFlush. Not one OpenTelemetry Trace or
+                       Context type.
         │
 OpenTelemetry\Adapter\ the only place Context, SpanContext, Scope and TextMapPropagator
                        exist. Speaks the OpenTelemetry API; never the SDK.
@@ -150,6 +151,18 @@ The direction that is easy to get wrong is the last one inward. A class under `I
 reaching into `OpenTelemetry\Sdk` has inverted the dependency exactly as much as one importing
 the SDK, and it is the easier mistake because the name looks local. It happened twice; the guard
 now forbids it.
+
+The rule holds without exception, and the guard baseline is empty. The last one to go was
+the span itself: `SpanOpenerInterface::open()` used to return the concrete owner, so a port
+in `Internal` named `ScopeInterface` through its return type. It returns `SpanOwner` now —
+five things an operation needs from a span it owns, none of them an OpenTelemetry concept —
+and the span, its activation and its context reach exactly as far as the adapter.
+
+The operation that records no span at all does not reach even that far: `InertSpan` is owner
+and view in one object with no OpenTelemetry object behind it, so an application that
+switched the bundle off pays for no SDK type it will never use. It is not inert about two
+things, because a suppressed operation still produces a duration metric: the trace that
+duration belongs to, and the `error.type` it is labelled with.
 
 `BoundaryFlush` is what the rule costs and what it buys. Everything that ends a unit of work —
 HTTP terminate, a finished console command, a Messenger worker between messages, PHP shutdown —
