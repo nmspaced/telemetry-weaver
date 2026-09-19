@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Runtime;
 
-use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\FlushPolicy;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -33,18 +33,20 @@ final class FlushGateScheduleTest extends TestCase
     }
 
     /**
-     * The state is keyed by signal precisely so one signal's schedule cannot silence another's; the second consumer arrives with logs.
+     * The state is keyed by signal precisely so one signal's schedule cannot silence
+     * another's: metrics flushing does not put logs inside an interval they never started.
      */
     #[Test]
     public function signalsKeepSeparateSchedules(): void
     {
-        $metrics = new FlushPolicy('metrics', 60_000, $this->clock);
-        $logs = new FlushPolicy('logs', 60_000, $this->clock);
+        $metrics = FlushPolicy::every('metrics', 60_000, $this->clock);
+        $logs = FlushPolicy::every('logs', 60_000, $this->clock);
 
         $metrics->shouldFlush();
+        $this->clock->advanceSeconds(30);
 
-        self::assertTrue($metrics->shouldFlush());
-        self::assertFalse($logs->shouldFlush(), 'logs must still be on its own first boundary');
+        self::assertFalse($metrics->shouldFlush(), 'metrics is halfway through its own interval');
+        self::assertTrue($logs->shouldFlush(), 'logs has an interval of its own and has not started it');
     }
 
     /**
@@ -55,7 +57,7 @@ final class FlushGateScheduleTest extends TestCase
     #[Test]
     public function tracesFollowTheBatchSpanScheduleDelay(): void
     {
-        $gate = new FlushPolicy('traces', clock: $this->clock);
+        $gate = FlushPolicy::onSdkSchedule('traces', $this->clock);
         $gate->shouldFlush();
         $gate->shouldFlush();
 
@@ -72,7 +74,7 @@ final class FlushGateScheduleTest extends TestCase
         $_SERVER['OTEL_BLRP_SCHEDULE_DELAY'] = '3000';
 
         try {
-            $gate = new FlushPolicy('logs', clock: $this->clock);
+            $gate = FlushPolicy::onSdkSchedule('logs', $this->clock);
         } finally {
             unset($_SERVER['OTEL_BLRP_SCHEDULE_DELAY']);
         }
@@ -90,7 +92,7 @@ final class FlushGateScheduleTest extends TestCase
     #[Test]
     public function metricsFollowTheMetricExportInterval(): void
     {
-        $gate = new FlushPolicy('metrics', clock: $this->clock);
+        $gate = FlushPolicy::onSdkSchedule('metrics', $this->clock);
         $gate->shouldFlush();
         $gate->shouldFlush();
 

@@ -6,8 +6,10 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Metrics;
 
 use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\DurationUnit;
-use Nmspaced\TelemetryWeaver\Api\Measurement;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\StartableDuration;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\Tests\Support\MetricPoints;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Common\Time\ClockInterface;
@@ -65,13 +67,15 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
     {
         $clock = $this->createMock(ClockInterface::class);
         $clock->expects(self::never())->method('now');
-        $metrics = new SafeMetrics(new NoopMeter(), $this->reporter, $clock);
-        $metrics->duration('duration', DurationUnit::Seconds, [0.1, 1])->start()->stop();
+        $metrics = new SafeMetrics(new NoopMeter(), $this->reporter, new OtelDurationRecorder(), $clock);
+        self::startable($metrics->duration('duration', DurationUnit::Seconds, [0.1, 1]))
+            ->start(null)
+            ->stop();
         $telemetry = $this->telemetry();
         $parent = $telemetry->operation('parent')->start();
-        $id = $parent->span()->context()->getSpanId();
+        $id = $parent->span()->spanId();
         $telemetry
-            ->operation('suppressed')
+            ->boundary('suppressed')
             ->withoutSpan()
             ->duration($this->duration($telemetry))
             ->run(static function () use ($id): void {
@@ -92,7 +96,7 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         $measurement = $this->createStub(Measurement::class);
         $measurement->method('stop')->willThrowException(new \RuntimeException('stop failed'));
         $measurement->method('cancel')->willThrowException(new \RuntimeException('cancel failed'));
-        $duration = $this->createStub(Duration::class);
+        $duration = $this->createStub(StartableDuration::class);
         $duration->method('start')->willReturn($measurement);
         $error = new \LogicException('business error');
         try {
@@ -106,7 +110,7 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
             self::assertSame($error, $logicException);
         }
 
-        $brokenStart = $this->createStub(Duration::class);
+        $brokenStart = $this->createStub(StartableDuration::class);
         $brokenStart->method('start')->willThrowException(new \RuntimeException('start failed'));
         self::assertSame(
             42,
@@ -128,10 +132,12 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         $meter = $this->createStub(MeterInterface::class);
         $meter->method('createCounter')->willThrowException(new \RuntimeException('counter creation'));
         $meter->method('createHistogram')->willThrowException(new \RuntimeException('histogram creation'));
-        $metrics = new SafeMetrics($meter, $this->reporter, $this->clock);
+        $metrics = new SafeMetrics($meter, $this->reporter, new OtelDurationRecorder(), $this->clock);
         $metrics->counter('count')->add(1);
         $metrics->histogram('size')->record(1);
-        $metrics->duration('duration', DurationUnit::Seconds, [0.1, 1])->start()->stop();
+        self::startable($metrics->duration('duration', DurationUnit::Seconds, [0.1, 1]))
+            ->start(null)
+            ->stop();
         self::assertSame(3, $this->reporter->total());
 
         $histogram = $this->createStub(HistogramInterface::class);
@@ -139,10 +145,10 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         $histogram->method('isEnabled')->willThrowException(new \RuntimeException('enabled failed'));
         $meter = $this->createStub(MeterInterface::class);
         $meter->method('createHistogram')->willReturn($histogram);
-        $metrics = new SafeMetrics($meter, $this->reporter, $this->clock);
+        $metrics = new SafeMetrics($meter, $this->reporter, new OtelDurationRecorder(), $this->clock);
         $metrics->histogram('size')->record(1);
         self::assertFalse($metrics->histogram('size')->isEnabled());
-        $measurement = $metrics->duration('duration', DurationUnit::Seconds, [0.1, 1])->start();
+        $measurement = self::startable($metrics->duration('duration', DurationUnit::Seconds, [0.1, 1]))->start(null);
         $measurement->stop();
         $measurement->stop();
         self::assertSame(6, $this->reporter->total());
@@ -156,7 +162,12 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
     {
         $clock = $this->createStub(ClockInterface::class);
         $clock->method('now')->willThrowException(new \RuntimeException('clock failed'));
-        $metrics = new SafeMetrics($this->meters->getMeter('test'), $this->reporter, $clock);
+        $metrics = new SafeMetrics(
+            $this->meters->getMeter('test'),
+            $this->reporter,
+            new OtelDurationRecorder(),
+            $clock,
+        );
         $duration = $metrics->duration('duration', DurationUnit::Seconds, [0.1, 1]);
         self::assertSame(
             42,
@@ -191,5 +202,16 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         // static type alone would not (an empty list, descending or duplicate bounds, NAN/INF).
         /** @var non-empty-list<float|int> $boundaries */
         $this->telemetry(false, false)->metrics()->duration('duration', DurationUnit::Seconds, $boundaries);
+    }
+
+    /**
+     * `Metrics::duration()` hands back the opaque application handle; these tests are about
+     * what the package does with it, which is start it.
+     */
+    private static function startable(Duration $duration): StartableDuration
+    {
+        self::assertInstanceOf(StartableDuration::class, $duration);
+
+        return $duration;
     }
 }

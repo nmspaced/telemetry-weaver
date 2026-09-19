@@ -7,10 +7,10 @@ namespace Nmspaced\TelemetryWeaver\Tests\Support;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\SignalFlusher;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SignalFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 
 final class Flushers
 {

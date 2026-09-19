@@ -6,10 +6,10 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Lifecycle\TelemetryFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\SignalFlusher;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\MeterProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MeterProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SignalFlusher;
 use Nmspaced\TelemetryWeaver\TelemetryWeaverBundle;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Metrics\MeterInterface;

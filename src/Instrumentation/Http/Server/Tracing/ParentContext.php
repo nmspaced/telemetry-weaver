@@ -4,44 +4,56 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing;
 
-use OpenTelemetry\Context\Context;
-use OpenTelemetry\Context\ContextInterface;
-use OpenTelemetry\Context\ContextStorageInterface;
-use OpenTelemetry\Context\Propagation\PropagationGetterInterface;
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Parent context for a request scope: headers for the main request, process context for sub-requests.
+ * The trace a main request continues, read out of its headers.
+ *
+ * All this class does is turn a `HeaderBag` into a carrier. Resolving that carrier into a
+ * trace — and deciding that an absent or unusable one means a *new* trace rather than the
+ * leftovers of the previous request — belongs to {@see Propagation}, the only place that
+ * should hold an opinion about OpenTelemetry's context model.
+ *
+ * There is no counterpart for sub-requests. A sub-request is not a process boundary: it
+ * continues whatever the main request is doing, which an operation says by naming no
+ * incoming trace at all. Re-reading the headers there would make it a second child of the
+ * *caller's* span, beside the server span instead of inside it.
  */
 final readonly class ParentContext
 {
     public function __construct(
-        private TextMapPropagatorInterface $propagator,
-        private ContextStorageInterface $contextStorage,
-        private PropagationGetterInterface $headersGetter = new RequestHeadersGetter(),
+        private Propagation $propagation,
     ) {}
 
     /**
-     * Main request: headers only.
-     *
-     * The extraction base is explicit — the root context. Without it,
-     * propagator->extract() defaults to Context::getCurrent(), so a request
-     * without a valid traceparent would inherit whatever is on top of the
-     * process stack (e.g. a leaked scope from a previous request).
-     *
-     * The carrier is the HeaderBag itself; see RequestHeadersGetter.
+     * Main request: the headers are a real process boundary, so they decide.
      */
-    public function fromHeaders(Request $request): ContextInterface
+    public function fromHeaders(Request $request): IncomingTrace
     {
-        return $this->propagator->extract($request->headers, $this->headersGetter, Context::getRoot());
+        return $this->propagation->extract(self::headers($request));
     }
 
     /**
-     * Sub-request: current process context — headers are inherited from the main request and would create a second root.
+     * @return array<non-empty-string, string>
      */
-    public function fromProcess(): ContextInterface
+    private static function headers(Request $request): array
     {
-        return $this->contextStorage->current();
+        $carrier = [];
+
+        // `get()` rather than walking `all()`: it already collapses the multi-value shape to
+        // the first value, which is the only one a propagation field may have.
+        foreach ($request->headers->keys() as $name) {
+            $value = $request->headers->get($name);
+
+            if ($name === '' || $value === null) {
+                continue;
+            }
+
+            $carrier[$name] = $value;
+        }
+
+        return $carrier;
     }
 }

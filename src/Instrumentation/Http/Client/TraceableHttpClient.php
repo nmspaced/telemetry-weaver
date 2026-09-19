@@ -100,8 +100,9 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
     }
 
     /** @param array<array-key, mixed> $options */
+    // @mago-expect lint:redundant-static — required by HttpClientInterface on PHP 8.4, even in a final class
     #[\Override]
-    public function withOptions(array $options): self
+    public function withOptions(array $options): static
     {
         $clone = clone $this;
         $clone->pending = new PendingOperations();

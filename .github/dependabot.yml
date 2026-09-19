@@ -1,0 +1,15 @@
+version: 2
+
+updates:
+  # Actions are the only pinned thing in this repository: composer.json carries ranges
+  # and no lock file, so Composer updates would only ever churn the manifest's floors.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: 'ci'
+    groups:
+      actions:
+        patterns:
+          - '*'

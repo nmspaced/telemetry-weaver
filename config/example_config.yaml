@@ -114,6 +114,19 @@ open_telemetry:
             # client.address is personal data in most jurisdictions.
             record_client_ip: false
 
+            # The authenticated user on the server span, from Symfony's token storage
+            # (needs symfony/security-core). Both off, for different reasons:
+            #
+            # user.id names a person, so a trace that carries it becomes personal data,
+            # with retention, access and erasure obligations attached — and a tracing
+            # backend is rarely governed as tightly as the application's own database.
+            #
+            # user.roles names a group, not a person, and answers the question usually
+            # asked of a trace: was this slow for admins or for everyone. It is the one
+            # most applications can turn on.
+            record_user_id: false
+            record_user_roles: false
+
             # Lowest status at which the exception is recorded as a span event. The
             # span's error status is not configurable — the conventions say >= 500, and
             # a 404 from a NotFoundHttpException is not a failure of the server.
@@ -148,6 +161,14 @@ open_telemetry:
         doctrine:
             traces: true
             metrics: true
+
+            # Histogram bucket boundaries in seconds, replacing this component's defaults.
+            # Every component takes this key; the defaults follow the semantic conventions,
+            # which are chosen to be comparable across services rather than tight around any
+            # one of them. An SLO stated in single-digit milliseconds is invisible in buckets
+            # whose second step is 10 ms. Strictly increasing, greater than zero; empty keeps
+            # the defaults. The unit stays seconds either way.
+            duration_buckets: []
 
             # Records the statement as db.query.text. Raw SQL may carry literals and
             # personal data, so this is opt-in.
@@ -288,9 +309,28 @@ open_telemetry:
         traces:
             provider: ~            # OpenTelemetry\SDK\Trace\TracerProviderInterface
             exporter: ~            # OpenTelemetry\SDK\Trace\SpanExporterInterface
+
+            # The three trace decisions no OTEL_* variable can express. Unlike `provider`,
+            # these go *into* the pipeline the bundle builds, so the batch processor that
+            # never exports from span->end(), the boundary budget and the export gate all
+            # stay. Naming any of them next to `provider` is an error, not a silent ignore.
+            sampler: ~             # OpenTelemetry\SDK\Trace\SamplerInterface — instead of
+                                   # OTEL_TRACES_SAMPLER, for a decision per route or tenant.
+            id_generator: ~        # OpenTelemetry\SDK\Trace\IdGeneratorInterface — for
+                                   # backends that read structure out of the trace id; AWS
+                                   # X-Ray wants the start timestamp in its first bytes.
+            span_processors: []    # OpenTelemetry\SDK\Trace\SpanProcessorInterface service
+                                   # ids, added in front of the bundle's own so a processor
+                                   # editing a span as it ends sees it before it is queued.
         metrics:
             provider: ~            # OpenTelemetry\SDK\Metrics\MeterProviderInterface
             exporter: ~            # OpenTelemetry\SDK\Metrics\MetricExporterInterface
+
+            # Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MetricView service ids, each
+            # pairing a selection criteria with a view template. For what duration_buckets
+            # cannot reach: an instrument the bundle did not create, or an attribute key
+            # whose cardinality has to be cut before it becomes a series.
+            views: []
         logs:
             provider: ~            # OpenTelemetry\SDK\Logs\LoggerProviderInterface
             exporter: ~            # OpenTelemetry\SDK\Logs\LogRecordExporterInterface

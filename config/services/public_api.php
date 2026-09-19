@@ -5,7 +5,8 @@ declare(strict_types=1);
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Api\TelemetryFactory;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\ScopedTelemetryFactory;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalMeterProvider;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalTracerProvider;
@@ -48,6 +49,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$tracers', service('open_telemetry.public_api.tracer_provider'))
         ->arg('$meters', service('open_telemetry.public_api.meter_provider'))
         ->arg('$contextStorage', service(ContextStorageInterface::class))
+        ->arg('$recorder', service(DurationRecorder::class))
         ->arg('$reporter', service(InstrumentationFailureReporter::class));
 
     $services->alias(TelemetryFactory::class, ScopedTelemetryFactory::class);

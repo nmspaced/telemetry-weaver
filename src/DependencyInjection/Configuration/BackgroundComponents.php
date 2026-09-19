@@ -74,6 +74,7 @@ final class BackgroundComponents
             'runtime',
             'The PHP runtime serving each worker: php.memory.usage and php.worker.uptime. In worker mode this is how a leak becomes visible.',
             traces: false,
+            durations: false,
         );
     }
 

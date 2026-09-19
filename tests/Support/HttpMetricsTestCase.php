@@ -10,6 +10,8 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Metrics\RequestMeasurem
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\RequestPolicy;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Routing\RequestRouteTemplateResolver;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelTraceCorrelationSource;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\StaticRouteTemplateProvider;
 use OpenTelemetry\API\Metrics\MeterInterface;
@@ -61,7 +63,11 @@ abstract class HttpMetricsTestCase extends HttpTelemetryTestCase
         }
 
         $this->measurements = new RequestMeasurementRegistry(
-            new HttpServerMetrics(new SafeMetrics($meter, $this->reporter, $this->clock)),
+            new HttpServerMetrics(
+                new SafeMetrics($meter, $this->reporter, new OtelDurationRecorder(), $this->clock),
+                new OtelTraceCorrelationSource($this->contextStorage),
+                $this->reporter,
+            ),
             $this->reporter,
         );
         $this->subscriber = new HttpServerMetricsSubscriber($this->measurements, new RequestPolicy(

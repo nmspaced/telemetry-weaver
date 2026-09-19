@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
-use Nmspaced\TelemetryWeaver\OpenTelemetry\BudgetedOtlpTransports;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\CustomOtlpTransports;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpProtocol;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\TransportFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\BudgetedOtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\CustomOtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpProtocol;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingTransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
 use OpenTelemetry\SDK\Common\Configuration\Variables;

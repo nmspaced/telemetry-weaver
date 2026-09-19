@@ -7,9 +7,10 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Diagnostics;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTrace;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\NoopDuration;
 use Nmspaced\TelemetryWeaver\Internal\Operation\ActiveOperation;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\OwnedSpan;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOptions;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OwnedSpan;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryTestCase;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanBuilderInterface;
@@ -85,7 +86,10 @@ final class SdkFailureTest extends TelemetryTestCase
     public function aRecordingCheckFailureDoesNotPreventHttpCleanup(): void
     {
         $owner = $this->openerFor($this->spanWithBrokenRecordingCheck())->open('GET', new SpanOptions());
-        $trace = new RequestTrace(ActiveOperation::owning($owner, new NoopDuration(), [], $this->reporter), 'GET');
+        $trace = new RequestTrace(
+            ActiveOperation::owning($owner, new NoopDuration(), [], $this->reporter, new OtelBaggageReader()),
+            'GET',
+        );
         $trace->response(new Response('', 500));
 
         $trace->complete();

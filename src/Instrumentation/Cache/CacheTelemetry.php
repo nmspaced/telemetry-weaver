@@ -8,7 +8,8 @@ use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\CacheOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
 use OpenTelemetry\API\Metrics\CounterInterface;
 
 /**
@@ -22,7 +23,7 @@ final readonly class CacheTelemetry
 
     public function __construct(
         private Telemetry $telemetry,
-        CacheOperationBuckets $buckets = new CacheOperationBuckets(),
+        OperationBuckets $buckets = DefaultBuckets::Cache,
     ) {
         $this->lookups = $telemetry->metrics()->counter('cache.lookup.count', '{lookup}', 'Number of cache lookups.');
         $this->duration = $telemetry->metrics()->duration(

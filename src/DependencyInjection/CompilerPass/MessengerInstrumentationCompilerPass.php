@@ -13,8 +13,8 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\TraceableMessageBusMiddle
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\TraceableSendersLocator;
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\WorkerFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Runtime\ProcessMetrics;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
+use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -52,7 +52,7 @@ final readonly class MessengerInstrumentationCompilerPass implements CompilerPas
 
         $container
             ->register(WorkerFlushSubscriber::class, WorkerFlushSubscriber::class)
-            ->setArgument('$flusher', new Reference(TelemetryFlusher::class))
+            ->setArgument('$flusher', new Reference(BoundaryFlush::class))
             ->addTag('kernel.event_subscriber');
 
         if ($container->hasDefinition(ProcessMetrics::class)) {
@@ -94,7 +94,7 @@ final readonly class MessengerInstrumentationCompilerPass implements CompilerPas
             ->setDecoratedService(self::SENDERS_LOCATOR_ID, $innerId)
             ->setArgument('$delegate', new Reference($innerId))
             ->setArgument('$messengerTelemetry', new Reference(MessengerTelemetry::class))
-            ->setArgument('$propagator', new Reference(TextMapPropagatorInterface::class))
+            ->setArgument('$propagation', new Reference(Propagation::class))
             ->setArgument('$systems', new Reference(MessagingSystem::class));
     }
 

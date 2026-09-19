@@ -3,33 +3,48 @@
 declare(strict_types=1);
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientExporters;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\BudgetedOtlpTransports;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\ActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\BaggageReader;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelationSource;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelResponsePropagation;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelTraceCorrelationSource;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\GlobalsRegistrar;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\LoggerProviderFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\LogRecordExporterFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\MeterProviderFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\MetricExporterFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpTransports;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpTransportSettings;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\RequestMetricPolicy;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\ResourceInfoFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\SpanExporterFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\SpanSuppressionStrategyFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\TracerProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\BudgetedOtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientExporters;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\LoggerProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\LogRecordExporterFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MeterProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MetricExporterFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpTransportSettings;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\RequestMetricPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ResourceInfoFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SpanExporterFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SpanSuppressionStrategyFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TracerProviderFactory;
 use OpenTelemetry\API\Metrics\MeterInterface;
 use OpenTelemetry\API\Trace\TracerInterface;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextStorageInterface;
+use OpenTelemetry\Context\Propagation\ResponsePropagatorInterface;
 use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use OpenTelemetry\SDK\Logs\LoggerProviderInterface;
 use OpenTelemetry\SDK\Logs\LogRecordExporterInterface;
 use OpenTelemetry\SDK\Metrics\MeterProviderInterface;
 use OpenTelemetry\SDK\Metrics\MetricExporterInterface;
 use OpenTelemetry\SDK\Propagation\PropagatorFactory;
+use OpenTelemetry\SDK\Propagation\ResponsePropagatorFactory;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Trace\SpanExporterInterface;
 use OpenTelemetry\SDK\Trace\SpanSuppression\SpanSuppressionStrategy;
@@ -142,7 +157,9 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$tracerProvider', service_closure(TracerProviderInterface::class))
         ->arg('$meterProvider', service_closure(MeterProviderInterface::class))
         ->arg('$loggerProvider', service_closure('open_telemetry.logger_provider'))
-        ->arg('$propagator', service_closure(TextMapPropagatorInterface::class));
+        ->arg('$propagator', service_closure(TextMapPropagatorInterface::class))
+        // @mago-expect analysis:experimental-usage
+        ->arg('$responsePropagator', service_closure(ResponsePropagatorInterface::class));
 
     // The bundle's boot() has to reach this one, and get() only works on public
     // ids. A public alias keeps the class itself private: what the container
@@ -152,7 +169,46 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(ContextStorageInterface::class)->factory(Context::storage(...));
 
+    // The two adapters that keep OpenTelemetry's context out of the metric layer: one
+    // reads the current trace for the measurements that have no span of their own, the
+    // other is what finally hands a captured trace to `HistogramInterface::record()`.
+    $services
+        ->set(TraceCorrelationSource::class, OtelTraceCorrelationSource::class)
+        ->arg('$contextStorage', service(ContextStorageInterface::class));
+
+    $services->set(DurationRecorder::class, OtelDurationRecorder::class);
+
+    $services->set(BaggageReader::class, OtelBaggageReader::class);
+
+    $services
+        ->set(Propagation::class, OtelPropagation::class)
+        ->arg('$propagator', service(TextMapPropagatorInterface::class))
+        ->arg('$contextStorage', service(ContextStorageInterface::class));
+
+    $services
+        ->set(ActiveTraceIdentity::class, OtelActiveTraceIdentity::class)
+        ->arg('$contextStorage', service(ContextStorageInterface::class));
+
     $services->set(PropagatorFactory::class);
+
+    // Response propagation is experimental upstream and empty by default: the registry
+    // ships only `none`, and `traceresponse` is a contrib package an application installs.
+    // Wiring it here is what gives OTEL_EXPERIMENTAL_RESPONSE_PROPAGATORS somewhere to act.
+    // @mago-expect analysis:experimental-usage — response propagation is experimental upstream and wired deliberately
+    $services->set(ResponsePropagatorFactory::class);
+
+    $services
+        // @mago-expect analysis:experimental-usage
+        ->set(ResponsePropagatorInterface::class)
+        // @mago-expect analysis:experimental-usage
+        ->factory([service(ResponsePropagatorFactory::class), 'create']);
+
+    $services
+        ->set(ResponsePropagation::class, OtelResponsePropagation::class)
+        // @mago-expect analysis:experimental-usage
+        ->arg('$propagator', service(ResponsePropagatorInterface::class))
+        ->arg('$contextStorage', service(ContextStorageInterface::class))
+        ->arg('$reporter', service(InstrumentationFailureReporter::class));
 
     $services->set(TextMapPropagatorInterface::class)->factory([service(PropagatorFactory::class), 'create']);
 

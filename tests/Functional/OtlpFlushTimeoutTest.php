@@ -6,7 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Functional;
 
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\BudgetedOtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\BudgetedOtlpTransports;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 use OpenTelemetry\SDK\Common\Http\Psr\Client\Discovery;
 use OpenTelemetry\SDK\Common\Http\Psr\Client\Discovery\Symfony;

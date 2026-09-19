@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Fixtures;
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientTracesExporter;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientTracesExporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use OpenTelemetry\API\Common\Time\Clock;
 use OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter;
@@ -49,8 +49,7 @@ $flusher = new TelemetryFlusher($registry, $budget, $failures, $runtime);
             'exported' => \count($exported->getSpans()),
             'closed' => $gate->isClosed(),
             'failures' => $failures->total(),
-        ])
-    ;
+        ]);
 });
 
 // The span sits in the batch queue: no boundary has drained it when the worker loop returns.

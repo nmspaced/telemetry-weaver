@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Metrics;
 
 use Nmspaced\TelemetryWeaver\Api\DurationUnit;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRuntime;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationTimer;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingHistogram;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 #[CoversClass(DurationTimer::class)]
 final class TimerTest extends TestCase
@@ -19,17 +23,24 @@ final class TimerTest extends TestCase
 
     private FrozenClock $clock;
 
+    private DurationRuntime $runtime;
+
     #[\Override]
     protected function setUp(): void
     {
         $this->histogram = new RecordingHistogram();
         $this->clock = new FrozenClock();
+        $this->runtime = new DurationRuntime(
+            new OtelDurationRecorder(),
+            new InstrumentationFailureReporter(new NullLogger()),
+            $this->clock,
+        );
     }
 
     #[Test]
     public function recordsElapsedTimeInTheDeclaredUnit(): void
     {
-        $timer = new DurationTimer($this->histogram, DurationUnit::Milliseconds, $this->clock);
+        $timer = DurationTimer::started($this->histogram, DurationUnit::Milliseconds, $this->runtime);
 
         $this->clock->advanceNanoseconds(1_500_000);
         $timer->stop();
@@ -43,7 +54,7 @@ final class TimerTest extends TestCase
     #[Test]
     public function theSameElapsedTimeConvertsToTheUnitItWasGiven(): void
     {
-        $timer = new DurationTimer($this->histogram, DurationUnit::Microseconds, $this->clock);
+        $timer = DurationTimer::started($this->histogram, DurationUnit::Microseconds, $this->runtime);
 
         $this->clock->advanceNanoseconds(1_500_000);
         $timer->stop();
@@ -54,7 +65,7 @@ final class TimerTest extends TestCase
     #[Test]
     public function attributesReachTheHistogram(): void
     {
-        $timer = new DurationTimer($this->histogram, DurationUnit::Milliseconds, $this->clock);
+        $timer = DurationTimer::started($this->histogram, DurationUnit::Milliseconds, $this->runtime);
 
         $timer->stop(['db.system' => 'mysql']);
 
@@ -67,7 +78,7 @@ final class TimerTest extends TestCase
     #[Test]
     public function stoppingTwiceRecordsOnce(): void
     {
-        $timer = new DurationTimer($this->histogram, DurationUnit::Milliseconds, $this->clock);
+        $timer = DurationTimer::started($this->histogram, DurationUnit::Milliseconds, $this->runtime);
 
         $timer->stop();
 

@@ -11,24 +11,34 @@ use Nmspaced\TelemetryWeaver\Internal\Clock\SystemClock;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use OpenTelemetry\API\Common\Time\ClockInterface;
 use OpenTelemetry\API\Metrics\CounterInterface;
+use OpenTelemetry\API\Metrics\GaugeInterface;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\API\Metrics\MeterInterface;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use OpenTelemetry\API\Metrics\ObservableCallbackInterface;
-use OpenTelemetry\API\Metrics\ObservableGaugeInterface;
-use OpenTelemetry\API\Metrics\ObservableUpDownCounterInterface;
-use OpenTelemetry\API\Metrics\ObserverInterface;
+use OpenTelemetry\API\Metrics\UpDownCounterInterface;
 
 /**
  * @internal Instruments belong to the SDK; no unbounded name or attribute cache is maintained here.
  */
+// @mago-expect lint:too-many-methods — one method per instrument the OpenTelemetry metrics API
+// defines, plus the duration helper. Splitting the facade would only move the count into a
+// class an application then has to find.
 final readonly class SafeMetrics implements Metrics
 {
+    private DurationRuntime $durations;
+
+    private SafeObservables $observables;
+
     public function __construct(
         private MeterInterface $meter,
         private InstrumentationFailureReporter $reporter,
-        private ClockInterface $clock = new SystemClock(),
-    ) {}
+        DurationRecorder $recorder,
+        ClockInterface $clock = new SystemClock(),
+    ) {
+        $this->durations = new DurationRuntime($recorder, $reporter, $clock);
+        $this->observables = new SafeObservables($meter, $reporter);
+    }
 
     #[\Override]
     public function counter(string $name, ?string $unit = null, ?string $description = null): CounterInterface
@@ -57,21 +67,67 @@ final readonly class SafeMetrics implements Metrics
     }
 
     #[\Override]
+    public function upDownCounter(
+        string $name,
+        ?string $unit = null,
+        ?string $description = null,
+    ): UpDownCounterInterface {
+        self::validateName($name);
+
+        try {
+            return new SafeUpDownCounter(
+                $this->meter->createUpDownCounter($name, $unit, $description),
+                $this->reporter,
+                $name,
+            );
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('UpDownCounter creation failed', $name, $throwable);
+
+            return new NoopMeter()->createUpDownCounter($name);
+        }
+    }
+
+    /**
+     * `createGauge()` is upstream-experimental; the instrument itself is a stable part of
+     * the metrics API, and the alternative — leaving applications to reach past the facade
+     * into the meter — costs them the fail-open wrapper for no gain.
+     */
+    #[\Override]
+    public function gauge(string $name, ?string $unit = null, ?string $description = null): GaugeInterface
+    {
+        self::validateName($name);
+
+        try {
+            return new SafeGauge($this->meter->createGauge($name, $unit, $description), $this->reporter, $name);
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Gauge creation failed', $name, $throwable);
+
+            return new NoopMeter()->createGauge($name);
+        }
+    }
+
+    #[\Override]
+    public function observableCounter(
+        string $name,
+        \Closure $observe,
+        ?string $unit = null,
+        ?string $description = null,
+    ): ObservableCallbackInterface {
+        self::validateName($name);
+
+        return $this->observables->counter($name, $observe, $unit, $description);
+    }
+
+    #[\Override]
     public function observableGauge(
         string $name,
         \Closure $observe,
         ?string $unit = null,
         ?string $description = null,
     ): ObservableCallbackInterface {
-        return $this->observable(
-            $name,
-            $observe,
-            static fn(MeterInterface $meter): ObservableGaugeInterface => $meter->createObservableGauge(
-                $name,
-                $unit,
-                $description,
-            ),
-        );
+        self::validateName($name);
+
+        return $this->observables->gauge($name, $observe, $unit, $description);
     }
 
     #[\Override]
@@ -81,45 +137,9 @@ final readonly class SafeMetrics implements Metrics
         ?string $unit = null,
         ?string $description = null,
     ): ObservableCallbackInterface {
-        return $this->observable(
-            $name,
-            $observe,
-            static fn(MeterInterface $meter): ObservableUpDownCounterInterface => $meter->createObservableUpDownCounter(
-                $name,
-                $unit,
-                $description,
-            ),
-        );
-    }
-
-    /**
-     * The callback is wrapped because the SDK calls every registered callback in one
-     * collection pass, so a throwing callback would take the whole export down with it —
-     * including the instruments that had nothing to do with it.
-     *
-     * A creation failure falls back to the same instrument on a no-op meter, so the caller
-     * still holds a valid handle and has nothing to check.
-     *
-     * @param \Closure(ObserverInterface): void $observe
-     * @param \Closure(MeterInterface): (ObservableGaugeInterface|ObservableUpDownCounterInterface) $create
-     */
-    private function observable(string $name, \Closure $observe, \Closure $create): ObservableCallbackInterface
-    {
         self::validateName($name);
 
-        try {
-            return $create($this->meter)->observe(function (ObserverInterface $observer) use ($observe, $name): void {
-                try {
-                    $observe($observer);
-                } catch (\Throwable $throwable) {
-                    $this->reporter->report('Observation failed', $name, $throwable);
-                }
-            });
-        } catch (\Throwable $throwable) {
-            $this->reporter->report('Observable instrument creation failed', $name, $throwable);
-
-            return $create(new NoopMeter())->observe(static fn(): null => null);
-        }
+        return $this->observables->upDownCounter($name, $observe, $unit, $description);
     }
 
     #[\Override]
@@ -136,7 +156,7 @@ final readonly class SafeMetrics implements Metrics
                 'ExplicitBucketBoundaries' => $boundaries,
             ]);
 
-            return HistogramDuration::forHistogram($name, $histogram, $unit, $this->clock, $this->reporter);
+            return HistogramDuration::forHistogram($name, $histogram, $unit, $this->durations);
         } catch (\Throwable $throwable) {
             $this->reporter->report('Duration instrument creation failed', $name, $throwable);
 
@@ -162,7 +182,7 @@ final readonly class SafeMetrics implements Metrics
         /** @var mixed $boundary */
         foreach ($boundaries as $boundary) {
             if (
-                (!\is_int($boundary) && !\is_float($boundary))
+                !\is_int($boundary) && !\is_float($boundary)
                 || !\is_finite((float) $boundary)
                 || $boundary < 0
                 || $boundary <= $previous

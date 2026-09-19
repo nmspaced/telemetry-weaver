@@ -12,6 +12,21 @@ interface OperationContext
     public function span(): Span;
 
     /**
+     * Everything the trace is carrying here: what a caller propagated, plus whatever this
+     * operation added with `Operation::baggage()`.
+     *
+     * Read it rather than a header. A message consumer and an HTTP controller receive the
+     * same values through entirely different transports, and this is the one place both
+     * of them are already looking.
+     *
+     * Values arrive from other services, so they are input: validate before branching on
+     * one, and do not put an unbounded value into a metric attribute.
+     *
+     * @return array<non-empty-string, string>
+     */
+    public function baggage(): array;
+
+    /**
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
      */
     public function metricAttributes(array $attributes): void;

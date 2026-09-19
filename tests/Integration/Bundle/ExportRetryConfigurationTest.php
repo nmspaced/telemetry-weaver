@@ -6,10 +6,10 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\BudgetedOtlpTransports;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpTransportSettings;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\BudgetedOtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpTransportSettings;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
@@ -53,7 +53,7 @@ final class ExportRetryConfigurationTest extends ContainerTestCase
         $container = $this->compile();
 
         foreach (['SpanExporterFactory', 'MetricExporterFactory', 'LogRecordExporterFactory'] as $factory) {
-            $id = 'Nmspaced\\TelemetryWeaver\\OpenTelemetry\\' . $factory;
+            $id = 'Nmspaced\\TelemetryWeaver\\OpenTelemetry\\Sdk\\' . $factory;
             self::assertTrue($container->hasDefinition($id), $factory . ' is not registered');
             // Argument 1: the reporter comes first, the transports second. The compile resolves
             // the OtlpTransports alias to the service behind it.

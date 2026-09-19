@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\ScopedTelemetryFactory;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalMeterProvider;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalTracerProvider;
@@ -37,6 +38,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
             new NoopTracerProvider(),
             new NoopMeterProvider(),
             $this->contextStorage,
+            new OtelDurationRecorder(),
             $this->reporter,
         )->scope('probe');
 
@@ -44,7 +46,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         $operation = $telemetry->operation('work')->start();
 
         self::assertSame($before, $this->contextStorage->current());
-        self::assertFalse($operation->span()->context()->isValid());
+        self::assertNull($operation->span()->spanId());
         $operation->finish();
     }
 
@@ -55,6 +57,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
             $this->provider,
             new NoopMeterProvider(),
             $this->contextStorage,
+            new OtelDurationRecorder(),
             $this->reporter,
         )->scope('probe');
 

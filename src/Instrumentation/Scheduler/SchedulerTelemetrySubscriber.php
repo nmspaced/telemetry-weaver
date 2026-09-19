@@ -9,7 +9,8 @@ use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Execution\OperationExecution;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\ScheduledTaskBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Scheduler\Event\FailureEvent;
 use Symfony\Component\Scheduler\Event\PostRunEvent;
@@ -27,7 +28,7 @@ final readonly class SchedulerTelemetrySubscriber implements EventSubscriberInte
     public function __construct(
         private Telemetry $telemetry,
         InstrumentationFailureReporter $reporter,
-        ScheduledTaskBuckets $buckets = new ScheduledTaskBuckets(),
+        OperationBuckets $buckets = DefaultBuckets::ScheduledTask,
     ) {
         $this->executions = new ExecutionRegistry($reporter, 'scheduler');
         $this->duration = $telemetry->metrics()->duration(

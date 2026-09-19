@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing;
 
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\HttpMethod;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionRegistry;
-use OpenTelemetry\Context\ContextInterface;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -27,7 +27,7 @@ final readonly class RequestTraceRegistry implements ResetInterface
      * @param int<400, 599> $recordExceptionMinStatus
      */
     public function __construct(
-        private Telemetry $telemetry,
+        private BoundaryTelemetry $telemetry,
         InstrumentationFailureReporter $reporter,
         private int $recordExceptionMinStatus = 500,
     ) {
@@ -42,12 +42,13 @@ final readonly class RequestTraceRegistry implements ResetInterface
         HttpMethod $method,
         array $attributes = [],
         SpanKind $kind = SpanKind::Internal,
-        ?ContextInterface $parent = null,
+        ?IncomingTrace $parent = null,
     ): RequestTrace {
-        $operation = $this->telemetry->operation($method->spanName())->attributes($attributes)->kind($kind);
-        if ($parent !== null) {
-            $operation = $operation->parent($parent);
-        }
+        $operation = $this->telemetry
+            ->boundary($method->spanName())
+            ->attributes($attributes)
+            ->kind($kind)
+            ->from($parent);
 
         $name = $method->spanName();
         $minStatus = $this->recordExceptionMinStatus;

@@ -11,6 +11,7 @@ use Nmspaced\TelemetryWeaver\Api\SpanKind;
 use Nmspaced\TelemetryWeaver\Tests\Support\MetricPoints;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Trace\Span as OtelSpan;
+use OpenTelemetry\API\Trace\SpanKind as OtelSpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\Test;
@@ -57,7 +58,7 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
         self::assertNull($this->contextStorage->scope());
 
         $parent = $telemetry->operation('parent')->start();
-        $parentId = $parent->span()->context()->getSpanId();
+        $parentId = $parent->span()->spanId();
         $changed->run(static function (OperationContext $context): void {
             self::assertNotInstanceOf(RunningOperation::class, $context);
         });
@@ -66,25 +67,25 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
         self::assertSame($parentId, $this->exportedSpan()->getParentContext()->getSpanId());
         self::assertSame('changed', $this->exportedSpan()->getAttributes()->get('variant'));
         self::assertSame('original', $this->exportedSpan(1)->getAttributes()->get('variant'));
-        self::assertSame(SpanKind::Client->value, $this->exportedSpan()->getKind());
+        self::assertSame(OtelSpanKind::KIND_CLIENT, $this->exportedSpan()->getKind());
     }
 
     /**
      * @throws \Throwable
      */
     #[Test]
-    public function explicitRootAndBorrowedCurrentSpanPreserveTheOuterOwner(): void
+    public function explicitRootPreservesTheOuterOwner(): void
     {
         $telemetry = $this->telemetry();
         $outer = $telemetry->operation('outer')->start();
-        $id = $outer->span()->context()->getSpanId();
-        $telemetry->currentSpan()->attribute('borrowed', true);
+        $id = $outer->span()->spanId();
+        $outer->span()->attribute('borrowed', true);
         $telemetry
-            ->operation('root')
-            ->root()
+            ->boundary('root')
+            ->from($this->rootTrace())
             ->run(static fn(): bool => true);
         self::assertFalse($this->exportedSpan()->getParentContext()->isValid());
-        self::assertSame($id, $telemetry->currentSpan()->context()->getSpanId());
+        self::assertSame($id, $this->activeTrace()['span_id'] ?? null, 'the root operation restored the outer one');
         $outer->finish();
         self::assertTrue($this->exportedSpan(1)->getAttributes()->get('borrowed'));
     }
@@ -93,7 +94,7 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
     public function detachKeepsDurationOpenAndCompletionIsIdempotent(): void
     {
         $telemetry = $this->telemetry();
-        $operation = $telemetry->operation('request')->duration($this->duration($telemetry))->start();
+        $operation = $telemetry->boundary('request')->duration($this->duration($telemetry))->start();
         $operation->detach();
         self::assertNull($this->contextStorage->scope());
         self::assertSame([], $this->exported());
@@ -124,19 +125,19 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
     }
 
     /**
-     * `currentSpan()` is a snapshot of whatever was current when it was called. A shared
-     * service that keeps it — against the docblock, but it will happen — must not keep
-     * the SDK span of request A alive in a worker, nor be able to write into request B.
+     * A `Span` is a borrowed view, and a shared service that keeps one — against the
+     * docblock, but it will happen — must not keep the SDK span of request A alive in a
+     * worker, nor be able to write into request B.
      */
     #[Test]
-    public function aRetainedCurrentSpanViewDoesNotKeepTheSdkSpanAlive(): void
+    public function aRetainedSpanViewDoesNotKeepTheSdkSpanAliveOrReachTheNextRequest(): void
     {
         $telemetry = $this->telemetry();
         $a = $telemetry->operation('request A')->start();
-        $retained = $telemetry->currentSpan();
+        $retained = $a->span();
         $raw = \WeakReference::create(OtelSpan::getCurrent());
-        $idOfA = $retained->context()->getSpanId();
 
+        self::assertNotNull($retained->spanId());
         $retained->attribute('inside', true);
         $a->finish();
         unset($a);
@@ -153,7 +154,7 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
         self::assertTrue($this->exportedSpan()->getAttributes()->get('inside'), 'it worked while A was live');
         self::assertNull($this->exportedSpan(1)->getAttributes()->get('leaked'));
         self::assertSame(StatusCode::STATUS_UNSET, $this->exportedSpan(1)->getStatus()->getCode());
-        self::assertSame($idOfA, $retained->context()->getSpanId(), 'the snapshot still names A');
+        self::assertNull($retained->spanId(), 'a released view names no span at all');
         $this->assertNoReports();
     }
 
@@ -168,21 +169,22 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
     {
         $telemetry = $this->telemetry();
         $related = $telemetry->operation('related')->start();
-        $relatedContext = $related->span()->context();
+        $relatedTraceId = $related->span()->traceId();
+        $relatedSpanId = $related->span()->spanId();
         $related->finish();
 
         $telemetry
-            ->operation('linked')
-            ->link($relatedContext)
-            ->link(OtelSpan::getInvalid()->getContext())
+            ->boundary('linked')
+            ->linkedTo($this->traceOf($relatedTraceId, $relatedSpanId))
+            ->linkedTo($this->traceOf(null, null))
             ->kind(SpanKind::Consumer)
             ->attributes(['after' => 'link'])
-            ->root()
+            ->from($this->rootTrace())
             ->run(static fn(): bool => true);
 
         $links = $this->exportedSpan(1)->getLinks();
         self::assertCount(1, $links);
         $link = $links[0] ?? Assert::fail('missing link');
-        self::assertSame($relatedContext->getSpanId(), $link->getSpanContext()->getSpanId());
+        self::assertSame($relatedSpanId, $link->getSpanContext()->getSpanId());
     }
 }

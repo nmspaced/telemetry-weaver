@@ -32,6 +32,9 @@ final class ComponentSignal
      *                                                 the caller outside this method) that
      *                                                 either signal may override; absent
      *                                                 means "use the component's"
+     * @param bool $durations whether this component records an operation-duration histogram,
+     *                        and so has boundaries worth overriding; `runtime` reports state,
+     *                        not durations
      *
      * @throws \RuntimeException the Config component's builder throws on internal misuse,
      *                           which would be a defect in this tree, not a runtime input
@@ -41,6 +44,7 @@ final class ComponentSignal
         string $info,
         bool $traces = true,
         ?string $overridableOption = null,
+        bool $durations = true,
     ): ArrayNodeDefinition {
         $node = new ArrayNodeDefinition($name);
 
@@ -52,7 +56,73 @@ final class ComponentSignal
 
         self::signal($node, 'metrics', 'Record measurements for this component.', $overridableOption);
 
+        if ($durations) {
+            self::durationBuckets($node);
+        }
+
         return $node;
+    }
+
+    /**
+     * The histogram boundaries of this component's operation-duration instrument.
+     *
+     * The bundle's defaults follow the semantic conventions, and those are chosen to be
+     * comparable across services rather than tight around any one of them. An application with
+     * an SLO stated in single-digit milliseconds cannot see it in buckets whose second step is
+     * 10 ms, and the OpenTelemetry answer — a view — is a heavier instrument than "these
+     * numbers instead of those". Empty keeps the default.
+     *
+     * Seconds, because every default is in seconds and a histogram whose unit varies by
+     * component cannot be compared across them.
+     *
+     * @throws \RuntimeException
+     */
+    private static function durationBuckets(ArrayNodeDefinition $component): void
+    {
+        $component
+            ->children()
+            ->arrayNode('duration_buckets')
+            ->info(
+                "Histogram bucket boundaries in seconds, replacing this component's defaults. Strictly increasing and greater than zero. Empty keeps the defaults.",
+            )
+            ->performNoDeepMerging()
+            ->floatPrototype()
+            ->end()
+            ->defaultValue([])
+            ->validate()
+            ->ifTrue(self::isNotStrictlyIncreasing(...))
+            ->thenInvalid('duration_buckets must be strictly increasing and greater than zero, got %s')
+            ->end()
+            ->end()
+            ->end();
+    }
+
+    /**
+     * The SDK does not reject unordered boundaries — it builds buckets from them as they are,
+     * and the histogram silently becomes meaningless. Caught here, where the file that wrote
+     * them can be named.
+     */
+    private static function isNotStrictlyIncreasing(mixed $boundaries): bool
+    {
+        if (!\is_array($boundaries)) {
+            return true;
+        }
+
+        $previous = 0.0;
+        /** @var mixed $boundary */
+        foreach ($boundaries as $boundary) {
+            if (!\is_float($boundary) && !\is_int($boundary)) {
+                return true;
+            }
+
+            if ((float) $boundary <= $previous) {
+                return true;
+            }
+
+            $previous = (float) $boundary;
+        }
+
+        return false;
     }
 
     /**

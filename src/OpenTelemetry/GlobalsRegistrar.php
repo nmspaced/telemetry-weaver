@@ -9,6 +9,7 @@ use OpenTelemetry\API\Instrumentation\Configurator;
 use OpenTelemetry\API\Logs\LoggerProviderInterface;
 use OpenTelemetry\API\Metrics\MeterProviderInterface;
 use OpenTelemetry\API\Trace\TracerProviderInterface;
+use OpenTelemetry\Context\Propagation\ResponsePropagatorInterface;
 use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 
 /**
@@ -93,12 +94,14 @@ final class GlobalsRegistrar
      * @param \Closure(): MeterProviderInterface $meterProvider
      * @param \Closure(): LoggerProviderInterface $loggerProvider
      * @param \Closure(): TextMapPropagatorInterface $propagator
+     * @param \Closure(): ResponsePropagatorInterface $responsePropagator
      */
     public function __construct(
         private readonly \Closure $tracerProvider,
         private readonly \Closure $meterProvider,
         private readonly \Closure $loggerProvider,
         private readonly \Closure $propagator,
+        private readonly \Closure $responsePropagator,
     ) {}
 
     /**
@@ -117,12 +120,14 @@ final class GlobalsRegistrar
         $meterProvider = $this->meterProvider;
         $loggerProvider = $this->loggerProvider;
         $propagator = $this->propagator;
+        $responsePropagator = $this->responsePropagator;
 
         Globals::reset();
         Globals::registerInitializer(static fn(Configurator $configurator): Configurator => $configurator
             ->withTracerProvider($tracerProvider())
             ->withMeterProvider($meterProvider())
             ->withLoggerProvider($loggerProvider())
-            ->withPropagator($propagator()));
+            ->withPropagator($propagator())
+            ->withResponsePropagator($responsePropagator()));
     }
 }

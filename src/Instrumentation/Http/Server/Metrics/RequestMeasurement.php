@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Metrics;
 
-use Nmspaced\TelemetryWeaver\Api\Measurement;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\HttpResponseStatus;
 use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionEntry;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 use OpenTelemetry\SemConv\Attributes\HttpAttributes;
 use OpenTelemetry\SemConv\Attributes\NetworkAttributes;

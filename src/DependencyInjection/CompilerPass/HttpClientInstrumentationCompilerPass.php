@@ -13,7 +13,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\RequestPropagation;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\ResponseMetadata;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\TraceableHttpClient;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -98,13 +98,14 @@ final readonly class HttpClientInstrumentationCompilerPass implements CompilerPa
 
         $container
             ->register(RequestPropagation::class, RequestPropagation::class)
-            ->setArgument('$propagator', new Reference(TextMapPropagatorInterface::class))
+            ->setArgument('$propagation', new Reference(Propagation::class))
             ->setArgument('$reporter', new Reference(InstrumentationFailureReporter::class));
 
         $container
             ->register(HttpClientTelemetry::class, HttpClientTelemetry::class)
             ->setArgument('$telemetry', new Reference('open_telemetry.http_client.telemetry'))
-            ->setArgument('$policy', new Reference(HostPolicy::class));
+            ->setArgument('$policy', new Reference(HostPolicy::class))
+            ->setArgument('$buckets', new Reference('open_telemetry.http_client.buckets'));
 
         $container
             ->register(ClientInstrumentation::class, ClientInstrumentation::class)

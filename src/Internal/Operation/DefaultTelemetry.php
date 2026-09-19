@@ -7,33 +7,30 @@ namespace Nmspaced\TelemetryWeaver\Internal\Operation;
 use Nmspaced\TelemetryWeaver\Api\Metrics;
 use Nmspaced\TelemetryWeaver\Api\Operation;
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
-use Nmspaced\TelemetryWeaver\Api\Span;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DiscardedDurations;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\BaggageReader;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\NoBaggage;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpenerInterface;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanView;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
-use OpenTelemetry\API\Trace\Span as OtelSpan;
-use OpenTelemetry\Context\Context;
-use OpenTelemetry\Context\ContextStorageInterface;
 use Psr\Log\NullLogger;
 
 /**
  * @internal A process-scoped dependency graph with no mutable execution state.
  */
-final readonly class DefaultTelemetry implements Telemetry
+final readonly class DefaultTelemetry implements BoundaryTelemetry
 {
     private OperationStarter $starter;
 
     public function __construct(
         SpanOpenerInterface $opener,
         private Metrics $instruments,
-        private InstrumentationFailureReporter $reporter,
-        private ContextStorageInterface $contextStorage,
+        InstrumentationFailureReporter $reporter,
+        BaggageReader $baggage,
     ) {
-        $this->starter = new OperationStarter($opener, $reporter);
+        $this->starter = new OperationStarter($opener, $reporter, $baggage);
     }
 
     /**
@@ -44,10 +41,10 @@ final readonly class DefaultTelemetry implements Telemetry
         $reporter = new InstrumentationFailureReporter(new NullLogger());
 
         return new self(
-            new NoOpSpanOpener(),
-            new SafeMetrics(new NoopMeter(), $reporter),
+            NoOpSpanOpener::disabled(),
+            new SafeMetrics(new NoopMeter(), $reporter, new DiscardedDurations()),
             $reporter,
-            Context::storage(),
+            new NoBaggage(),
         );
     }
 
@@ -67,20 +64,14 @@ final readonly class DefaultTelemetry implements Telemetry
     }
 
     #[\Override]
-    public function metrics(): Metrics
+    public function boundary(string $name): BoundaryOperation
     {
-        return $this->instruments;
+        return OperationPlan::named($name, $this->starter);
     }
 
     #[\Override]
-    public function currentSpan(): Span
+    public function metrics(): Metrics
     {
-        try {
-            return SpanView::current(OtelSpan::fromContext($this->contextStorage->current()), $this->reporter);
-        } catch (\Throwable $throwable) {
-            $this->reporter->report('Current span resolution failed', self::class, $throwable);
-
-            return SpanView::borrowed(OtelSpan::getInvalid(), $this->reporter);
-        }
+        return $this->instruments;
     }
 }

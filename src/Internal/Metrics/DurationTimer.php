@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Internal\Metrics;
 
 use Nmspaced\TelemetryWeaver\Api\DurationUnit;
-use OpenTelemetry\API\Common\Time\ClockInterface;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\API\Metrics\HistogramInterface;
-use OpenTelemetry\Context\Context;
-use OpenTelemetry\Context\ContextInterface;
 
 /**
  * One measurement of one interval.
@@ -19,6 +17,13 @@ use OpenTelemetry\Context\ContextInterface;
  *
  * The clock is monotonic nanoseconds; the unit comes from the same
  * OperationBuckets that supplied the boundaries, so the two cannot diverge.
+ *
+ * The correlation is handed in rather than read from the execution. It used to be the
+ * ambient context at construction, which happened to be right only because the operation
+ * activated its span first — an ordering nothing stated and nothing checked. Now whoever
+ * starts the measurement says which trace it belongs to, and an interval that outlives its
+ * span's activation still records against the span that was actually being measured.
+ *
  * @internal
  */
 final class DurationTimer
@@ -27,15 +32,30 @@ final class DurationTimer
 
     private bool $stopped = false;
 
-    private ?ContextInterface $context;
+    private ?TraceCorrelation $correlation;
 
-    public function __construct(
+    private function __construct(
         private readonly HistogramInterface $histogram,
         private readonly DurationUnit $unit,
-        private readonly ClockInterface $clock,
+        private readonly DurationRuntime $runtime,
+        ?TraceCorrelation $correlation,
     ) {
-        $this->startedAt = $clock->now();
-        $this->context = Context::getCurrent();
+        $this->startedAt = $runtime->clock->now();
+        $this->correlation = $correlation;
+    }
+
+    /**
+     * Named because building one is not a neutral act: the interval begins here, on the
+     * clock this runtime carries. The correlation is the trace the eventual measurement
+     * belongs to, captured now rather than read from the execution when it is recorded.
+     */
+    public static function started(
+        HistogramInterface $histogram,
+        DurationUnit $unit,
+        DurationRuntime $runtime,
+        ?TraceCorrelation $correlation = null,
+    ): self {
+        return new self($histogram, $unit, $runtime, $correlation);
     }
 
     /**
@@ -51,13 +71,14 @@ final class DurationTimer
 
         $this->stopped = true;
 
-        $context = $this->context;
-        $this->context = null;
+        $correlation = $this->correlation;
+        $this->correlation = null;
 
-        $this->histogram->record(
-            $this->unit->fromNanoseconds(\max(0, $this->clock->now() - $this->startedAt)),
+        $this->runtime->recorder->record(
+            $this->histogram,
+            $this->unit->fromNanoseconds(\max(0, $this->runtime->clock->now() - $this->startedAt)),
             $attributes,
-            $context,
+            $correlation,
         );
     }
 
@@ -68,6 +89,6 @@ final class DurationTimer
         }
 
         $this->stopped = true;
-        $this->context = null;
+        $this->correlation = null;
     }
 }
