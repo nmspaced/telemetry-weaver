@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use PHPUnit\Framework\Attributes\DataProvider;

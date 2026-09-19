@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Client;
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 
 /**
  * Writes the current trace context into the request's headers.
@@ -28,7 +28,7 @@ use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 final readonly class RequestPropagation
 {
     public function __construct(
-        private TextMapPropagatorInterface $propagator,
+        private Propagation $propagation,
         private InstrumentationFailureReporter $reporter,
     ) {}
 
@@ -40,7 +40,7 @@ final readonly class RequestPropagation
     public function inject(array $options): array
     {
         try {
-            $carrier = $this->carrier();
+            $carrier = $this->propagation->injectCurrent();
 
             if ($carrier === []) {
                 return $options;
@@ -53,7 +53,7 @@ final readonly class RequestPropagation
                 return $options;
             }
 
-            $options['headers'] = $carrier + self::without($headers, $this->propagator->fields());
+            $options['headers'] = $carrier + self::without($headers, $this->propagation->fields());
 
             return $options;
         } catch (\Throwable $throwable) {
@@ -61,34 +61,6 @@ final readonly class RequestPropagation
 
             return $options;
         }
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function carrier(): array
-    {
-        /** @var mixed $carrier */
-        $carrier = [];
-        // @mago-expect analysis:mixed-assignment — TextMapPropagatorInterface::inject() takes the carrier as `mixed &`
-        $this->propagator->inject($carrier);
-
-        if (!\is_array($carrier)) {
-            return [];
-        }
-
-        $injected = [];
-
-        /** @var mixed $value */
-        foreach ($carrier as $name => $value) {
-            if (!(\is_string($name) && \is_string($value))) {
-                continue;
-            }
-
-            $injected[$name] = $value;
-        }
-
-        return $injected;
     }
 
     /**

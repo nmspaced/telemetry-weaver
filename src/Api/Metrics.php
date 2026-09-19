@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Api;
 
 use OpenTelemetry\API\Metrics\CounterInterface;
+use OpenTelemetry\API\Metrics\GaugeInterface;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\API\Metrics\ObservableCallbackInterface;
 use OpenTelemetry\API\Metrics\ObserverInterface;
+use OpenTelemetry\API\Metrics\UpDownCounterInterface;
 
 /**
  * Create instruments once for static names; record dynamic attributes on those instruments.
@@ -22,9 +24,42 @@ interface Metrics
     public function counter(string $name, ?string $unit = null, ?string $description = null): CounterInterface;
 
     /**
+     * A quantity that goes both ways: work in flight, connections open, items queued.
+     *
+     * Not a counter with negative amounts — the two are exported differently. A counter is
+     * a monotonic sum, so a backend may compute a rate from it; this is a non-monotonic
+     * one, where the current value is the point and a rate is meaningless. Pair every
+     * `add(1)` with an `add(-1)` on the path that undoes the work, `finally` included, or
+     * the series drifts up and never comes back.
+     *
+     * @param non-empty-string $name
+     */
+    public function upDownCounter(
+        string $name,
+        ?string $unit = null,
+        ?string $description = null,
+    ): UpDownCounterInterface;
+
+    /**
      * @param non-empty-string $name
      */
     public function histogram(string $name, ?string $unit = null, ?string $description = null): HistogramInterface;
+
+    /**
+     * The current value of something, recorded at a moment the application chooses.
+     *
+     * The synchronous counterpart of `observableGauge()`, and the choice between them is
+     * about when the value exists rather than what it means. Use this when a value arrives
+     * as an event — a queue depth a broker just told you, a temperature a device reported.
+     * Use the observable one when the value can be read at any time and there is no natural
+     * moment to record it.
+     *
+     * Exported as a last value, so it is not summed across workers or attribute sets. If
+     * the number is an amount that should add up, it is an up-down counter, not a gauge.
+     *
+     * @param non-empty-string $name
+     */
+    public function gauge(string $name, ?string $unit = null, ?string $description = null): GaugeInterface;
 
     /**
      * @param non-empty-string $name
@@ -54,6 +89,27 @@ interface Metrics
      * @param \Closure(ObserverInterface): void $observe
      */
     public function observableGauge(
+        string $name,
+        \Closure $observe,
+        ?string $unit = null,
+        ?string $description = null,
+    ): ObservableCallbackInterface;
+
+    /**
+     * The read-at-collection counterpart of `counter()`: a total that only grows and can be
+     * read at any time — bytes a process has written since it started, work it has
+     * completed.
+     *
+     * Reports the cumulative total, not the change since the last collection. The SDK
+     * computes deltas from it where the temporality calls for them, so a callback that
+     * returns an increment produces a series that climbs far too fast.
+     *
+     * Everything said of `observableGauge()` about the callback and the handle holds here.
+     *
+     * @param non-empty-string $name
+     * @param \Closure(ObserverInterface): void $observe
+     */
+    public function observableCounter(
         string $name,
         \Closure $observe,
         ?string $unit = null,

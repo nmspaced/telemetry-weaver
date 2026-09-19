@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Runtime;
 
-use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\FlushPolicy;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -33,22 +33,15 @@ final class FlushGateTest extends TestCase
     }
 
     /**
-     * A process that ends on its first boundary — every FPM request, every one-shot command — is served by the SDK's shutdown hook. Only a worker reaches a second boundary.
+     * `atBoundary()` is reached from a shared HTTP worker's terminate and the Messenger
+     * worker loop, and from nowhere else — every process that ends after one unit of work
+     * goes through `atShutdown()` instead. So the first boundary is a worker's first unit of
+     * work, and holding its telemetry back buys nothing while costing it its visibility.
      */
     #[Test]
-    public function theFirstBoundaryInTheProcessIsSkipped(): void
+    public function theFirstBoundaryInTheProcessFlushes(): void
     {
-        $gate = new FlushPolicy('metrics', 60_000, $this->clock);
-
-        self::assertFalse($gate->shouldFlush());
-    }
-
-    #[Test]
-    public function theSecondBoundaryFlushes(): void
-    {
-        $gate = new FlushPolicy('metrics', 60_000, $this->clock);
-
-        $gate->shouldFlush();
+        $gate = FlushPolicy::every('metrics', 60_000, $this->clock);
 
         self::assertTrue($gate->shouldFlush());
     }
@@ -56,9 +49,8 @@ final class FlushGateTest extends TestCase
     #[Test]
     public function aBoundaryInsideTheIntervalIsSkipped(): void
     {
-        $gate = new FlushPolicy('metrics', 60_000, $this->clock);
+        $gate = FlushPolicy::every('metrics', 60_000, $this->clock);
 
-        $gate->shouldFlush();
         $gate->shouldFlush();
 
         $this->clock->advanceSeconds(59);
@@ -69,9 +61,8 @@ final class FlushGateTest extends TestCase
     #[Test]
     public function aBoundaryAfterTheIntervalFlushesAgain(): void
     {
-        $gate = new FlushPolicy('metrics', 60_000, $this->clock);
+        $gate = FlushPolicy::every('metrics', 60_000, $this->clock);
 
-        $gate->shouldFlush();
         $gate->shouldFlush();
 
         $this->clock->advanceSeconds(61);
@@ -80,13 +71,15 @@ final class FlushGateTest extends TestCase
     }
 
     /**
-     * A fresh instance must not restart the schedule — the state models the process, not the object.
+     * A fresh instance must not restart the schedule — the state models the process, not the
+     * object. A worker that rebuilds its container between units of work would otherwise
+     * flush on every single boundary.
      */
     #[Test]
     public function stateSurvivesANewInstance(): void
     {
-        new FlushPolicy('metrics', 60_000, $this->clock)->shouldFlush();
+        FlushPolicy::every('metrics', 60_000, $this->clock)->shouldFlush();
 
-        self::assertTrue(new FlushPolicy('metrics', 60_000, $this->clock)->shouldFlush());
+        self::assertFalse(FlushPolicy::every('metrics', 60_000, $this->clock)->shouldFlush());
     }
 }

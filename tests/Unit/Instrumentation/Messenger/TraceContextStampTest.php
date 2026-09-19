@@ -30,7 +30,7 @@ final class TraceContextStampTest extends TestCase
         $carrier = [];
         $propagator->inject($carrier, null, $this->context());
 
-        /** @var array<string, string> $carrier */
+        /** @var array<non-empty-string, string> $carrier */
         $stamp = new TraceContextStamp($carrier);
         $extracted = Span::fromContext($propagator->extract($stamp->carrier, null, Context::getRoot()))->getContext();
 
@@ -48,7 +48,7 @@ final class TraceContextStampTest extends TestCase
     {
         $propagator = TraceContextPropagator::getInstance();
 
-        /** @var list<array<string, string>> $carriers */
+        /** @var list<array<non-empty-string, string>> $carriers */
         $carriers = [[], ['traceparent' => ''], ['traceparent' => 'nonsense']];
         foreach ($carriers as $carrier) {
             $stamp = new TraceContextStamp($carrier);

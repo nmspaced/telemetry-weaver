@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing;
 
-use Nmspaced\TelemetryWeaver\Api\RunningOperation;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\HttpResponseStatus;
 use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionEntry;
+use Nmspaced\TelemetryWeaver\Internal\Operation\ScopedOperation;
 use OpenTelemetry\SemConv\Attributes\HttpAttributes;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -37,7 +37,7 @@ final class RequestTrace implements ExecutionEntry
      * @param int<400, 599> $recordExceptionMinStatus lowest status at which the exception event is recorded
      */
     public function __construct(
-        private readonly RunningOperation $operation,
+        private readonly ScopedOperation $operation,
         private readonly string $method,
         private readonly int $recordExceptionMinStatus = 500,
     ) {}
@@ -56,6 +56,19 @@ final class RequestTrace implements ExecutionEntry
 
         $this->operation->span()->attribute(HttpAttributes::HTTP_ROUTE, $template);
         $this->operation->span()->rename(\sprintf('%s %s', $method, $template));
+    }
+
+    /**
+     * Enrichment from elsewhere in the request — who is logged in, say.
+     *
+     * The operation is not handed out: a caller that could reach it could also end it, and
+     * this span belongs to the request, not to whoever is describing it.
+     *
+     * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
+     */
+    public function attributes(array $attributes): void
+    {
+        $this->operation->span()->attributes($attributes);
     }
 
     /**

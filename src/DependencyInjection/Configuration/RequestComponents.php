@@ -82,6 +82,18 @@ final class RequestComponents
             ->info('Record client.address. Off by default: an IP address is personal data in most jurisdictions.')
             ->defaultFalse()
             ->end()
+            ->booleanNode('record_user_id')
+            ->info(
+                'Record user.id from the authenticated token. Off by default: it names a person, and a trace that carries it is personal data with everything that follows. Needs symfony/security-core.',
+            )
+            ->defaultFalse()
+            ->end()
+            ->booleanNode('record_user_roles')
+            ->info(
+                'Record user.roles from the authenticated token. Off by default like every identity capture, but this one names a group rather than a person, and it answers the question usually asked of a trace: slow for admins, or for everyone. Needs symfony/security-core.',
+            )
+            ->defaultFalse()
+            ->end()
             ->integerNode('record_exception_min_status')
             ->min(400)
             ->max(599)

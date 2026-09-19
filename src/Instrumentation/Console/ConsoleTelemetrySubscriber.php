@@ -8,7 +8,8 @@ use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionRegistry;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\CommandOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
 use OpenTelemetry\SemConv\Incubating\Attributes\ProcessIncubatingAttributes;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleCommandEvent;
@@ -54,7 +55,7 @@ final readonly class ConsoleTelemetrySubscriber implements EventSubscriberInterf
         private Telemetry $telemetry,
         InstrumentationFailureReporter $reporter,
         private array $excludedCommands = [],
-        CommandOperationBuckets $buckets = new CommandOperationBuckets(),
+        OperationBuckets $buckets = DefaultBuckets::Command,
     ) {
         $this->executions = new ExecutionRegistry($reporter, 'console');
         $this->duration = $telemetry->metrics()->duration(

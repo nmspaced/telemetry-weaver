@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Api;
 
-use OpenTelemetry\API\Trace\SpanContextInterface;
-
 /**
  * A borrowed view: enrichment never transfers ownership of the span or its activation.
  *
@@ -43,7 +41,27 @@ interface Span
      */
     public function fail(string $type): void;
 
-    public function context(): SpanContextInterface;
+    /**
+     * The ids this span is known by, as the lowercase hex the W3C trace context uses.
+     *
+     * Values, not a handle: there is nothing here to write through, and holding them past
+     * the operation is safe because they name a trace that has already happened. They exist
+     * for the two things an application does with a trace id — show it on an error page so a
+     * report can be matched to a trace, and hand it to a system that correlates by id.
+     *
+     * Both are null together, whenever the operation has no valid span: tracing is off, the
+     * component is off, or the span was suppressed.
+     *
+     * @return non-empty-string|null
+     */
+    public function traceId(): ?string;
+
+    /**
+     * @see self::traceId()
+     *
+     * @return non-empty-string|null
+     */
+    public function spanId(): ?string;
 
     public function isRecording(): bool;
 }

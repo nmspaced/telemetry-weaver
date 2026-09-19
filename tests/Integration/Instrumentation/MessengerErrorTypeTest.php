@@ -81,7 +81,7 @@ final class MessengerErrorTypeTest extends MessengerTelemetryTestCase
     {
         $telemetry = new MessengerTelemetry(TelemetryFactory::create(
             $this->meters->getMeter('test'),
-            new NoOpSpanOpener(),
+            NoOpSpanOpener::disabled(),
             new InstrumentationFailureReporter($this->logger),
         ));
         $envelope = new Envelope(new SampleMessage('failed'));

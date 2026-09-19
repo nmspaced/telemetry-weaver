@@ -7,7 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineMiddleware;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrinePolicy;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use PHPUnit\Framework\Attributes\Test;
@@ -87,7 +87,7 @@ final class DoctrineRegistrationTest extends ContainerTestCase
         $policy = $container->get(DoctrinePolicy::class);
         self::assertInstanceOf(DoctrinePolicy::class, $policy);
         self::assertTrue($policy->recordStatements);
-        self::assertTrue($policy->opensSpan(), 'only_with_parent: false must open a span without a parent');
+        self::assertFalse($policy->onlyWithParent, 'only_with_parent: false must open a span without a parent');
     }
 
     /** @throws \Throwable */

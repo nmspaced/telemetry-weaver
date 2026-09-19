@@ -8,7 +8,7 @@ use Monolog\Level;
 use Monolog\LogRecord;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\OtelLogHandler;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\TraceContextProcessor;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\TelemetryWeaverBundle;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\SDK\Logs\NoopLoggerProvider;

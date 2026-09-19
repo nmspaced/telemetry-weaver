@@ -1,92 +1,151 @@
-# Export resilience and destination budgets
+# Export resilience
 
-The default export pipeline is designed around one rule: **telemetry may be lost; application availability must not be lost with it**.
+One rule decides the whole export design: **telemetry may be lost; the application's
+availability may not be lost with it.**
 
-## What is bounded
+Everything below follows from that. Nothing here is a durable delivery mechanism — that is the
+collector's job, and it is the reason [a local collector](configuration.md#1-export-to-a-local-collector)
+is the recommended topology.
+
+## Where export happens
+
+Spans and log records never export from the code that produced them. `span->end()` and a log
+call put a record on a bounded queue and return. The queue is drained at an execution boundary:
+the end of an HTTP request, a finished console command, a Messenger worker between messages, or
+PHP shutdown.
 
 ```text
-instrumentation
-    ↓
-bounded SDK queues
-    ↓
-execution boundary
-    ↓
-one global flush deadline
-    ↓
-destination-aware shares
-    ↓
-OTLP transport
+instrumentation and application code
+        │  enqueue, never send
+        ▼
+   bounded SDK queues
+        │  drained at an execution boundary
+        ▼
+   one deadline for the whole boundary
+        │  shared between collectors
+        ▼
+      OTLP transports
 ```
 
-`flush_timeout_ms` is a deadline for the whole boundary, not a timeout multiplied by the number of signals.
+A queue that fills before the next boundary drops records. That is deliberate: bounded loss is a
+better failure than an unbounded queue or a network wait inside business code. Queue sizes are
+`OTEL_BSP_MAX_QUEUE_SIZE` and `OTEL_BLRP_MAX_QUEUE_SIZE`, and they apply per worker.
 
-Telemetry Weaver cannot preempt arbitrary PHP code. The hard bound relies on the standard transport honoring the timeout it receives. A custom transport/exporter/provider may block longer; this is an explicit escape hatch.
+Metrics are different only in that there is nothing to enqueue: they are collected and exported
+at the boundary too, no more often than `metrics.flush_interval_ms` (or
+`OTEL_METRIC_EXPORT_INTERVAL`).
 
-## Why the budget is keyed by destination
+## One deadline per boundary
 
-A failure domain is usually a Collector endpoint, not a signal.
+```yaml
+open_telemetry:
+    sdk:
+        export:
+            flush_timeout_ms: 1000
+```
+
+`flush_timeout_ms` bounds the whole boundary, whatever it has to send. It is not a per-signal
+timeout: three signals do not mean three seconds.
+
+This is the number that decides how much of a request telemetry may consume in the worst case,
+so it is worth choosing rather than inheriting.
+
+## The budget is divided between collectors, not signals
+
+Collectors fail. Signals do not.
 
 ```text
 traces ─┐
-logs   ─┴─→ https://collector-a:4318/v1/...
+logs   ─┴─→ collector-a:4318   (hung)
 
-metrics ──→ https://collector-b:4318/v1/metrics
+metrics ──→ collector-b:4318   (healthy)
 ```
 
-For the default transport, the budget key is the endpoint origin: `scheme://host:port`. Paths such as `/v1/traces` and `/v1/metrics` on the same origin share one destination.
+Telemetry sent to one collector shares that collector's fate; telemetry sent to a different one
+must not be held hostage by it. So the budget is keyed by the endpoint's origin —
+`scheme://host:port`. Paths on the same origin (`/v1/traces`, `/v1/metrics`) are one collector,
+as they are in reality.
 
-This gives two useful properties:
+Without this, the hung collector in the diagram takes a full timeout for traces and another for
+logs, and the metrics bound for a healthy collector arrive late or not at all.
 
-- traces and logs cannot each spend a full fresh timeout against the same hung Collector;
-- a different, healthy Collector still gets a fair chance.
+Two properties follow:
 
-## Work-conserving shares
+- **No collector can be charged twice.** Once a send to a collector times out, everything else
+  bound for it during that boundary is refused immediately instead of waiting out the same
+  timeout again.
+- **A slow collector cannot starve a healthy one.** Each gets a share of the deadline: the time
+  left divided by the collectors not yet tried.
 
-A share is fixed when a destination is first used during that flush. It is computed from the time left and the destinations not yet served.
+Shares are not reservations. A collector that answers in 40 ms out of a 300 ms share leaves the
+remaining 260 ms available to the ones after it. And when less than a few milliseconds are left,
+no send is started at all — a network call with that deadline produces noise, not telemetry.
 
-Unused time is not reserved forever. If destination A receives 300 ms but finishes in 40 ms, the remaining time can increase the share available to later destinations.
+## Cooldown: skipping a collector that is down
 
-Destinations for which a transport exists but no batch is eventually sent still count conservatively. This may end a flush earlier, never later.
+```yaml
+open_telemetry:
+    sdk:
+        export:
+            failure_cooldown_ms: 30000
+```
 
-## Exhaustion and minimum useful allowance
+A collector that timed out is skipped by scheduled boundaries for this long, so a worker does
+not rediscover the same outage on every single request.
 
-A destination is exhausted for the current flush when it consumes its share or a send behaves like a timeout.
+Not every failure earns a cooldown. A connection refused, a quick 4xx or a rejected payload is
+cheap and says little about the collector's health — often nothing at all about another signal
+using it. A timeout is stronger evidence, but only if the send actually had time to work with:
+a collector that received nothing but the scraps another one left behind has not been shown to
+be unhealthy, and should not sit out thirty seconds for someone else's delay.
 
-An allowance below the implementation's small minimum is not granted at all. Network clients operate on millisecond-scale deadlines; starting a request with only a tiny remainder creates noise rather than useful work.
+So a cooldown starts when a send had a meaningful share of the boundary, spent essentially all
+of it, and failed.
 
-Exhaustion applies only to the current boundary unless cooldown is also started.
+Signal-level backoff and collector-level cooldown remain separate. A signal can fail on its own
+— a payload the backend rejects — without proving the collector unreachable.
 
-## Conclusive timeout and cooldown
+## The final flush
 
-Not every failed send proves that a Collector is unhealthy.
+Scheduled boundaries respect cooldowns and flush intervals. The last flush of a process does not:
+it makes one attempt even at a cooling collector, because there will be no later boundary to try
+again from. It still runs inside the same deadline.
 
-A fast `ECONNREFUSED`, a quick 4xx, or a signal-specific payload error is cheap and may say nothing about another signal using the same destination. A timeout-like failure is stronger evidence.
+A process killed with `SIGKILL`, or dying on a fatal error, delivers nothing. No PHP library can
+promise otherwise.
 
-Destination cooldown therefore starts only when:
+## Retries
 
-1. the send had a meaningful allowance (at least a configured fraction of an even split of the whole boundary budget);
-2. it consumed almost all of that allowance;
-3. it failed.
+```yaml
+open_telemetry:
+    sdk:
+        export:
+            max_retries: 0      # the default
+            retry_delay_ms: 100
+```
 
-This avoids punishing a healthy destination that received only scraps after another destination spent most of the boundary.
+The standard PHP transport retries synchronously, sleeping in the calling process between
+attempts. With a collector that is down, each retry costs another timeout plus backoff — inside
+a worker that should be serving traffic.
 
-Signal-level failure cooldown and destination-level cooldown are intentionally separate. A signal can fail without proving that the whole Collector is unreachable.
+Retry belongs where it is asynchronous: the collector's `sending_queue` and `retry_on_failure`.
 
-## Final flush
+## What the budget cannot do
 
-Scheduled boundaries respect cooldown and normal flush intervals. A final shutdown path is different: it makes one last attempt even for cooling destinations, but it still shares the same global budget.
+The deadline works by giving each send the smaller of its configured timeout and the
+destination's remaining share. It cannot preempt PHP code that ignores it.
 
-Forced process termination cannot guarantee delivery.
+- A **custom transport factory** owns its own timeout behaviour. If it blocks for ten seconds,
+  the boundary takes ten seconds.
+- A **custom exporter** is likewise not interruptible.
+- A **custom provider** replaces the pipeline entirely, including the queueing and the budget.
 
-## Retry policy
+Those are documented escape hatches, not accidents — see
+[SDK customization](sdk-customization.md) for what each override keeps and gives up.
 
-The default application-side retry count is zero. Retry inside PHP is synchronous in the standard transport and can turn one failed export into repeated sleeps and timeouts in the application process.
+## Multiple backends
 
-For durable delivery use a local Collector/Alloy and configure queues/retries there.
-
-## Multiple endpoints
-
-Per-signal OTLP endpoints work naturally with the destination budget:
+Per-signal endpoints work naturally with this model:
 
 ```dotenv
 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://tempo:4318/v1/traces
@@ -94,6 +153,11 @@ OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://mimir:4318/v1/metrics
 OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://loki:4318/v1/logs
 ```
 
-Three different origins are three budget destinations. Different paths on one origin are one destination.
+Three origins are three independent failure domains sharing one deadline. Tempo being down
+delays traces and does not delay metrics.
 
-See also [production configuration](production-configuration.md).
+Sending all three to one local collector is still the simpler and usually better arrangement:
+one failure domain the application can reach in a millisecond, and the fan-out to Tempo, Mimir
+and Loki happens in a process that is allowed to wait.
+
+See also [Configuration](configuration.md).

@@ -11,12 +11,14 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\RequestPropagation;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\ResponseMetadata;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\TraceableHttpClient;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpClientTelemetryTestCase;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpHeaders;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpTelemetryAssertions;
 use Nmspaced\TelemetryWeaver\Tests\Support\MetricPoints;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\StatusCode;
+use OpenTelemetry\Context\Context as OtelContext;
 use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\Test;
@@ -77,7 +79,7 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
 
         \gc_collect_cycles();
         self::assertCount(0, $responses);
-        self::assertFalse($this->telemetry->currentSpan()->context()->isValid());
+        self::assertNull($this->telemetry->activeTrace());
     }
 
     /**
@@ -128,7 +130,7 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
             new MockHttpClient(new MockResponse('ok')),
             new ClientInstrumentation(
                 new HttpClientTelemetry($this->telemetry, new HostPolicy()),
-                new RequestPropagation($propagator, $reporter),
+                new RequestPropagation(new OtelPropagation($propagator, OtelContext::storage()), $reporter),
                 new ResponseMetadata($reporter),
                 $reporter,
             ),
@@ -174,7 +176,10 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
         $reporter = new InstrumentationFailureReporter(new NullLogger());
         $instrumentation = new ClientInstrumentation(
             new HttpClientTelemetry($this->telemetry, new HostPolicy()),
-            new RequestPropagation(TraceContextPropagator::getInstance(), $reporter),
+            new RequestPropagation(
+                new OtelPropagation(TraceContextPropagator::getInstance(), OtelContext::storage()),
+                $reporter,
+            ),
             new ResponseMetadata($reporter),
             $reporter,
         );

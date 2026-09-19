@@ -19,7 +19,11 @@ return static function (ContainerConfigurator $container): void {
         ->set('open_telemetry.diagnostics.logger', LoggerInterface::class)
         ->factory(DiagnosticsLogger::create(...))
         ->arg('$logger', service('logger'))
-        ->arg('$enabled', param('open_telemetry.diagnostics.enabled'));
+        ->arg('$enabled', param('open_telemetry.diagnostics.enabled'))
+        // MonologBundle rewrites the `logger` argument above to this channel's logger.
+        // Inert without MonologBundle, which is the only case where there is no channel
+        // to rewrite it to.
+        ->tag('monolog.logger', ['channel' => DiagnosticsLogger::CHANNEL]);
 
     $services
         ->set(InstrumentationFailureReporter::class)

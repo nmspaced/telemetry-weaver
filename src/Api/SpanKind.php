@@ -4,17 +4,26 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Api;
 
-use OpenTelemetry\API\Trace\SpanKind as OtelSpanKind;
-
-enum SpanKind: int
+/**
+ * What an operation's span represents in a trace.
+ *
+ * A plain enum rather than one backed by OpenTelemetry's integers: the mapping is a detail
+ * of the tracing backend, and keeping it here would put an `OpenTelemetry\API\Trace` import
+ * in the one namespace whose whole purpose is that an application needs no OpenTelemetry
+ * type to describe its own work. {@see \Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener}
+ * holds the translation.
+ *
+ * @api
+ */
+enum SpanKind
 {
-    case Internal = OtelSpanKind::KIND_INTERNAL;
+    case Internal;
 
-    case Server = OtelSpanKind::KIND_SERVER;
+    case Server;
 
-    case Client = OtelSpanKind::KIND_CLIENT;
+    case Client;
 
-    case Producer = OtelSpanKind::KIND_PRODUCER;
+    case Producer;
 
-    case Consumer = OtelSpanKind::KIND_CONSUMER;
+    case Consumer;
 }

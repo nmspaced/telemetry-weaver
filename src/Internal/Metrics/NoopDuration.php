@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Internal\Metrics;
 
-use Nmspaced\TelemetryWeaver\Api\Duration;
-use Nmspaced\TelemetryWeaver\Api\Measurement;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 
 /**
- * @internal No clock, context capture or per-measurement allocation for a disabled instrument.
+ * @internal No clock, correlation or per-measurement allocation for a disabled instrument.
  */
-final readonly class NoopDuration implements Duration, Measurement
+final readonly class NoopDuration implements Measurement, StartableDuration
 {
     #[\Override]
-    public function start(): Measurement
+    public function start(?TraceCorrelation $correlation): Measurement
     {
         return $this;
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Transport\Sender\SenderInterface;
 use Symfony\Component\Messenger\Transport\Sender\SendersLocatorInterface;
@@ -24,7 +24,7 @@ final readonly class TraceableSendersLocator implements SendersLocatorInterface
     public function __construct(
         private SendersLocatorInterface $delegate,
         private MessengerTelemetry $messengerTelemetry,
-        private TextMapPropagatorInterface $propagator,
+        private Propagation $propagation,
         private MessagingSystem $systems = new MessagingSystem(),
     ) {}
 
@@ -40,7 +40,7 @@ final readonly class TraceableSendersLocator implements SendersLocatorInterface
             yield $alias => new TraceableSender(
                 $sender,
                 $this->messengerTelemetry,
-                $this->propagator,
+                $this->propagation,
                 $destination === '' ? 'unknown' : $destination,
                 $this->systems->ofTransport($sender),
             );

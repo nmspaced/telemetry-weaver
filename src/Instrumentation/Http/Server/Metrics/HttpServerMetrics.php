@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Metrics;
 
 use Nmspaced\TelemetryWeaver\Api\Duration;
-use Nmspaced\TelemetryWeaver\Api\Measurement;
 use Nmspaced\TelemetryWeaver\Api\Metrics;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\HttpOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Durations;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelationSource;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\SemConv\Incubating\Metrics\HttpIncubatingMetrics;
 use OpenTelemetry\SemConv\Metrics\HttpMetrics;
@@ -18,6 +22,12 @@ use OpenTelemetry\SemConv\Metrics\HttpMetrics;
  * All three are unconditional: a MeterInterface always returns an instrument,
  * a no-op one when the meter itself is no-op. Making the fields nullable only
  * pushed an impossible state onto every caller.
+ *
+ * This is the one instrumentation that measures an interval without owning an operation,
+ * and the reason is deliberate: request metrics are collected by a subscriber of their own
+ * so that they survive tracing being switched off. There is therefore no span to take a
+ * correlation from, and the source is asked for whatever the tracing subscriber — which
+ * runs first — has already made current.
  */
 final readonly class HttpServerMetrics
 {
@@ -27,8 +37,12 @@ final readonly class HttpServerMetrics
 
     private HistogramInterface $responseBodySize;
 
-    public function __construct(Metrics $metrics, HttpOperationBuckets $buckets = new HttpOperationBuckets())
-    {
+    public function __construct(
+        Metrics $metrics,
+        private TraceCorrelationSource $correlations,
+        private InstrumentationFailureReporter $reporter,
+        OperationBuckets $buckets = DefaultBuckets::Http,
+    ) {
         $this->duration = $metrics->duration(
             HttpMetrics::HTTP_SERVER_REQUEST_DURATION,
             $buckets->unit(),
@@ -49,7 +63,12 @@ final readonly class HttpServerMetrics
 
     public function startDuration(): Measurement
     {
-        return $this->duration->start();
+        return Durations::start(
+            $this->duration,
+            $this->correlations->current(),
+            $this->reporter,
+            HttpMetrics::HTTP_SERVER_REQUEST_DURATION,
+        );
     }
 
     /**

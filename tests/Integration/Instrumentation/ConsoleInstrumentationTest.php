@@ -8,8 +8,8 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Console\ConsoleFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Console\ConsoleTelemetrySubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushPolicy;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\SignalFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\FlushPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SignalFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
 use Nmspaced\TelemetryWeaver\Tests\Support\FrameworkInstrumentationTestCase;
 use OpenTelemetry\API\Trace\SpanKind;
@@ -51,7 +51,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertSame(7, $application->run(new ArrayInput(['command' => 'app:test']), new BufferedOutput()));
         self::assertSame('console app:test', $this->span()->getName());
         self::assertSame('7', $this->span()->getAttributes()->get('error.type'));
-        self::assertFalse($this->telemetry->currentSpan()->context()->isValid());
+        self::assertNull($this->telemetry->activeTrace());
     }
 
     /**
@@ -126,7 +126,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         $input = new ArrayInput([]);
         $subscriber->onCommand(new ConsoleCommandEvent(new Command('app:unfinished'), $input, new BufferedOutput()));
         $subscriber->reset();
-        self::assertFalse($this->telemetry->currentSpan()->context()->isValid());
+        self::assertNull($this->telemetry->activeTrace());
     }
 
     /**
@@ -155,9 +155,9 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
             });
         $failures = new ExportFailureReporter(new NullLogger());
         $flush = new ConsoleFlushSubscriber(Flushers::coordinating(
-            new SignalFlusher($tracers, new FlushPolicy('traces'), $failures),
-            new SignalFlusher(new NoopLoggerProvider(), new FlushPolicy('logs'), $failures),
-            new SignalFlusher($meters, new FlushPolicy('metrics'), $failures),
+            new SignalFlusher($tracers, FlushPolicy::onSdkSchedule('traces'), $failures),
+            new SignalFlusher(new NoopLoggerProvider(), FlushPolicy::onSdkSchedule('logs'), $failures),
+            new SignalFlusher($meters, FlushPolicy::onSdkSchedule('metrics'), $failures),
             new FlushBudget(),
             $failures,
         ));

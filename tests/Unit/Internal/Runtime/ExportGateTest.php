@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Runtime;
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientTracesExporter;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientTracesExporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use OpenTelemetry\SDK\Trace\SpanExporterInterface;

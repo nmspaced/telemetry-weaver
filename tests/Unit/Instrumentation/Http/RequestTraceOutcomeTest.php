@@ -6,7 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Instrumentation\Http;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTrace;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryFactory;
 use OpenTelemetry\API\Trace\StatusCode;
@@ -154,7 +154,7 @@ final class RequestTraceOutcomeTest extends TestCase
     private function trace(int $recordExceptionMinStatus = 500): RequestTrace
     {
         return new RequestTrace(
-            TelemetryFactory::tracing($this->spans)->operation('GET')->start(),
+            TelemetryFactory::tracing($this->spans)->boundary('GET')->start(),
             'GET',
             $recordExceptionMinStatus,
         );

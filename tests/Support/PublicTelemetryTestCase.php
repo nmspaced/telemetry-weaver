@@ -9,9 +9,16 @@ use Nmspaced\TelemetryWeaver\Api\DurationUnit;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
 use Nmspaced\TelemetryWeaver\Internal\Operation\DefaultTelemetry;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelIncomingTrace;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
+use OpenTelemetry\API\Trace\Span as OtelSpan;
+use OpenTelemetry\API\Trace\SpanContext;
+use OpenTelemetry\Context\Context;
 use OpenTelemetry\SDK\Metrics\Data\HistogramDataPoint;
 use OpenTelemetry\SDK\Metrics\Data\Metric;
 use OpenTelemetry\SDK\Metrics\Data\Temporality;
@@ -52,18 +59,47 @@ abstract class PublicTelemetryTestCase extends TelemetryTestCase
         parent::tearDown();
     }
 
-    protected function telemetry(bool $traces = true, bool $metrics = true): Telemetry
+    protected function telemetry(bool $traces = true, bool $metrics = true): DefaultTelemetry
     {
         return new DefaultTelemetry(
-            $traces ? $this->spans : new NoOpSpanOpener(),
+            $traces ? $this->spans : NoOpSpanOpener::disabled(),
             new SafeMetrics(
                 $metrics ? $this->meters->getMeter('test') : new NoopMeter(),
                 $this->reporter,
+                new OtelDurationRecorder(),
                 $this->clock,
             ),
             $this->reporter,
-            $this->contextStorage,
+            new OtelBaggageReader(),
         );
+    }
+
+    /**
+     * An incoming trace that carried nothing — how a boundary asks for a new trace rather
+     * than a continuation of whatever the process is already doing.
+     */
+    protected function rootTrace(): IncomingTrace
+    {
+        return OtelIncomingTrace::none();
+    }
+
+    /**
+     * The trace an operation ran in, as an incoming one — what a link needs, and what a real
+     * boundary would have extracted from a carrier.
+     *
+     * Ids rather than a span, because that is all a carrier ever holds, and because the ids
+     * have to be read while the operation is still running: a finished one has released its
+     * view and reports none.
+     *
+     * @param non-empty-string|null $traceId
+     * @param non-empty-string|null $spanId
+     */
+    protected function traceOf(?string $traceId, ?string $spanId): IncomingTrace
+    {
+        $context =
+            $traceId === null || $spanId === null ? SpanContext::getInvalid() : SpanContext::create($traceId, $spanId);
+
+        return OtelIncomingTrace::extracted(OtelSpan::wrap($context)->storeInContext(Context::getRoot()));
     }
 
     protected function duration(Telemetry $telemetry): Duration

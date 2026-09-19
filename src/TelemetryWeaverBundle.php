@@ -13,11 +13,15 @@ use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\MessengerInstrumen
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\MonologInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SchedulerInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SdkComponentsCompilerPass;
+use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SecurityInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SerializerInstrumentationCompilerPass;
+use Nmspaced\TelemetryWeaver\DependencyInjection\ConfigParameters;
 use Nmspaced\TelemetryWeaver\DependencyInjection\ConfiguredLogExport;
 use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationParameters;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\OtelLogHandler;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\GlobalsRegistrar;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\SdkDiagnostics;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -70,57 +74,19 @@ final class TelemetryWeaverBundle extends AbstractBundle
     }
 
     /**
+     * Flattens the validated configuration into `open_telemetry.*` parameters.
+     *
+     * The mapping is mechanical and lives in {@see ConfigParameters}; the only key this
+     * method reads for itself is the master switch, because it decides which service file
+     * is imported. `instrumentation` has a flattener of its own — a component's options are
+     * written twice, once component-wide and once per signal — so it is excluded here.
+     *
      * @param array<array-key, mixed> $config
      */
     #[\Override]
     public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        /**
-         * @var array{
-         *      enabled: bool,
-         *      runtime: array{request_metrics: array{mode: 'disabled'|'delta'}},
-         *      sdk: array{
-         *          resource_attributes: array<string, bool|int|float|string|null>,
-         *          exporter_otlp_headers: array<string, bool|int|float|string|null>,
-         *          export: array{
-         *              flush_timeout_ms: positive-int,
-         *              failure_cooldown_ms: int<0, max>,
-         *              max_retries: int<0, max>,
-         *              retry_delay_ms: int<0, max>
-         *          },
-         *          otlp: array{transport_factories: array{grpc: bool|int|float|string|null, http: bool|int|float|string|null}},
-         *          traces: array{provider: bool|int|float|string|null, exporter: bool|int|float|string|null},
-         *          metrics: array{provider: bool|int|float|string|null, exporter: bool|int|float|string|null},
-         *          logs: array{provider: bool|int|float|string|null, exporter: bool|int|float|string|null}
-         *      },
-         *      scope: array{
-         *          name: non-empty-string,
-         *          version: non-empty-string|null,
-         *          schema_url: non-empty-string
-         *      },
-         *      traces: array{enabled: bool},
-         *      metrics: array{
-         *          enabled: bool,
-         *          flush_interval_ms: positive-int|null
-         *      },
-         *      instrumentation: array<non-empty-string, array<non-empty-string, mixed>>,
-         *      logs: array{
-         *          correlation: array{enabled: bool},
-         *          export: array{
-         *              enabled: bool,
-         *              level: non-empty-string,
-         *              excluded_channels: list<non-empty-string>
-         *          }
-         *      },
-         *      diagnostics: array{
-         *          enabled: bool,
-         *          detailed_per_process: int<0, max>,
-         *          min_interval_seconds: float
-         *      }
-         *  } $config
-         */
-
-        if (!$config['enabled']) {
+        if (($config['enabled'] ?? true) !== true) {
             $configurator->import('../config/disabled.php');
 
             return;
@@ -128,44 +94,11 @@ final class TelemetryWeaverBundle extends AbstractBundle
 
         $parameters = $configurator->parameters();
 
-        $parameters
-            ->set('open_telemetry.enabled', $config['enabled'])
-            ->set('open_telemetry.runtime.request_metrics.mode', $config['runtime']['request_metrics']['mode'])
-            ->set('open_telemetry.sdk.resource_attributes', $config['sdk']['resource_attributes'])
-            ->set('open_telemetry.sdk.exporter_otlp_headers', $config['sdk']['exporter_otlp_headers'])
-            ->set('open_telemetry.sdk.export.flush_timeout_ms', $config['sdk']['export']['flush_timeout_ms'])
-            ->set('open_telemetry.sdk.export.failure_cooldown_ms', $config['sdk']['export']['failure_cooldown_ms'])
-            ->set('open_telemetry.sdk.export.max_retries', $config['sdk']['export']['max_retries'])
-            ->set('open_telemetry.sdk.export.retry_delay_ms', $config['sdk']['export']['retry_delay_ms'])
-            ->set(
-                'open_telemetry.sdk.otlp.transport_factories.grpc',
-                $config['sdk']['otlp']['transport_factories']['grpc'],
-            )
-            ->set(
-                'open_telemetry.sdk.otlp.transport_factories.http',
-                $config['sdk']['otlp']['transport_factories']['http'],
-            )
-            ->set('open_telemetry.sdk.traces.provider', $config['sdk']['traces']['provider'])
-            ->set('open_telemetry.sdk.traces.exporter', $config['sdk']['traces']['exporter'])
-            ->set('open_telemetry.sdk.metrics.provider', $config['sdk']['metrics']['provider'])
-            ->set('open_telemetry.sdk.metrics.exporter', $config['sdk']['metrics']['exporter'])
-            ->set('open_telemetry.sdk.logs.provider', $config['sdk']['logs']['provider'])
-            ->set('open_telemetry.sdk.logs.exporter', $config['sdk']['logs']['exporter'])
-            ->set('open_telemetry.scope.name', $config['scope']['name'])
-            ->set('open_telemetry.scope.version', $config['scope']['version'])
-            ->set('open_telemetry.scope.schema_url', $config['scope']['schema_url'])
-            ->set('open_telemetry.traces.enabled', $config['traces']['enabled'])
-            ->set('open_telemetry.metrics.enabled', $config['metrics']['enabled'])
-            ->set('open_telemetry.metrics.flush_interval_ms', $config['metrics']['flush_interval_ms'])
-            ->set('open_telemetry.logs.correlation.enabled', $config['logs']['correlation']['enabled'])
-            ->set('open_telemetry.logs.export.enabled', $config['logs']['export']['enabled'])
-            ->set('open_telemetry.logs.export.level', $config['logs']['export']['level'])
-            ->set('open_telemetry.logs.export.excluded_channels', $config['logs']['export']['excluded_channels'])
-            ->set('open_telemetry.diagnostics.enabled', $config['diagnostics']['enabled'])
-            ->set('open_telemetry.diagnostics.detailed_per_process', $config['diagnostics']['detailed_per_process'])
-            ->set('open_telemetry.diagnostics.min_interval_seconds', $config['diagnostics']['min_interval_seconds']);
+        ConfigParameters::flatten($parameters, 'open_telemetry', $config, except: ['instrumentation']);
 
-        InstrumentationParameters::flatten($parameters, $config['instrumentation']);
+        /** @var array<non-empty-string, array<non-empty-string, mixed>> $instrumentation */
+        $instrumentation = $config['instrumentation'] ?? [];
+        InstrumentationParameters::flatten($parameters, $instrumentation);
 
         $configurator->import('../config/services.php');
     }
@@ -194,6 +127,24 @@ final class TelemetryWeaverBundle extends AbstractBundle
         }
 
         $this->claimGlobals($container);
+        $this->routeSdkDiagnostics($container);
+    }
+
+    /**
+     * Best-effort for the same reason as Globals: losing the SDK's diagnostics costs an
+     * operator a log stream, and failing the boot costs the application everything.
+     */
+    private function routeSdkDiagnostics(ContainerInterface $container): void
+    {
+        try {
+            $logger = $container->get('open_telemetry.diagnostics.logger');
+        } catch (\Throwable) {
+            return;
+        }
+
+        if ($logger instanceof LoggerInterface) {
+            SdkDiagnostics::install($logger);
+        }
     }
 
     /**
@@ -226,6 +177,7 @@ final class TelemetryWeaverBundle extends AbstractBundle
         $container->addCompilerPass(new HttpClientInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new CacheInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new SerializerInstrumentationCompilerPass(), priority: -20);
+        $container->addCompilerPass(new SecurityInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new DoctrineInstrumentationCompilerPass(), priority: 10);
         $container->addCompilerPass(new MessengerInstrumentationCompilerPass(), priority: 10);
     }

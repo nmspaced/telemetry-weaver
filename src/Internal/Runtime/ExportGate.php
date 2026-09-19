@@ -42,7 +42,7 @@ final class ExportGate
 
     private bool $closed = false;
 
-    /** @var \WeakReference<TelemetryFlusher>|null */
+    /** @var \WeakReference<BoundaryFlush>|null */
     private ?\WeakReference $finisher = null;
 
     private function __construct(
@@ -88,7 +88,7 @@ final class ExportGate
     }
 
     /** A pipeline that outlives requests gets one final, budgeted flush when PHP shuts down. */
-    public function finishOnExit(TelemetryFlusher $flusher): void
+    public function finishOnExit(BoundaryFlush $flusher): void
     {
         if ($this->closed) {
             return;

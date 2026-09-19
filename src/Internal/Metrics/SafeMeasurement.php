@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Internal\Metrics;
 
-use Nmspaced\TelemetryWeaver\Api\Measurement;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 
 /**

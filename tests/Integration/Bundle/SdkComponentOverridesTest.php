@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SdkComponentsCompilerPass;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientLogsExporter;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientMetricsExporter;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientTracesExporter;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientLogsExporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientMetricsExporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientTracesExporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Fake\CountingSpanExporter;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingTransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\ShutdownRecordingTracerProvider;

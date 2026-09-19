@@ -11,7 +11,8 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\MessengerWorkerSubscriber
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\TraceableMessageBusMiddleware;
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\TraceableSendersLocator;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryFactory;
@@ -113,7 +114,7 @@ abstract class MessengerTelemetryTestCase extends TestCase
     ): MessengerConsumption {
         return new MessengerConsumption(
             $telemetry,
-            TraceContextPropagator::getInstance(),
+            new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage()),
             new InstrumentationFailureReporter($this->logger),
             $systems ?? new MessagingSystem(),
         );
@@ -163,7 +164,7 @@ abstract class MessengerTelemetryTestCase extends TestCase
                 new TraceableSendersLocator(
                     new SendersLocator([SampleMessage::class => \array_keys($senders)], new Container($senders)),
                     $telemetry,
-                    $propagator,
+                    new OtelPropagation($propagator, Context::storage()),
                     $systems,
                 ),
                 $dispatcher,

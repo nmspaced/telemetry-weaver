@@ -6,12 +6,17 @@ namespace Nmspaced\TelemetryWeaver\Testing;
 
 use Nmspaced\TelemetryWeaver\Api\Metrics;
 use Nmspaced\TelemetryWeaver\Api\Operation;
-use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryOperation;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 use Nmspaced\TelemetryWeaver\Internal\Operation\DefaultTelemetry;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\ActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\SDK\Metrics\Data\Metric;
 use OpenTelemetry\SDK\Metrics\Data\Temporality;
@@ -32,15 +37,24 @@ use Psr\Log\NullLogger;
  * Finish all operations before reset/shutdown. Measurements are delta snapshots drained by measurements();
  * reset drains the outstanding delta as well, so existing instruments remain usable without old samples.
  * Exported data intentionally accumulates until read/reset: this helper must not be a production service.
+ *
+ * It stands in for the facade on both sides of the package: an application drives it through
+ * the public {@see Telemetry} contract, and the bundle's own instrumentation — which needs
+ * the wider boundary constructor — can be driven through the same recorder in a test rather
+ * than against a second, differently-behaving double.
  */
-final readonly class InMemoryTelemetry implements Telemetry
+// @mago-expect lint:too-many-methods — it mirrors the telemetry facade plus the recorder's own readers; splitting either half would make a test double harder to find than to use
+final readonly class InMemoryTelemetry implements BoundaryTelemetry
 {
+    // @mago-expect lint:excessive-parameter-list — the recorder owns one pipeline per signal
+    // plus the read side of each; the constructor is private and has a single call site.
     private function __construct(
-        private Telemetry $delegate,
+        private BoundaryTelemetry $delegate,
         private SpanExporter $spanExporter,
         private MetricExporter $metricExporter,
         private TracerProviderInterface $tracers,
         private MeterProviderInterface $meters,
+        private ActiveTraceIdentity $activeTrace,
     ) {}
 
     public static function create(string $scope = 'test'): self
@@ -56,12 +70,19 @@ final readonly class InMemoryTelemetry implements Telemetry
         $reporter = new InstrumentationFailureReporter(new NullLogger());
         $telemetry = new DefaultTelemetry(
             new SpanOpener($tracers->getTracer($scope), Context::storage(), $reporter),
-            new SafeMetrics($meters->getMeter($scope), $reporter),
+            new SafeMetrics($meters->getMeter($scope), $reporter, new OtelDurationRecorder()),
             $reporter,
-            Context::storage(),
+            new OtelBaggageReader(),
         );
 
-        return new self($telemetry, $spans, $metrics, $tracers, $meters);
+        return new self(
+            $telemetry,
+            $spans,
+            $metrics,
+            $tracers,
+            $meters,
+            new OtelActiveTraceIdentity(Context::storage()),
+        );
     }
 
     #[\Override]
@@ -76,16 +97,33 @@ final readonly class InMemoryTelemetry implements Telemetry
         return $this->delegate->operation($name);
     }
 
+    /**
+     * @internal for the bundle's own instrumentation tests; an application has no use for it
+     */
+    #[\Override]
+    public function boundary(string $name): BoundaryOperation
+    {
+        return $this->delegate->boundary($name);
+    }
+
     #[\Override]
     public function metrics(): Metrics
     {
         return $this->delegate->metrics();
     }
 
-    #[\Override]
-    public function currentSpan(): Span
+    /**
+     * The trace running right now, or null when nothing is.
+     *
+     * The assertion an ownership bug fails: after a unit of work, nothing may still be
+     * active. The public API deliberately offers no way to read ambient state — that is
+     * what is being tested, so the test double reads it instead of the code under test.
+     *
+     * @return array{trace_id: non-empty-string, span_id: non-empty-string, trace_flags: int}|null
+     */
+    public function activeTrace(): ?array
     {
-        return $this->delegate->currentSpan();
+        return $this->activeTrace->current();
     }
 
     /** @return list<SpanDataInterface> */

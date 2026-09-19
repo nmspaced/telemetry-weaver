@@ -96,7 +96,7 @@ final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
 
         self::assertSame('opted-in', $this->span()->getAttributes()->get('email.subject'));
         self::assertSame(StatusCode::STATUS_ERROR, $this->span()->getStatus()->getCode());
-        self::assertFalse($this->telemetry->currentSpan()->context()->isValid());
+        self::assertNull($this->telemetry->activeTrace());
     }
 
     /**

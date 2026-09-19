@@ -4,66 +4,44 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\DependencyInjection;
 
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpProtocol;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Reads the `sdk.*` service ids an application configured, and refuses the ones that cannot work.
+ * Turns the `sdk.*` service ids an application configured into references, refusing the ones
+ * that name nothing or name the wrong kind of thing.
  *
  * Checked at compile time rather than in the config tree, because only the container knows
  * whether a service exists and what it implements — and a wrong id has to fail the build, not
- * the first request that asks for a tracer.
+ * the first request that asks for a tracer. The combinations that cannot work together are
+ * {@see SdkComponentRules}.
+ *
+ * @internal
  */
 final readonly class SdkComponentIds
 {
     /**
-     * Keys that a replaced link makes meaningless are an error rather than silently ignored:
-     * here, an exporter next to a provider for the same signal.
+     * @param non-empty-string $parameter naming a list of service ids
+     * @param class-string $interface
      *
-     * @param list<non-empty-string> $signals
-     *
-     * @throws InvalidArgumentException
-     */
-    public static function rejectIgnoredKeys(ContainerBuilder $container, array $signals): void
-    {
-        foreach ($signals as $signal) {
-            if (
-                $container->getParameter('open_telemetry.sdk.' . $signal . '.provider') !== null
-                && $container->getParameter('open_telemetry.sdk.' . $signal . '.exporter') !== null
-            ) {
-                throw new InvalidArgumentException(\sprintf(
-                    'sdk.%1$s.exporter is ignored when sdk.%1$s.provider is set; configure the exporter inside the provider.',
-                    $signal,
-                ));
-            }
-        }
-    }
-
-    /**
-     * The bundle's transport settings are meaningless once an application's factory covers every
-     * protocol family. While one family keeps the bundle's transport they still reach it.
-     *
-     * @param array<string, Reference> $factories keyed by protocol family
+     * @return list<Reference>
      *
      * @throws InvalidArgumentException
      */
-    public static function rejectIgnoredTransportSettings(ContainerBuilder $container, array $factories): void
+    public static function references(ContainerBuilder $container, string $parameter, string $interface): array
     {
-        if (\count($factories) < \count(OtlpProtocol::FAMILIES)) {
-            return;
+        $ids = $container->getParameter($parameter);
+        if (!\is_array($ids)) {
+            return [];
         }
 
-        if (
-            $container->getParameter('open_telemetry.sdk.export.max_retries') !== 0
-            || $container->getParameter('open_telemetry.sdk.export.retry_delay_ms') !== 100
-            || $container->getParameter('open_telemetry.sdk.exporter_otlp_headers') !== []
-        ) {
-            throw new InvalidArgumentException(
-                "sdk.export.max_retries, sdk.export.retry_delay_ms and sdk.exporter_otlp_headers apply to the bundle's OTLP transport and are ignored when sdk.otlp.transport_factories names a factory for every protocol.",
-            );
+        $references = [];
+        foreach (\array_keys($ids) as $index) {
+            $references[] = self::reference($container, $parameter, $interface, $index);
         }
+
+        return \array_values(\array_filter($references));
     }
 
     /**
@@ -75,9 +53,19 @@ final readonly class SdkComponentIds
      *
      * @throws InvalidArgumentException
      */
-    public static function reference(ContainerBuilder $container, string $parameter, string $interface): ?Reference
-    {
+    public static function reference(
+        ContainerBuilder $container,
+        string $parameter,
+        string $interface,
+        int|string|null $index = null,
+    ): ?Reference {
         $id = $container->getParameter($parameter);
+        if ($index !== null) {
+            /** @var mixed $id */
+            $id = \is_array($id) ? $id[$index] ?? null : null;
+            $parameter = \sprintf('%s[%s]', $parameter, (string) $index);
+        }
+
         if ($id === null) {
             return null;
         }

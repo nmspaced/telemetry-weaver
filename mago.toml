@@ -159,3 +159,108 @@ trust-existence-checks = true
 class-initializers = [
     "PHPUnit\\Framework\\TestCase::setUp",
 ]
+
+
+[guard]
+# Architecture rules live here rather than in a test: `mago guard` already runs in
+# `composer static`, it resolves real symbols instead of reading `use` lines — so a type in a
+# signature counts and a class named in a docblock does not — and its baseline is verified
+# and pruned by the tool instead of by hand.
+#
+# The rule is not "no OpenTelemetry in the core". `OpenTelemetry\API\Metrics` and
+# `OpenTelemetry\SemConv` are used directly and deliberately: an instrument and an attribute
+# name carry no hidden execution state. What is fenced off is the two things that do —
+# `OpenTelemetry\Context`, whose static accessors read whatever the current execution
+# happens to hold, and `OpenTelemetry\SDK`, which is the application's choice of
+# implementation and not a contract a library may bind to.
+#
+# `mago-guard-baseline.toml` is the distance still to go, not a set of exemptions. Shrink it
+# with `composer guard:prune`, which removes entries that no longer match and never adds new
+# ones, so fixing an old breach cannot hide a new one.
+baseline = "mago-guard-baseline.toml"
+minimum-fail-level = "warning"
+# Only perimeter rules are defined; saying so keeps the structural checks from warning on
+# every run that they were skipped.
+mode = "perimeter"
+
+# The SDK lives in exactly one place: `OpenTelemetry\Sdk`, plus the composition root that
+# assembles it. An adapter is the wrong place for it too: adapters speak the API, and the SDK
+# is what the application swapped in behind it.
+#
+# `Internal\**` is denied whole rather than namespace by namespace. It became possible to say
+# it that way once the flush and exporter classes that did name the SDK moved under
+# `OpenTelemetry\Sdk`, and saying it that way is the point: a new file under `Internal` is
+# covered without anyone remembering to extend this list.
+[[guard.perimeter.restrictions]]
+dependency = "OpenTelemetry\\SDK\\**"
+deny-from = [
+    "Nmspaced\\TelemetryWeaver\\Api\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\**",
+    "Nmspaced\\TelemetryWeaver\\Instrumentation\\**",
+    "Nmspaced\\TelemetryWeaver\\OpenTelemetry\\Adapter\\**",
+]
+
+# The same rule from the other side: an adapter implements a port over the OpenTelemetry API,
+# so it has no business reaching into the bundle's own SDK island either.
+[[guard.perimeter.restrictions]]
+dependency = "Nmspaced\\TelemetryWeaver\\OpenTelemetry\\Sdk\\**"
+deny-from = ["Nmspaced\\TelemetryWeaver\\OpenTelemetry\\Adapter\\**"]
+
+# Ambient execution state, in every form. Only the adapter and the composition root may
+# name it at all.
+[[guard.perimeter.restrictions]]
+dependency = "OpenTelemetry\\Context\\**"
+deny-from = [
+    "Nmspaced\\TelemetryWeaver\\Api\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\Operation\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\Tracing\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\Propagation\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\Execution\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\Runtime\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\Diagnostics\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\Clock\\**",
+    "Nmspaced\\TelemetryWeaver\\Instrumentation\\**",
+]
+
+# `Internal\Metrics` is absent from the rule above on purpose: it decorates OpenTelemetry
+# instruments, and `HistogramInterface::record()` names `ContextInterface` in its signature,
+# so the type itself cannot be banned there. What is banned is every way to *read* ambient
+# state — the static accessor, the storage, and the propagators.
+[[guard.perimeter.restrictions]]
+dependency = "OpenTelemetry\\Context\\Context"
+deny-from = ["Nmspaced\\TelemetryWeaver\\Internal\\Metrics\\**"]
+
+[[guard.perimeter.restrictions]]
+dependency = "OpenTelemetry\\Context\\ContextStorageInterface"
+deny-from = ["Nmspaced\\TelemetryWeaver\\Internal\\Metrics\\**"]
+
+[[guard.perimeter.restrictions]]
+dependency = "OpenTelemetry\\Context\\Propagation\\**"
+deny-from = ["Nmspaced\\TelemetryWeaver\\Internal\\Metrics\\**"]
+
+# Tracing types are the mechanics the public API exists to hide, and the thing every layer
+# above the adapter must reach through a port rather than hold directly.
+#
+# `Internal\**` joined this list when `SpanOpenerInterface` stopped returning a concrete
+# `OwnedSpan` and started returning the `SpanOwner` port: a span, its activation and its
+# context now reach exactly as far as `OpenTelemetry\Adapter` and no further, and the rule
+# can be stated without naming an exception.
+[[guard.perimeter.restrictions]]
+dependency = "OpenTelemetry\\API\\Trace\\**"
+deny-from = [
+    "Nmspaced\\TelemetryWeaver\\Api\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\**",
+    "Nmspaced\\TelemetryWeaver\\Instrumentation\\**",
+]
+
+# The bundle's own adapter namespace, fenced off alongside the SDK's: a core class that
+# reaches into `OpenTelemetry\Adapter` has inverted the dependency just as surely as one
+# importing the SDK, and it is the easier mistake to make because the name looks local.
+# It has already happened here twice.
+[[guard.perimeter.restrictions]]
+dependency = "Nmspaced\\TelemetryWeaver\\OpenTelemetry\\**"
+deny-from = [
+    "Nmspaced\\TelemetryWeaver\\Api\\**",
+    "Nmspaced\\TelemetryWeaver\\Internal\\**",
+    "Nmspaced\\TelemetryWeaver\\Instrumentation\\**",
+]

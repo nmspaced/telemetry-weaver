@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\RequestMetricPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\RequestMetricPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
@@ -44,6 +45,10 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$budget', service(FlushBudget::class))
         ->arg('$failures', service(ExportFailureReporter::class))
         ->arg('$runtime', service(SymfonyRuntimeProfile::class));
+
+    // Everything that ends a unit of work asks for the port; only the container knows which
+    // implementation delivers it.
+    $services->alias(BoundaryFlush::class, TelemetryFlusher::class);
 
     $services
         ->set(RequestMetricPolicy::class)

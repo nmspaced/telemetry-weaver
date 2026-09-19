@@ -5,20 +5,16 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Internal\Operation;
 
 use Nmspaced\TelemetryWeaver\Api\Duration;
-use Nmspaced\TelemetryWeaver\Api\Operation;
-use Nmspaced\TelemetryWeaver\Api\RunningOperation;
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\NoopDuration;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOptions;
-use OpenTelemetry\API\Trace\SpanContextInterface;
-use OpenTelemetry\Context\Context;
-use OpenTelemetry\Context\ContextInterface;
 
 /**
  * @internal Immutable recipe; its constructor cannot accidentally start a span or capture an ambient context.
  */
-// @mago-expect lint:too-many-methods — immutable implementation of the complete Operation contract, including its named constructor
-final readonly class OperationPlan implements Operation
+// @mago-expect lint:too-many-methods — immutable implementation of the complete Operation contract, its boundary extension, and its named constructor
+final readonly class OperationPlan implements BoundaryOperation
 {
     /**
      * @param non-empty-string $name
@@ -42,57 +38,40 @@ final readonly class OperationPlan implements Operation
     }
 
     #[\Override]
-    public function attributes(array $attributes): Operation
+    public function attributes(array $attributes): self
     {
-        return $this->withOptions(
-            new SpanOptions(
-                \array_replace($this->options->attributes, $attributes),
-                $this->options->kind,
-                $this->options->parent,
-                $this->options->links,
-            ),
-        );
-    }
-
-    #[\Override]
-    public function kind(SpanKind $kind): Operation
-    {
-        return $this->withOptions(
-            new SpanOptions($this->options->attributes, $kind->value, $this->options->parent, $this->options->links),
-        );
-    }
-
-    #[\Override]
-    public function parent(ContextInterface $context): Operation
-    {
-        return $this->withOptions(
-            new SpanOptions($this->options->attributes, $this->options->kind, $context, $this->options->links),
-        );
-    }
-
-    #[\Override]
-    public function root(): Operation
-    {
-        return $this->parent(Context::getRoot());
-    }
-
-    #[\Override]
-    public function link(SpanContextInterface $context): Operation
-    {
-        if (!$context->isValid()) {
-            return $this;
-        }
-
-        return $this->withOptions(new SpanOptions(
+        return $this->withOptions($this->options->with(attributes: \array_replace(
             $this->options->attributes,
-            $this->options->kind,
-            $this->options->parent,
-            [...$this->options->links, $context],
-        ));
+            $attributes,
+        )));
     }
 
     #[\Override]
-    public function withoutSpan(): Operation
+    public function kind(SpanKind $kind): self
+    {
+        return $this->withOptions($this->options->with(kind: $kind));
+    }
+
+    #[\Override]
+    public function from(?IncomingTrace $trace): self
+    {
+        return $this->withOptions($this->options->with(relations: $this->options->relations->from($trace)));
+    }
+
+    #[\Override]
+    public function linkedTo(IncomingTrace $trace): self
+    {
+        return $this->withOptions($this->options->with(relations: $this->options->relations->linkedTo($trace)));
+    }
+
+    #[\Override]
+    public function linkedToActiveSpan(): self
+    {
+        return $this->withOptions($this->options->with(relations: $this->options->relations->linkedToActiveSpan()));
+    }
+
+    #[\Override]
+    public function withoutSpan(): self
     {
         return new self(
             $this->name,
@@ -104,7 +83,23 @@ final readonly class OperationPlan implements Operation
     }
 
     #[\Override]
-    public function duration(Duration $duration, array $attributes = []): Operation
+    public function onlyInsideTrace(): self
+    {
+        return $this->withOptions($this->options->with(onlyInsideTrace: true));
+    }
+
+    #[\Override]
+    public function baggage(array $entries): self
+    {
+        if ($entries === []) {
+            return $this;
+        }
+
+        return $this->withOptions($this->options->with(baggage: \array_replace($this->options->baggage, $entries)));
+    }
+
+    #[\Override]
+    public function duration(Duration $duration, array $attributes = []): self
     {
         return new self($this->name, $this->starter, $this->options, $duration, $attributes);
     }
@@ -124,7 +119,7 @@ final readonly class OperationPlan implements Operation
     }
 
     #[\Override]
-    public function start(): RunningOperation
+    public function start(): ScopedOperation
     {
         return $this->starter->start($this->name, $this->options, $this->measurement, $this->metricAttributes);
     }

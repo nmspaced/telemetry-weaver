@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Lifecycle;
 
+use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
@@ -33,7 +33,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 final readonly class TelemetryFlushSubscriber implements EventSubscriberInterface
 {
     public function __construct(
-        private TelemetryFlusher $flusher,
+        private BoundaryFlush $flusher,
         private SymfonyRuntimeProfile $runtime,
     ) {}
 

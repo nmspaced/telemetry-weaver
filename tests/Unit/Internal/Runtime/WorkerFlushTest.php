@@ -7,8 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Runtime;
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\WorkerFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushBudget;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\FlushPolicy;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\SignalFlusher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\FlushPolicy;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\SignalFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
@@ -63,16 +63,16 @@ final class WorkerFlushTest extends TestCase
         FlushPolicy::resetProcessState();
     }
 
+    /**
+     * The first message a worker handles is the one most likely to be looked at — a worker
+     * that was just deployed or just recycled — and it is delivered at its own boundary
+     * rather than waiting for a second message that may be minutes away.
+     */
     #[Test]
-    public function aBoundaryDeliversBothSignalsOnceTheIntervalHasPassed(): void
+    public function theFirstBoundaryDeliversBothSignals(): void
     {
         $subscriber = $this->subscriber();
         $this->record();
-
-        // The first boundary in a process is skipped by design: a fresh worker has
-        // nothing worth exporting yet.
-        $subscriber->onRunning();
-        self::assertSame([], $this->spans->getSpans());
 
         $subscriber->onRunning();
 
@@ -136,9 +136,13 @@ final class WorkerFlushTest extends TestCase
         $reporter = new ExportFailureReporter(new RecordingLogger());
 
         return new WorkerFlushSubscriber(Flushers::coordinating(
-            new SignalFlusher($this->tracers, new FlushPolicy('traces', 60_000, new FrozenClock()), $reporter),
-            new SignalFlusher(new NoopLoggerProvider(), new FlushPolicy('logs', 60_000, new FrozenClock()), $reporter),
-            new SignalFlusher($this->meters, new FlushPolicy('metrics', 60_000, new FrozenClock()), $reporter),
+            new SignalFlusher($this->tracers, FlushPolicy::every('traces', 60_000, new FrozenClock()), $reporter),
+            new SignalFlusher(
+                new NoopLoggerProvider(),
+                FlushPolicy::every('logs', 60_000, new FrozenClock()),
+                $reporter,
+            ),
+            new SignalFlusher($this->meters, FlushPolicy::every('metrics', 60_000, new FrozenClock()), $reporter),
             new FlushBudget(),
             $reporter,
         ));

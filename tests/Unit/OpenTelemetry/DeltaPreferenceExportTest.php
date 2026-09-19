@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Exporter\ResilientMetricsExporter;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\MetricTemporality;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientMetricsExporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MetricTemporality;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
 use OpenTelemetry\API\Metrics\ObserverInterface;

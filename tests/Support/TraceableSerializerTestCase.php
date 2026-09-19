@@ -7,7 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Support;
 use Nmspaced\TelemetryWeaver\Instrumentation\Serializer\SerializerTelemetry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Serializer\TraceableSerializer;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FrozenClock;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use OpenTelemetry\API\Trace\SpanInterface;
