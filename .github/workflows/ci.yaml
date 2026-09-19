@@ -45,7 +45,7 @@ jobs:
           - highest
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -67,7 +67,7 @@ jobs:
         run: composer validate --strict
 
       - name: Install dependencies (${{ matrix.dependencies }})
-        uses: ramsey/composer-install@v3
+        uses: ramsey/composer-install@v4
         with:
           dependency-versions: ${{ matrix.dependencies }}
           # --prefer-stable pins the lowest end to released versions; without it the
@@ -76,7 +76,7 @@ jobs:
           composer-options: --prefer-stable
 
       - name: Restore the Mago and Igor binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           # Restored after the install: `composer update` rewrites the packages these
           # directories live in, so caching before it would be undone.
@@ -116,7 +116,7 @@ jobs:
             fpm: true
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -137,7 +137,7 @@ jobs:
         run: /usr/sbin/php-fpm${{ matrix.php }} --version
 
       - name: Install dependencies (${{ matrix.dependencies }})
-        uses: ramsey/composer-install@v3
+        uses: ramsey/composer-install@v4
         with:
           dependency-versions: ${{ matrix.dependencies }}
           composer-options: --prefer-stable
