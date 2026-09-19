@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
+use Nmspaced\TelemetryWeaver\OpenTelemetry\GlobalsRegistrar;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\SdkDiagnostics;
 use Nmspaced\TelemetryWeaver\TelemetryWeaverBundle;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Globals;
@@ -28,6 +30,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
 #[CoversClass(TelemetryWeaverBundle::class)]
+#[CoversClass(GlobalsRegistrar::class)]
+#[CoversClass(SdkDiagnostics::class)]
 final class GlobalsOwnershipTest extends ContainerTestCase
 {
     /** @throws \Throwable */

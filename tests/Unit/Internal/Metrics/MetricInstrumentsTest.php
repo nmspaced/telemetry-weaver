@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Metrics;
 
+use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeCounter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeGauge;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeObservables;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeUpDownCounter;
 use Nmspaced\TelemetryWeaver\Tests\Support\MetricPoints;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Metrics\ObserverInterface;
@@ -25,6 +29,10 @@ use PHPUnit\Framework\Attributes\Test;
  * read back off a real `MeterProvider` rather than asserted against a mock.
  */
 #[CoversClass(SafeMetrics::class)]
+#[CoversClass(SafeObservables::class)]
+#[CoversClass(SafeUpDownCounter::class)]
+#[CoversClass(SafeGauge::class)]
+#[CoversClass(SafeCounter::class)]
 final class MetricInstrumentsTest extends PublicTelemetryTestCase
 {
     #[Test]

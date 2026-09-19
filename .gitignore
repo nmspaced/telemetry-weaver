@@ -1,6 +1,7 @@
 /vendor/
 /.phpunit.cache/
 /.mago-cache/
+/.coverage/
 .idea
 /.php-cs-fixer.cache
 .DS_Store

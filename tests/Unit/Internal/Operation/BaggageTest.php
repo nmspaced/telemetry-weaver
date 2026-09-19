@@ -6,6 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Operation;
 
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Internal\Operation\OperationPlan;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Baggage\Propagation\BaggagePropagator;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
  * sent to other people's systems after the code that asked for it has returned.
  */
 #[CoversClass(OperationPlan::class)]
+#[CoversClass(OtelBaggageReader::class)]
 final class BaggageTest extends PublicTelemetryTestCase
 {
     /** @throws \Throwable */

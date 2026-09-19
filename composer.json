@@ -145,7 +145,8 @@
             "@igor"
         ],
         "test": "phpunit",
-        "test:coverage": "phpunit --coverage-text"
+        "test:coverage": "@php -d pcov.enabled=1 -d pcov.directory=src vendor/bin/phpunit --coverage-text",
+        "test:coverage:html": "@php -d pcov.enabled=1 -d pcov.directory=src vendor/bin/phpunit --coverage-html .coverage"
     },
     "scripts-descriptions": {
         "ci": "What CI runs: manifest validation, static analysis, tests",
@@ -161,6 +162,8 @@
         "rector": "Check for available Rector refactorings (read-only; not part of static/ci for the same reason as phpcs — see @fix)",
         "rector:fix": "Apply Rector's refactorings",
         "static": "Every static check that Mago's own formatter agrees with: Mago + PHPStan + Igor (read-only)",
-        "test": "Run the PHPUnit test suite"
+        "test": "Run the PHPUnit test suite",
+        "test:coverage": "Run the suite under pcov and print the coverage summary. pcov is loaded but disabled by default — it instruments at compile time, so every run would pay for it — and scoped to src/ here, because vendor/ is not what is being measured. Needs ext-pcov; without it PHPUnit reports no coverage driver and exits.",
+        "test:coverage:html": "The same run, written to .coverage/ as a browsable report"
     }
 }

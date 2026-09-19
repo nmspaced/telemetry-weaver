@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SdkComponentsCompilerPass;
+use Nmspaced\TelemetryWeaver\DependencyInjection\SdkComponentIds;
+use Nmspaced\TelemetryWeaver\DependencyInjection\SdkComponentRules;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientTracesExporter;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MetricView;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TraceDecisions;
@@ -38,6 +40,8 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 #[CoversClass(SdkComponentsCompilerPass::class)]
 #[CoversClass(TraceDecisions::class)]
 #[CoversClass(MetricView::class)]
+#[CoversClass(SdkComponentIds::class)]
+#[CoversClass(SdkComponentRules::class)]
 final class SdkPipelineDecisionsTest extends ContainerTestCase
 {
     /**

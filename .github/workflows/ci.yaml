@@ -153,6 +153,48 @@ jobs:
           # every other entry — keeps the test from booting the wrong interpreter.
           PHP_FPM_BINARY: ${{ matrix.fpm && format('/usr/sbin/php-fpm{0}', matrix.php) || '' }}
 
+  # Coverage is measured once, not per matrix entry: it describes src/, and src/ does not
+  # change with the PHP version or the resolved dependency set. pcov rather than Xdebug
+  # because the suite spends its time in the SDK, and Xdebug's line hook costs several
+  # times what pcov's compile-time instrumentation does.
+  #
+  # Reported, not gated. A number here would need a floor, and a floor is a policy decision
+  # this workflow should not make on its own.
+  coverage:
+    name: coverage (PHP 8.4, highest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: amqp, pcntl, sockets
+          ini-values: error_reporting=-1, memory_limit=-1
+          coverage: pcov
+          tools: composer:v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: highest
+          composer-options: --prefer-stable
+
+      - name: Measure coverage
+        run: composer test:coverage -- --only-summary-for-coverage-text --coverage-clover .coverage/clover.xml
+
+      - name: Upload the coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-clover
+          path: .coverage/clover.xml
+          retention-days: 14
+
   # One check to require on the branch: matrix entries come and go, and a required
   # check that names a matrix entry silently stops being required when it is renamed.
   ci:
@@ -161,6 +203,7 @@ jobs:
     needs:
       - static
       - tests
+      - coverage
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
