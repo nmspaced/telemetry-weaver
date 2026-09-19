@@ -7,6 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Instrumentation\Monolog;
 use Monolog\Logger;
 use Monolog\LogRecord;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\OtelLogHandler;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\DiagnosticsLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\OtelLogHandlerTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -87,5 +88,34 @@ final class OtelLogHandlerTest extends OtelLogHandlerTestCase
 
         self::assertCount(1, $this->records());
         self::assertSame('at level', $this->record()->getBody());
+    }
+
+    /**
+     * The bundle's own diagnostics are never exported, whatever the application configured.
+     *
+     * A report about a failed export, exported, refills the queue that the failure came
+     * from: the next flush fails, reports again, and the loop only ends when the collector
+     * comes back. The handler's re-entrance guard does not cover it — with a batch
+     * processor the emit only queues, and the failure arrives on a later flush — so the
+     * channel is refused outright rather than left to a default somebody could overwrite.
+     */
+    #[Test]
+    public function theBundlesOwnDiagnosticsChannelIsNeverExported(): void
+    {
+        $logger = new Logger(DiagnosticsLogger::CHANNEL, [$this->handler(excludedChannels: ['something.else'])]);
+        $logger->error('Span export failed');
+
+        self::assertSame([], $this->records());
+    }
+
+    #[Test]
+    public function theChannelsTheApplicationExcludedAreStillExcluded(): void
+    {
+        $handler = $this->handler(excludedChannels: ['noisy']);
+        new Logger('noisy', [$handler])->error('dropped');
+        new Logger('app', [$handler])->error('kept');
+
+        self::assertCount(1, $this->records());
+        self::assertSame('kept', $this->record()->getBody());
     }
 }

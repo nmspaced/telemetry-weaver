@@ -100,7 +100,7 @@ final class PublicApiContainerTest extends ContainerTestCase
         $container = $this->compile(['traces' => ['enabled' => false]]);
         $telemetry = $container->get(TelemetryFactory::class)->scope('custom');
         $operation = $telemetry->operation('disabled')->start();
-        self::assertFalse($operation->span()->context()->isValid());
+        self::assertNull($operation->span()->spanId());
         $operation->finish();
     }
 }

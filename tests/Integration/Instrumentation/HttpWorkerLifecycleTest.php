@@ -12,7 +12,8 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\HttpServerTraci
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ParentContext;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTraceRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Fake\CountingSpanExporter;
 use Nmspaced\TelemetryWeaver\Tests\Fake\FlakySpanProcessor;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
@@ -88,7 +89,7 @@ final class HttpWorkerLifecycleTest extends TestCase
         $dispatcher->addSubscriber(
             new HttpServerTracingSubscriber(
                 $this->scopes,
-                new ParentContext(TraceContextPropagator::getInstance(), $context),
+                new ParentContext(new OtelPropagation(TraceContextPropagator::getInstance(), $context)),
                 new RequestPolicy(['/health'], new RequestRouteTemplateResolver(new NullRouteTemplateProvider())),
             ),
         );

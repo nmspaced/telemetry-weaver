@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Tracing;
 
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOptions;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceRelations;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelIncomingTrace;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Fake\ThrowingTracer;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryTestCase;
 use OpenTelemetry\API\Trace\SpanInterface;
@@ -67,7 +69,10 @@ final class SpanOpenerTest extends TelemetryTestCase
     public function anExplicitRootParentIgnoresTheAmbientSpan(): void
     {
         $outer = $this->spans->open('outer', new SpanOptions());
-        $detached = $this->spans->open('detached', SpanOptions::root());
+        $detached = $this->spans->open(
+            'detached',
+            new SpanOptions(relations: TraceRelations::continuing(OtelIncomingTrace::none())),
+        );
         $detached->finish();
 
         $outer->finish();
@@ -121,6 +126,50 @@ final class SpanOpenerTest extends TelemetryTestCase
 
                 self::assertSame($before, $this->contextStorage->scope(), $name . ' must restore its own stack');
             },
+        );
+    }
+
+    /**
+     * The rule the whole boundary redesign turns on, and the one most likely to be undone
+     * by accident.
+     *
+     * Three states, not two. No incoming trace means "continue whatever is running", which
+     * is what a local operation and a sub-request want. An incoming trace means "this came
+     * from somewhere else" — and when it turns out to carry nothing, the answer is a *new*
+     * trace, never the ambient one. Collapsing the last two is how a worker ends up
+     * attaching a fresh message to the remains of the previous one.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function anIncomingTraceThatCarriedNothingStartsANewTraceInsteadOfInheriting(): void
+    {
+        $ambient = $this->spans->open('ambient', new SpanOptions());
+
+        $inherited = $this->spans->open('inherited', new SpanOptions());
+        $inherited->finish();
+
+        $fresh = $this->spans->open(
+            'fresh',
+            new SpanOptions(relations: TraceRelations::continuing(OtelIncomingTrace::none())),
+        );
+        $fresh->finish();
+
+        $ambientId = $ambient->spanContext()->getSpanId();
+        $ambient->finish();
+
+        self::assertSame(
+            $ambientId,
+            $this->exportedSpan(0)->getParentContext()->getSpanId(),
+            'no incoming trace continues what is running',
+        );
+        self::assertFalse(
+            $this->exportedSpan(1)->getParentContext()->isValid(),
+            'an incoming trace that carried nothing must not adopt the ambient span',
+        );
+        self::assertNotSame(
+            $this->exportedSpan(0)->getContext()->getTraceId(),
+            $this->exportedSpan(1)->getContext()->getTraceId(),
         );
     }
 }

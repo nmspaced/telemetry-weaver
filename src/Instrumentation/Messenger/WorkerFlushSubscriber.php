@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
+use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Messenger\Event\WorkerRunningEvent;
 use Symfony\Component\Messenger\Event\WorkerStoppedEvent;
@@ -30,7 +30,7 @@ use Symfony\Component\Messenger\Event\WorkerStoppedEvent;
 final readonly class WorkerFlushSubscriber implements EventSubscriberInterface
 {
     public function __construct(
-        private TelemetryFlusher $flusher,
+        private BoundaryFlush $flusher,
     ) {}
 
     /** @return array<class-string, array{string, int}> */

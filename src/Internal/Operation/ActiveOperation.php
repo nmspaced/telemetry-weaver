@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Internal\Operation;
 
-use Nmspaced\TelemetryWeaver\Api\Measurement;
-use Nmspaced\TelemetryWeaver\Api\RunningOperation;
 use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\OwnedSpan;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\BaggageReader;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOwner;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 
 /**
  * @internal Mutable execution ownership, never stored by a shared facade. First completion revokes all retained work.
  */
-final class ActiveOperation implements RunningOperation
+final class ActiveOperation implements ScopedOperation
 {
     private bool $finished = false;
 
@@ -31,28 +31,42 @@ final class ActiveOperation implements RunningOperation
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
      */
     private function __construct(
-        private readonly OwnedSpan $owner,
+        private readonly SpanOwner $owner,
         private ?Measurement $measurement,
         private array $attributes,
         private readonly InstrumentationFailureReporter $reporter,
+        private readonly BaggageReader $baggage,
     ) {}
 
     /**
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
      */
     public static function owning(
-        OwnedSpan $span,
+        SpanOwner $span,
         Measurement $measurement,
         array $attributes,
         InstrumentationFailureReporter $reporter,
+        BaggageReader $baggage,
     ): self {
-        return new self($span, $measurement, $attributes, $reporter);
+        return new self($span, $measurement, $attributes, $reporter, $baggage);
     }
 
     #[\Override]
     public function span(): Span
     {
         return $this->owner->view();
+    }
+
+    #[\Override]
+    public function baggage(): array
+    {
+        try {
+            return $this->baggage->of($this->owner->correlation());
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Baggage read failed', $this->owner->name(), $throwable);
+
+            return [];
+        }
     }
 
     #[\Override]
@@ -104,8 +118,9 @@ final class ActiveOperation implements RunningOperation
                 $span = $this->owner->view();
                 $metricType = $attributes[ErrorAttributes::ERROR_TYPE] ?? null;
                 $type =
-                    $failure ?? $span->errorType()
-                        ?? (\is_string($metricType) && $metricType !== '' ? $metricType : $error::class);
+                    $failure
+                    ?? $this->owner->errorType()
+                    ?? (\is_string($metricType) && $metricType !== '' ? $metricType : $error::class);
                 $span->recordException($error);
                 $span->fail($type);
                 $attributes[ErrorAttributes::ERROR_TYPE] = $type;

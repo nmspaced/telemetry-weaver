@@ -17,6 +17,11 @@ final class RecordingMetricExporter implements PushMetricExporterInterface
      */
     public array $batches = [];
 
+    /**
+     * @var list<Metric> every metric received, in order, for tests that read the data points
+     */
+    public array $metrics = [];
+
     public int $flushes = 0;
 
     public int $shutdowns = 0;
@@ -42,6 +47,7 @@ final class RecordingMetricExporter implements PushMetricExporterInterface
 
         foreach ($batch as $metric) {
             $names[] = $metric->name;
+            $this->metrics[] = $metric;
         }
 
         $this->batches[] = $names;

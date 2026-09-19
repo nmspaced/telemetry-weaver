@@ -61,6 +61,8 @@ final class ExampleConfigTest extends ContainerTestCase
             'open_telemetry.instrumentation.http_server.excluded_paths',
             'open_telemetry.instrumentation.http_server.traces.excluded_paths',
             'open_telemetry.instrumentation.http_server.record_client_ip',
+            'open_telemetry.instrumentation.http_server.record_user_id',
+            'open_telemetry.instrumentation.http_server.record_user_roles',
             'open_telemetry.instrumentation.doctrine.query_text',
             'open_telemetry.instrumentation.doctrine.only_with_parent',
             'open_telemetry.instrumentation.doctrine.transactions',
@@ -72,7 +74,13 @@ final class ExampleConfigTest extends ContainerTestCase
             'open_telemetry.sdk.otlp.transport_factories.grpc',
             'open_telemetry.sdk.otlp.transport_factories.http',
             'open_telemetry.sdk.traces.provider',
+            'open_telemetry.sdk.traces.sampler',
+            'open_telemetry.sdk.traces.id_generator',
+            'open_telemetry.sdk.traces.span_processors',
+            'open_telemetry.sdk.metrics.views',
             'open_telemetry.sdk.logs.exporter',
+            'open_telemetry.instrumentation.doctrine.duration_buckets',
+            'open_telemetry.instrumentation.http_server.duration_buckets',
         ] as $parameter) {
             self::assertTrue($container->hasParameter($parameter), $parameter . ' never reaches the container');
         }

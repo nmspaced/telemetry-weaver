@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
-use Nmspaced\TelemetryWeaver\OpenTelemetry\OtlpTransportSettings;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\TransportFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpTransportSettings;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingTransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
 use PHPUnit\Framework\Attributes\CoversClass;

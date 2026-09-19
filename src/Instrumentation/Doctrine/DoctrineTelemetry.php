@@ -9,8 +9,9 @@ use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DatabaseOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 use OpenTelemetry\SemConv\Attributes\DbAttributes;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 use OpenTelemetry\SemConv\Metrics\DbMetrics;
@@ -29,9 +30,9 @@ final readonly class DoctrineTelemetry
     private Duration $duration;
 
     public function __construct(
-        private Telemetry $telemetry,
+        private BoundaryTelemetry $telemetry,
         private DoctrinePolicy $policy = new DoctrinePolicy(),
-        DatabaseOperationBuckets $buckets = new DatabaseOperationBuckets(),
+        OperationBuckets $buckets = DefaultBuckets::Database,
     ) {
         $this->duration = $telemetry->metrics()->duration(
             DbMetrics::DB_CLIENT_OPERATION_DURATION,
@@ -110,13 +111,13 @@ final readonly class DoctrineTelemetry
     private function measure(string $name, array $spanAttributes, array $metricAttributes, \Closure $callback): mixed
     {
         $operation = $this->telemetry
-            ->operation($name)
+            ->boundary($name)
             ->kind(SpanKind::Client)
             ->attributes($spanAttributes)
             ->duration($this->duration, attributes: $metricAttributes);
 
-        if (!$this->policy->opensSpan()) {
-            $operation = $operation->withoutSpan();
+        if ($this->policy->onlyWithParent) {
+            $operation = $operation->onlyInsideTrace();
         }
 
         return $operation->run(

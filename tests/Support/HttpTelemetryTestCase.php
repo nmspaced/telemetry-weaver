@@ -9,8 +9,13 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Routing\RequestRouteTem
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\HttpServerTracingSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ParentContext;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTraceRegistry;
+use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ServerTraceResponseSubscriber;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelResponsePropagation;
 use Nmspaced\TelemetryWeaver\Tests\Fake\StaticRouteTemplateProvider;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
+use OpenTelemetry\Context\Propagation\NoopResponsePropagator;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -39,12 +44,20 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
 
     protected HttpKernel $kernel;
 
+    protected ResponsePropagation $responsePropagation;
+
     /**
      * @param array<string, string> $routes route name to template
      * @param list<non-empty-string> $excludedPaths
      */
     protected function boot(array $routes = [], array $excludedPaths = []): void
     {
+        $this->responsePropagation ??= new OtelResponsePropagation(
+            // @mago-expect analysis:experimental-usage
+            NoopResponsePropagator::getInstance(),
+            $this->contextStorage,
+            $this->reporter,
+        );
         $this->scopes = new RequestTraceRegistry(
             TelemetryFactory::tracing($this->spans, $this->reporter),
             $this->reporter,
@@ -53,7 +66,16 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
         $this->dispatcher->addSubscriber(
             new HttpServerTracingSubscriber(
                 $this->scopes,
-                new ParentContext(TraceContextPropagator::getInstance(), $this->contextStorage),
+                new ParentContext(new OtelPropagation(TraceContextPropagator::getInstance(), $this->contextStorage)),
+                new RequestPolicy(
+                    $excludedPaths,
+                    new RequestRouteTemplateResolver(new StaticRouteTemplateProvider($routes)),
+                ),
+            ),
+        );
+        $this->dispatcher->addSubscriber(
+            new ServerTraceResponseSubscriber(
+                $this->responsePropagation,
                 new RequestPolicy(
                     $excludedPaths,
                     new RequestRouteTemplateResolver(new StaticRouteTemplateProvider($routes)),
@@ -122,10 +144,17 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
 
     /**
      * @param \Closure(): Response $controller
+     * @param array<string, string> $headers the main request's headers, when a test needs
+     *                                       a sub-request that carries them the way a real
+     *                                       forwarded request would
+     *
      * @throws \Throwable
      */
-    protected function subRequest(\Closure $controller, string $uri = '/fragment'): Response
+    protected function subRequest(\Closure $controller, string $uri = '/fragment', array $headers = []): Response
     {
-        return $this->kernel->handle($this->request($controller, $uri), HttpKernelInterface::SUB_REQUEST);
+        return $this->kernel->handle(
+            $this->request($controller, $uri, headers: $headers),
+            HttpKernelInterface::SUB_REQUEST,
+        );
     }
 }

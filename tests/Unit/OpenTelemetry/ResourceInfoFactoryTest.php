@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\ResourceInfoFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ResourceInfoFactory;
 use OpenTelemetry\SemConv\Incubating\Attributes\ServiceIncubatingAttributes;
 use OpenTelemetry\SemConv\Version;
 use PHPUnit\Framework\Assert;

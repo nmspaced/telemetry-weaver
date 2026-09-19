@@ -7,7 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Tests\Fixtures;
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\MessengerConsumption;
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\MessengerTelemetry;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryFactory;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
@@ -39,7 +40,7 @@ $retained = $telemetry->operation('retained')->start();
 $retainedChild = $telemetry->operation('retained child')->start();
 $consumption = new MessengerConsumption(
     new MessengerTelemetry($telemetry),
-    TraceContextPropagator::getInstance(),
+    new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage()),
     $reporter,
 );
 $consumption->run(

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Runtime;
 
-use Nmspaced\TelemetryWeaver\OpenTelemetry\LoggerProviderFactory;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\TracerProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\LoggerProviderFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TracerProviderFactory;
 use Nmspaced\TelemetryWeaver\Tests\Fake\CountingSpanExporter;
 use OpenTelemetry\API\Logs\LogRecord;
 use OpenTelemetry\SDK\Logs\Exporter\InMemoryExporter as InMemoryLogExporter;

@@ -6,10 +6,10 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Lifecycle\TelemetryFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Runtime\TelemetryFlusher;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\MetricExporterFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MetricExporterFactory;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\SDK\Metrics\MeterProviderInterface;
 use OpenTelemetry\SDK\Metrics\NoopMeterProvider;

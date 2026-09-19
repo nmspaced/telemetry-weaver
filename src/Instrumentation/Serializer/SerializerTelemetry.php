@@ -7,8 +7,9 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Serializer;
 use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Api\Span;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
-use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\SerializerOperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 
 /**
  * @internal
@@ -22,8 +23,8 @@ final readonly class SerializerTelemetry
     private Duration $duration;
 
     public function __construct(
-        private Telemetry $telemetry,
-        SerializerOperationBuckets $buckets = new SerializerOperationBuckets(),
+        private BoundaryTelemetry $telemetry,
+        OperationBuckets $buckets = DefaultBuckets::Serializer,
     ) {
         $this->duration = $telemetry->metrics()->duration(
             'serializer.operation.duration',
@@ -57,16 +58,12 @@ final readonly class SerializerTelemetry
     ): mixed {
         $attributes = $this->attributes($serializer, $operation, $format);
 
-        $plan = $this->telemetry
-            ->operation(\sprintf('serializer.%s', $operation))
+        return $this->telemetry
+            ->boundary(\sprintf('serializer.%s', $operation))
             ->attributes($attributes + $spanAttributes)
-            ->duration($this->duration, attributes: $attributes);
-
-        if (!$this->telemetry->currentSpan()->context()->isValid()) {
-            $plan = $plan->withoutSpan();
-        }
-
-        return $plan->run(static fn(OperationContext $context): mixed => $callback($context->span()));
+            ->duration($this->duration, attributes: $attributes)
+            ->onlyInsideTrace()
+            ->run(static fn(OperationContext $context): mixed => $callback($context->span()));
     }
 
     /**

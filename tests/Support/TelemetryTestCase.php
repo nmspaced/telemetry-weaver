@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Support;
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\TracerInterface;
@@ -128,6 +129,20 @@ abstract class TelemetryTestCase extends TestCase
     protected function firstEventName(ImmutableSpan $span): ?string
     {
         return ($span->getEvents()[0] ?? null)?->getName();
+    }
+
+    /**
+     * The ids of the trace running right now, or null when nothing is.
+     *
+     * The public API has no way to read ambient state — keeping it that way is half of what
+     * these tests check — so the assertion reads the context storage directly, through the
+     * same port the Monolog processor uses.
+     *
+     * @return array{trace_id: non-empty-string, span_id: non-empty-string, trace_flags: int}|null
+     */
+    protected function activeTrace(): ?array
+    {
+        return new OtelActiveTraceIdentity($this->contextStorage)->current();
     }
 
     protected function assertNoReports(): void

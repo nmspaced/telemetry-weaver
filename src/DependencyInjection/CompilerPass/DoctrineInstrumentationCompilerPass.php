@@ -61,7 +61,8 @@ final readonly class DoctrineInstrumentationCompilerPass implements CompilerPass
         $container
             ->register(DoctrineTelemetry::class, DoctrineTelemetry::class)
             ->setArgument('$telemetry', new Reference('open_telemetry.doctrine.telemetry'))
-            ->setArgument('$policy', new Reference(DoctrinePolicy::class));
+            ->setArgument('$policy', new Reference(DoctrinePolicy::class))
+            ->setArgument('$buckets', new Reference('open_telemetry.doctrine.buckets'));
 
         $container
             ->register(DoctrineMiddleware::class, DoctrineMiddleware::class)

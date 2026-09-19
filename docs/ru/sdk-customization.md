@@ -1,52 +1,149 @@
-# SDK customization
+# Кастомизация SDK
 
-У Telemetry Weaver opinionated defaults, но через Symfony DI намеренно доступны escape hatches.
+Значения по умолчанию безопасны, но не обязательны. Любую часть конвейера экспорта можно заменить
+собственным сервисом через `open_telemetry.sdk.*`, который принимает id сервисов.
 
-## Уровни подмены
+Это не то же самое, что переменная `OTEL_*`, и разницу стоит держать в голове: переменная
+выбирает из реализаций, которые SDK уже знает, а id сервиса передаёт конвейеру ту, которой он не
+знает.
+
+**Всё описанное здесь проверяется при компиляции контейнера.** Опечатка в id, сервис, не
+реализующий нужный интерфейс, или сочетание, описывающее несуществующий конвейер, — это ошибка
+сборки, а не сюрприз на первом запросе в продакшене.
+
+## Два вида замены
+
+Часть решений живёт *внутри* провайдера, который строит пакет. Другая часть заменяет звено
+цепочки вокруг него. Первый вид сохраняет все гарантии, второй частью из них платит.
 
 ```text
-default
-provider → resilient exporter → budget-aware OTLP transport
+внутри провайдера                      вокруг провайдера
+─────────────────                      ─────────────────
+sampler                                семейство транспортов
+генератор id                           экспортёр
+span processor'ы                       провайдер
+metric views
 
-transport override
-provider → resilient exporter → application transport
-
-exporter override
-provider → resilient wrapper → application exporter
-
-provider override
-application provider
+сохраняет: очереди, бюджет границы,    теряет: постепенно всё больше из этого,
+export gate, жизненный цикл flush      см. матрицу ниже
 ```
 
-## Подмена transport family
+Предпочитайте первый вид. Его хватает для большей части того, ради чего берутся заменять
+провайдер.
 
-HTTP и gRPC настраиваются независимо:
+## Внутри провайдера
+
+### Sampler
+
+Для решения, которое не выражается ни одним значением `OTEL_TRACES_SAMPLER`, — никогда этот
+healthcheck, всегда оформление заказа, пять процентов остального или что угодно, зависящее от
+маршрута, тенанта или пользователя:
+
+```yaml
+open_telemetry:
+    sdk:
+        traces:
+            sampler: app.telemetry.per_route_sampler
+```
+
+Реализует `OpenTelemetry\SDK\Trace\SamplerInterface` и используется вместо
+`OTEL_TRACES_SAMPLER`.
+
+### Генератор id
+
+```yaml
+open_telemetry:
+    sdk:
+        traces:
+            id_generator: app.telemetry.xray_id_generator
+```
+
+Реализует `OpenTelemetry\SDK\Trace\IdGeneratorInterface`. Нужен бэкендам, которые читают
+структуру из trace id: AWS X-Ray требует метку времени старта в первых четырёх байтах.
+
+### Span processor'ы
+
+```yaml
+open_telemetry:
+    sdk:
+        traces:
+            span_processors:
+                - app.telemetry.redacting_processor
+```
+
+Сервисы `OpenTelemetry\SDK\Trace\SpanProcessorInterface`, добавляемые **перед** собственным
+процессором пакета, — чтобы процессор, правящий спан в момент завершения, увидел его до
+постановки в очередь на экспорт. Они добавляются в конвейер, а не заменяют его.
+
+### Metric views
+
+View меняет то, что производит инструмент, не трогая код, который в него пишет: другая агрегация,
+более узкий набор атрибутов или полностью отброшенный инструмент.
+
+```yaml
+open_telemetry:
+    sdk:
+        metrics:
+            views:
+                - app.telemetry.drop_route_label
+```
+
+```php
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\MetricView;
+use OpenTelemetry\SDK\Metrics\View\SelectionCriteria\InstrumentNameCriteria;
+use OpenTelemetry\SDK\Metrics\View\ViewTemplate;
+
+$services
+    ->set('app.telemetry.drop_route_label', MetricView::class)
+    ->args([
+        new InstrumentNameCriteria('http.server.request.duration'),
+        ViewTemplate::create()->withAttributeKeys(['http.response.status_code']),
+    ]);
+```
+
+`MetricView` — это пара, для которой у SDK нет своего типа; обе половины — родные типы SDK,
+пробрасываемые без изменений.
+
+Чтобы поменять границы гистограммы, созданной пакетом, используйте
+[`instrumentation.<component>.duration_buckets`](instrumentation.md#границы-гистограмм) — сервис
+для этого не нужен. Views нужны для того, до чего это не дотягивается: инструмента, созданного не
+пакетом, и ключей атрибутов, кардинальность которых нужно срезать в источнике.
+
+Все четыре **отклоняются рядом с `provider` для того же сигнала**. Провайдер строит собственные
+сэмплирование, генерацию id, процессоры и views, поэтому указание их рядом с ним описывает
+конвейер, которого не будет, — и это ошибка конфигурации, а не повод молча проигнорировать.
+
+## Вокруг провайдера
+
+### Семейство транспортов
 
 ```yaml
 open_telemetry:
     sdk:
         otlp:
             transport_factories:
-                grpc: app.telemetry.grpc_transport_factory
                 http: app.telemetry.http_transport_factory
+                grpc: app.telemetry.grpc_transport_factory
 ```
 
-Service должен реализовывать `OpenTelemetry\SDK\Common\Export\TransportFactoryInterface`.
+Сервис реализует `OpenTelemetry\SDK\Common\Export\TransportFactoryInterface`.
 
-HTTP family охватывает HTTP OTLP protocols установленного SDK (`http/protobuf`, `http/json` и, если поддерживается, `http/ndjson`). gRPC — отдельная family, потому что generic factory не может надёжно отличить gRPC от HTTP/protobuf только по стандартным аргументам factory.
+HTTP и gRPC — разные семейства, потому что универсальная фабрика не отличит gRPC от
+`http/protobuf` по одним лишь аргументам. Семейство HTTP покрывает те HTTP-протоколы OTLP,
+которые поддерживает установленный SDK (`http/protobuf`, `http/json` и, где доступен,
+`http/ndjson`). Незаданное семейство сохраняет транспорт пакета.
 
-Family со значением `null` продолжает использовать budget-aware transport Weaver. Custom family обходит transport layer Weaver:
+Своё семейство обходит транспортный слой пакета, а значит:
 
-- destination budget для неё не применяется;
-- Weaver retry override не применяется;
-- `sdk.exporter_otlp_headers` не merge'ится;
-- действуют timeout/retry semantics самого transport.
+- бюджет flush для него не действует — работает собственный таймаут транспорта, а транспорт,
+  игнорирующий таймаут, держит границу столько, сколько ждёт;
+- переопределение `max_retries` не применяется;
+- слияние `sdk.exporter_otlp_headers` не происходит — аутентификация ваша.
 
-Resilient exporter выше transport остаётся: он перехватывает failure и учитывает export gate.
+Resilient-экспортёр над ним по-прежнему ловит сбои и уважает export gate. SDK по-прежнему
+разрешает протокол через свой реестр, то есть выбранный протокол он должен знать.
 
-Upstream OTLP exporter всё ещё разрешает выбранный protocol через OpenTelemetry Registry. Custom factory не отменяет требование, чтобы установленный SDK знал этот protocol.
-
-## Подмена exporter
+### Экспортёр
 
 ```yaml
 open_telemetry:
@@ -55,13 +152,17 @@ open_telemetry:
             exporter: app.telemetry.span_exporter
 ```
 
-Service должен реализовывать SDK exporter interface соответствующего signal. Стандартный provider Weaver продолжает его использовать, а Weaver добавляет resilient exporter wrapper / export gate. Request-metric policy также остаётся вокруг custom metrics exporter.
+Сервис реализует интерфейс экспортёра SDK для этого сигнала и используется вместо
+`OTEL_<SIGNAL>_EXPORTER`. Провайдер пакета по-прежнему им управляет, по-прежнему оборачивает его
+в resilient-экспортёр и export gate, а свой экспортёр метрик по-прежнему подчиняется
+`runtime.request_metrics`.
 
-Но произвольный exporter нельзя preempt'нуть. Если его `export()` блокируется десять секунд, `flush_timeout_ms` не сможет насильно остановить этот PHP-код.
+Чего это не может — сделать произвольный экспортёр прерываемым. Если его `export()` блокируется
+на десять секунд, `flush_timeout_ms` этот PHP-код не остановит.
 
-Для одного signal нельзя одновременно задать и provider, и exporter.
+Экспортёр и провайдер для одного сигнала одновременно — ошибка.
 
-## Подмена provider
+### Провайдер
 
 ```yaml
 open_telemetry:
@@ -70,21 +171,32 @@ open_telemetry:
             provider: app.telemetry.tracer_provider
 ```
 
-Custom provider заменяет весь signal SDK pipeline: processors, exporter, transport, auto-flush и внутренние timeout'ы теперь принадлежат приложению.
+Это полностью заменяет SDK-конвейер сигнала: процессоры, экспортёр, транспорт, авто-flush и
+поведение таймаутов становятся заботой приложения.
 
-Weaver всё ещё принимает provider в execution-boundary registry и вызывает нужный `forceFlush()` / `shutdown()`. Всё внутри provider уже не оборачивается и не gate'ится.
+Пакет всё равно принимает его в реестр границ, поэтому `forceFlush()` и `shutdown()` происходят в
+нужные моменты, и он всё так же передаётся в `Globals`. Ничто внутри не оборачивается и не
+шлюзуется — очереди, бюджет границы и export gate придётся построить заново самому.
 
 ## Матрица гарантий
 
-| Override | Fail-open wrapper | Weaver boundary lifecycle | Destination budget | Weaver retry policy | Weaver processors |
+| Замена | Fail-open-обёртка | Жизненный цикл границы | Бюджет flush | Политика ретраев | Процессоры пакета |
 |---|---:|---:|---:|---:|---:|
 | нет | да | да | да | да | да |
-| transport family | да | да | нет для этой family | нет для этой family | да |
-| exporter | да | да | не гарантируется | не гарантируется | да |
-| provider | ответственность provider | да, снаружи | нет | нет | нет |
+| sampler / генератор id / span processor'ы | да | да | да | да | да |
+| metric views | да | да | да | да | да |
+| семейство транспортов | да | да | нет, для этого семейства | нет, для этого семейства | да |
+| экспортёр | да | да | не гарантируется | не гарантируется | да |
+| провайдер | собственная | да, снаружи | нет | нет | нет |
 
-## Что подменять
+## Что выбрать
 
-- **Transport** — если нужно владеть сетевой механикой: custom client, authentication, очередь, async handoff, свой budget или circuit breaker.
-- **Exporter** — если нужно изменить export behavior конкретного signal, но сохранить provider lifecycle Weaver.
-- **Provider** — только если нужен полностью manual SDK setup.
+- **Sampler**, **генератор id**, **span processor** или **view** — когда решение находится внутри
+  провайдера, а не вокруг него. Они сохраняют все гарантии и хватает их куда чаще, чем к ним
+  обращаются.
+- **Транспорт** — когда вы хотите владеть сетевой механикой: свой клиент, своя схема
+  аутентификации, очередь, асинхронная передача, собственный circuit breaker.
+- **Экспортёр** — когда нужно изменить преобразование сигнала или поведение экспорта, но
+  жизненный цикл провайдера от пакета всё ещё полезен.
+- **Провайдер** — только ради полностью ручной сборки SDK, понимая, что очереди, бюджет границы и
+  export gate уходят вместе с ним.

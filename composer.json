@@ -42,11 +42,11 @@
         "symfony/http-kernel": "^8.1"
     },
     "require-dev": {
-        "carthage-software/mago": "^1.47",
+        "carthage-software/mago": "^1.49",
         "doctrine/dbal": "^4",
         "ergebnis/composer-normalize": "^2.53",
         "friendsofphp/php-cs-fixer": "^3.95",
-        "igor-php/igor-php": "^0.9",
+        "igor-php/igor-php": "^0.9.6",
         "monolog/monolog": "^3.5",
         "nyholm/psr7": "^1.8",
         "open-telemetry/exporter-otlp": "^1.4",
@@ -65,6 +65,7 @@
         "symfony/monolog-bundle": "^4.0",
         "symfony/routing": "^8.1",
         "symfony/scheduler": "^8.1",
+        "symfony/security-core": "^8.1",
         "symfony/serializer": "^8.1",
         "symfony/yaml": "^8.1"
     },
@@ -78,7 +79,8 @@
         "symfony/mailer": "Enables tracing for outgoing mail transports",
         "symfony/messenger": "Enables tracing for message consumption and dispatch",
         "symfony/routing": "Adds http.route and the route template to server span names",
-        "symfony/scheduler": "Enables scheduler-aware attributes on scheduled message spans"
+        "symfony/scheduler": "Enables scheduler-aware attributes on scheduled message spans",
+        "symfony/security-core": "Adds the authenticated user to server spans (opt-in through http_server.record_user_id / record_user_roles)"
     },
     "autoload": {
         "psr-4": {
@@ -111,7 +113,8 @@
             "@mago:fix",
             "@composer normalize"
         ],
-        "igor": "igor-php .",
+        "guard:prune": "mago guard --remove-outdated-baseline-entries --backup-baseline",
+        "igor": "igor-php -check-baseline .",
         "mago": [
             "@mago:lint",
             "@mago:analyze",
@@ -127,7 +130,7 @@
         ],
         "mago:format": "mago format --check",
         "mago:format:fix": "mago format",
-        "mago:guard": "mago guard",
+        "mago:guard": "mago guard --fail-on-out-of-sync-baseline",
         "mago:lint": "mago lint",
         "mago:lint:fix": "mago lint --fix --format-after-fix",
         "phpcs": "php-cs-fixer fix --dry-run --diff",
@@ -146,9 +149,11 @@
     "scripts-descriptions": {
         "ci": "What CI runs: manifest validation, static analysis, tests",
         "fix": "Apply all automatic fixes",
-        "igor": "Detect worker-mode state leaks in Symfony services",
+        "guard:prune": "Drop guard baseline entries that no longer match anything; run this after removing an architectural breach",
+        "igor": "Detect worker-mode state leaks in Symfony services, and fail if the baseline lists findings that no longer exist",
         "mago": "All Mago checks: lint, analyze, guard, format (read-only)",
         "mago:fix": "Apply every auto-fixable Mago finding, then reformat",
+        "mago:guard": "Check the architecture perimeter, and fail if the baseline lists breaches that no longer exist",
         "phpcs": "Check code style with PHP CS Fixer (read-only; not part of static/ci — its statement_indentation rule disagrees with Mago's fluent-chain style, so it only runs before @mago:fix in @fix, which lets Mago have the final say)",
         "phpcs:fix": "Apply PHP CS Fixer's fixes",
         "phpstan": "Run PHPStan static analysis",

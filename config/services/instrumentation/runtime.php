@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Runtime\ProcessMetrics;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalMeter;
@@ -29,7 +30,8 @@ return static function (ContainerConfigurator $container): void {
     $services
         ->set('open_telemetry.runtime.metrics', SafeMetrics::class)
         ->arg('$meter', service('open_telemetry.runtime.meter'))
-        ->arg('$reporter', service(InstrumentationFailureReporter::class));
+        ->arg('$reporter', service(InstrumentationFailureReporter::class))
+        ->arg('$recorder', service(DurationRecorder::class));
 
     // Attached to the first incoming request rather than to boot(): a process that only
     // ever runs one console command has no memory curve worth reporting, and registering

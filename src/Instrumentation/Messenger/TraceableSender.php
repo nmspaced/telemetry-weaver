@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 
-use OpenTelemetry\Context\Context;
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use OpenTelemetry\SemConv\Incubating\Attributes\MessagingIncubatingAttributes;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Transport\Sender\SenderInterface;
@@ -32,7 +31,7 @@ final readonly class TraceableSender implements SenderInterface
     public function __construct(
         private SenderInterface $delegate,
         private MessengerTelemetry $messengerTelemetry,
-        private TextMapPropagatorInterface $propagator,
+        private Propagation $propagation,
         private string $destination,
         private string $system = MessageAttributes::SYSTEM,
     ) {}
@@ -74,25 +73,7 @@ final readonly class TraceableSender implements SenderInterface
      */
     private function stamped(Envelope $envelope): Envelope
     {
-        /** @var mixed $carrier */
-        $carrier = [];
-        // @mago-expect analysis:mixed-assignment — TextMapPropagatorInterface::inject() takes the carrier as `mixed &`
-        $this->propagator->inject($carrier, null, Context::getCurrent());
-
-        if (!\is_array($carrier)) {
-            return $envelope;
-        }
-
-        $headers = [];
-
-        /** @var mixed $value */
-        foreach ($carrier as $key => $value) {
-            if (!(\is_string($key) && \is_string($value))) {
-                continue;
-            }
-
-            $headers[$key] = $value;
-        }
+        $headers = $this->propagation->injectCurrent();
 
         if ($headers === []) {
             return $envelope;

@@ -18,6 +18,15 @@ use Psr\Log\NullLogger;
  */
 final readonly class DiagnosticsLogger
 {
+    /**
+     * The Monolog channel the bundle's own reports — and the SDK's — are written to.
+     *
+     * Its own channel so that an application can route or silence telemetry diagnostics
+     * without touching the rest of its logging, and so that the OTLP log handler can
+     * refuse it unconditionally: a record about a failed export, exported, is a loop.
+     */
+    public const string CHANNEL = 'open_telemetry';
+
     public static function create(LoggerInterface $logger, bool $enabled): LoggerInterface
     {
         return $enabled ? $logger : new NullLogger();

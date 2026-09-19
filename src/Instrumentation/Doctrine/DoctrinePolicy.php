@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
 
-use OpenTelemetry\API\Trace\Span;
-
 /**
  * What the Doctrine instrumentation records, as opposed to whether it records at all.
  *
@@ -23,22 +21,17 @@ final readonly class DoctrinePolicy
      * @param bool $onlyWithParent open spans only inside an existing trace
      * @param bool $recordTransactions record BEGIN, COMMIT and ROLLBACK as operations of their own
      */
+    /**
+     * @param bool $onlyWithParent open spans only inside an existing trace. Kept as the
+     *                             plain configuration value it is: whether a trace is
+     *                             running is not this object's to look up, and asking it to
+     *                             made a value object depend on the current execution.
+     *                             {@see \Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryOperation::onlyInsideTrace()}
+     *                             carries the decision to the one place that owns the context.
+     */
     public function __construct(
         public bool $recordStatements = false,
-        private bool $onlyWithParent = true,
+        public bool $onlyWithParent = true,
         public bool $recordTransactions = true,
     ) {}
-
-    /**
-     * Whether this statement gets a span.
-     *
-     * `only_with_parent` exists to keep orphan spans of infrastructure activity —
-     * Messenger transport polling is the usual one — out of traces. It deliberately
-     * says nothing about metrics: that load is real load on the database, it carries
-     * no cardinality risk, and dropping it would undercount what the database does.
-     */
-    public function opensSpan(): bool
-    {
-        return !$this->onlyWithParent || Span::getCurrent()->getContext()->isValid();
-    }
 }

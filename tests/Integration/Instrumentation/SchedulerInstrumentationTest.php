@@ -46,7 +46,7 @@ final class SchedulerInstrumentationTest extends FrameworkInstrumentationTestCas
         $parent = $this->telemetry->operation('messenger.consume')->start();
         $dispatcher->dispatch(new PreRunEvent($schedule, $context, $message));
         $dispatcher->dispatch(new PostRunEvent($schedule, $context, $message));
-        self::assertSame($parent->span()->context()->getSpanId(), $this->span(0)->getParentContext()->getSpanId());
+        self::assertSame($parent->span()->spanId(), $this->span(0)->getParentContext()->getSpanId());
         $dispatcher->dispatch(new PreRunEvent($schedule, $context, $message));
         $dispatcher->dispatch(new FailureEvent($schedule, $context, $message, new \RuntimeException('failed')));
         self::assertSame(StatusCode::STATUS_ERROR, $this->span(1)->getStatus()->getCode());
@@ -70,7 +70,7 @@ final class SchedulerInstrumentationTest extends FrameworkInstrumentationTestCas
         $context = new MessageContext('default', 'id', new PeriodicalTrigger('1 hour'), new \DateTimeImmutable());
         $subscriber->onPreRun(new PreRunEvent(new Schedule(), $context, new \stdClass()));
         $subscriber->reset();
-        self::assertFalse($this->telemetry->currentSpan()->context()->isValid());
+        self::assertNull($this->telemetry->activeTrace());
         self::assertCount(1, $this->telemetry->spans());
         foreach ($this->telemetry->measurements() as $metric) {
             self::assertCount(0, MetricPoints::of($metric));
@@ -90,15 +90,9 @@ final class SchedulerInstrumentationTest extends FrameworkInstrumentationTestCas
         $envelope = new Envelope(new \stdClass(), [new ScheduledStamp($context)]);
         $parent = $this->telemetry->operation('messenger.consume')->start();
         $dispatcher->dispatch(new WorkerMessageReceivedEvent($envelope, 'scheduler_default'));
-        self::assertNotSame(
-            $parent->span()->context()->getSpanId(),
-            $this->telemetry->currentSpan()->context()->getSpanId(),
-        );
+        self::assertNotSame($parent->span()->spanId(), $this->telemetry->activeTrace()['span_id'] ?? null);
         $dispatcher->dispatch(new WorkerMessageHandledEvent($envelope, 'scheduler_default'));
-        self::assertSame(
-            $parent->span()->context()->getSpanId(),
-            $this->telemetry->currentSpan()->context()->getSpanId(),
-        );
+        self::assertSame($parent->span()->spanId(), $this->telemetry->activeTrace()['span_id'] ?? null);
         $parent->finish();
         self::assertCount(2, $this->telemetry->spans());
     }

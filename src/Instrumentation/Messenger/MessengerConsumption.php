@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use OpenTelemetry\API\Trace\Span;
-use OpenTelemetry\Context\Context;
-use OpenTelemetry\Context\ContextInterface;
-use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 use OpenTelemetry\SemConv\Incubating\Attributes\MessagingIncubatingAttributes;
 use Symfony\Component\Messenger\Envelope;
@@ -26,7 +24,7 @@ final readonly class MessengerConsumption
 {
     public function __construct(
         private MessengerTelemetry $messengerTelemetry,
-        private TextMapPropagatorInterface $propagator,
+        private Propagation $propagation,
         private InstrumentationFailureReporter $reporter,
         private MessagingSystem $systems = new MessagingSystem(),
     ) {}
@@ -52,8 +50,8 @@ final readonly class MessengerConsumption
                 \sprintf('process %s', $destination),
                 $attributes,
                 spanAttributes: $this->spanAttributes($envelope, $attributes),
-                parent: $propagated ?? Context::getRoot(),
-                links: $propagated === null ? [] : [Span::getCurrent()->getContext()],
+                parent: $propagated,
+                linkActiveSpan: $propagated->isValid(),
             );
         } catch (\Throwable $throwable) {
             $this->reporter->report('Messenger consumption instrumentation failed', 'process', $throwable);
@@ -87,17 +85,14 @@ final readonly class MessengerConsumption
      *
      * No stamp at all means the message predates the instrumentation or came from
      * elsewhere. Then the span is a root, never a child of the worker's ambient context:
-     * that context belongs to the previous message.
+     * that context belongs to the previous message — and an empty carrier is exactly how
+     * {@see Propagation::extract()} is told to say so.
      */
-    private function propagated(Envelope $envelope): ?ContextInterface
+    private function propagated(Envelope $envelope): IncomingTrace
     {
         $stamp = $envelope->last(TraceContextStamp::class);
 
-        if (!$stamp instanceof TraceContextStamp || $stamp->carrier === []) {
-            return null;
-        }
-
-        return $this->propagator->extract($stamp->carrier, null, Context::getRoot());
+        return $this->propagation->extract($stamp instanceof TraceContextStamp ? $stamp->carrier : []);
     }
 
     /**

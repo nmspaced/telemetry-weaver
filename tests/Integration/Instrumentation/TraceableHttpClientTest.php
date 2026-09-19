@@ -49,7 +49,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
             },
         ));
         $parent = $this->telemetry->operation('parent')->start();
-        $parentId = $parent->span()->context()->getSpanId();
+        $parentId = $parent->span()->spanId();
         $response = $client->request(
             'GET',
             'https://user:secret@example.org/orders?token=secret#private',
@@ -57,7 +57,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         );
         self::assertFalse($bodyRead);
         self::assertSame([], $this->telemetry->spans());
-        self::assertSame($parentId, $this->telemetry->currentSpan()->context()->getSpanId());
+        self::assertSame($parentId, $this->telemetry->activeTrace()['span_id'] ?? null);
         self::assertSame(['X-Test: keep'], HttpHeaders::values($headers, 'x-test'));
         self::assertCount(1, HttpHeaders::values($headers, 'traceparent'));
         self::assertStringNotContainsString('stale', HttpHeaders::value($headers, 'traceparent'));
@@ -106,7 +106,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
             self::assertCount(0, MetricPoints::of($metric));
         }
 
-        self::assertFalse($this->telemetry->currentSpan()->context()->isValid());
+        self::assertNull($this->telemetry->activeTrace());
     }
 
     /**
@@ -130,7 +130,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         }
 
         self::assertSame(StatusCode::STATUS_ERROR, $this->span()->getStatus()->getCode());
-        self::assertFalse($this->telemetry->currentSpan()->context()->isValid());
+        self::assertNull($this->telemetry->activeTrace());
     }
 
     /**
@@ -194,7 +194,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         self::assertStringContainsString('three', $content);
         self::assertCount(2, $this->telemetry->spans());
         foreach ($this->telemetry->spans() as $span) {
-            self::assertSame($parent->span()->context()->getSpanId(), $span->getParentContext()->getSpanId());
+            self::assertSame($parent->span()->spanId(), $span->getParentContext()->getSpanId());
         }
 
         $parent->finish();
