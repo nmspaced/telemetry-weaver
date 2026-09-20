@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing;
 
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\RootTrace;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The trace a main request continues, read out of its headers.
  *
- * All this class does is turn a `HeaderBag` into a carrier. Resolving that carrier into a
- * trace — and deciding that an absent or unusable one means a *new* trace rather than the
- * leftovers of the previous request — belongs to {@see Propagation}, the only place that
- * should hold an opinion about OpenTelemetry's context model.
+ * Turns a `HeaderBag` into a carrier for {@see Propagation}. If a replacement propagation
+ * implementation fails, the request still starts a new root; it must not inherit the
+ * leftovers of the previous request.
  *
  * There is no counterpart for sub-requests. A sub-request is not a process boundary: it
  * continues whatever the main request is doing, which an operation says by naming no
@@ -25,6 +26,7 @@ final readonly class ParentContext
 {
     public function __construct(
         private Propagation $propagation,
+        private InstrumentationFailureReporter $reporter,
     ) {}
 
     /**
@@ -32,7 +34,13 @@ final readonly class ParentContext
      */
     public function fromHeaders(Request $request): IncomingTrace
     {
-        return $this->propagation->extract(self::headers($request));
+        try {
+            return $this->propagation->extract(self::headers($request));
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('HTTP parent context extraction failed', 'http_server', $throwable);
+
+            return new RootTrace();
+        }
     }
 
     /**

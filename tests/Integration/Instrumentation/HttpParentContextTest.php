@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ParentContext;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\RootTrace;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpTelemetryTestCase;
 use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
@@ -13,6 +15,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 
 #[CoversClass(ParentContext::class)]
+#[CoversClass(RootTrace::class)]
 #[CoversClass(OtelPropagation::class)]
 final class HttpParentContextTest extends HttpTelemetryTestCase
 {
@@ -140,6 +143,28 @@ final class HttpParentContextTest extends HttpTelemetryTestCase
         self::assertNotSame($leaked->getContext()->getTraceId(), $span->getContext()->getTraceId());
         self::assertNotSame('0af7651916cd43dd8448eb211c80319c', $span->getContext()->getTraceId());
 
+        $leaked->end();
+        self::assertSame(1, $this->reporter->total());
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aThrowingReplacementPropagationStartsAFreshRootAndPreservesTheResponse(): void
+    {
+        $propagation = $this->createStub(Propagation::class);
+        $propagation->method('extract')->willThrowException(new \RuntimeException('propagation unavailable'));
+        $this->boot(propagation: $propagation);
+        $leaked = $this->leak('unrelated');
+        $expected = new Response('delivered', 201);
+        $request = $this->request(static fn(): Response => $expected, headers: ['traceparent' => self::TRACEPARENT]);
+
+        self::assertSame($expected, $this->handle($request));
+        $span = $this->exportedSpan();
+        self::assertFalse($span->getParentContext()->isValid());
+        self::assertNotSame($leaked->getContext()->getTraceId(), $span->getContext()->getTraceId());
+        self::assertNull($this->scopes->of($request));
+        self::assertSame($leaked->getContext()->getSpanId(), $this->activeTrace()['span_id'] ?? null);
+        self::assertSame(1, $this->reporter->total());
         $leaked->end();
     }
 }

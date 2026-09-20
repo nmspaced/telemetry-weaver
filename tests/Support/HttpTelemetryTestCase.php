@@ -6,10 +6,12 @@ namespace Nmspaced\TelemetryWeaver\Tests\Support;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\RequestPolicy;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Routing\RequestRouteTemplateResolver;
+use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Routing\RouteTemplateProvider;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\HttpServerTracingSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ParentContext;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTraceRegistry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ServerTraceResponseSubscriber;
+use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelResponsePropagation;
@@ -56,6 +58,8 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
         array $routes = [],
         array $excludedPaths = [],
         ?TextMapPropagatorInterface $propagator = null,
+        ?Propagation $propagation = null,
+        ?RouteTemplateProvider $routeTemplateProvider = null,
     ): void {
         $this->responsePropagation ??= new OtelResponsePropagation(
             // @mago-expect analysis:experimental-usage
@@ -72,15 +76,18 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
             new HttpServerTracingSubscriber(
                 $this->scopes,
                 new ParentContext(
-                    new OtelPropagation(
+                    $propagation ?? new OtelPropagation(
                         $propagator ?? TraceContextPropagator::getInstance(),
                         $this->contextStorage,
                         $this->reporter,
                     ),
+                    $this->reporter,
                 ),
                 new RequestPolicy(
                     $excludedPaths,
-                    new RequestRouteTemplateResolver(new StaticRouteTemplateProvider($routes)),
+                    new RequestRouteTemplateResolver(
+                        $routeTemplateProvider ?? new StaticRouteTemplateProvider($routes),
+                    ),
                 ),
             ),
         );
@@ -89,7 +96,9 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
                 $this->responsePropagation,
                 new RequestPolicy(
                     $excludedPaths,
-                    new RequestRouteTemplateResolver(new StaticRouteTemplateProvider($routes)),
+                    new RequestRouteTemplateResolver(
+                        $routeTemplateProvider ?? new StaticRouteTemplateProvider($routes),
+                    ),
                 ),
             ),
         );

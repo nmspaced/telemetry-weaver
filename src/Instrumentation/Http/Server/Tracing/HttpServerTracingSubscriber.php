@@ -70,7 +70,7 @@ final readonly class HttpServerTracingSubscriber implements EventSubscriberInter
     public function onRoute(RequestEvent $event): void
     {
         $request = $event->getRequest();
-        $this->requestTraces->of($request)?->route($this->requestPolicy->routeTemplate($request));
+        $this->requestTraces->route($request, $this->requestPolicy);
     }
 
     public function onException(ExceptionEvent $event): void
@@ -81,14 +81,8 @@ final readonly class HttpServerTracingSubscriber implements EventSubscriberInter
     public function onResponse(ResponseEvent $event): void
     {
         $request = $event->getRequest();
-        $trace = $this->requestTraces->of($request);
-
-        if ($trace === null) {
-            return;
-        }
-
-        $trace->route($this->requestPolicy->routeTemplate($request));
-        $trace->response($event->getResponse());
+        $this->requestTraces->route($request, $this->requestPolicy);
+        $this->requestTraces->of($request)?->response($event->getResponse());
     }
 
     public function onFinishRequest(FinishRequestEvent $event): void
