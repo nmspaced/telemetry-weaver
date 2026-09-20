@@ -66,6 +66,38 @@ final class HttpAttributesTest extends TestCase
         yield 'nested names survive' => ['filter[status]=paid', 'filter[status]=REDACTED'];
         yield 'value containing = is fully redacted' => ['q=a=b&p=1', 'q=REDACTED&p=REDACTED'];
         yield 'valueless flag is kept' => ['debug&token=x', 'debug&token=REDACTED'];
+        // A semicolon is part of the value under PHP's own parser, so redaction that
+        // stopped there published the remainder of whatever the value was.
+        yield 'a literal semicolon does not end a value' => [
+            'token=abc;private-secret',
+            'token=REDACTED',
+        ];
+        yield 'a semicolon between pairs does not end a value' => ['a=1;b=2', 'a=REDACTED'];
+        yield 'an encoded semicolon does not end a value' => ['token=abc%3Bsecret', 'token=REDACTED'];
+        yield 'an empty value stays empty' => ['token=&page=2', 'token=REDACTED&page=REDACTED'];
+    }
+
+    /**
+     * The redaction has to agree with the parser that reads the same string: whatever
+     * `parse_str()` calls a value must be gone. Anything it calls a separator may stay.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    #[DataProvider('queries')]
+    public function noParsedValueSurvivesRedaction(string $query, string $_expected): void
+    {
+        $parsed = [];
+        \parse_str($query, $parsed);
+        $redacted = QueryStringRedactor::redact($query);
+
+        \array_walk_recursive($parsed, static function (mixed $value) use ($redacted): void {
+            if (!\is_string($value) || $value === '') {
+                return;
+            }
+
+            self::assertStringNotContainsString($value, $redacted);
+        });
     }
 
     /** @throws \Throwable */

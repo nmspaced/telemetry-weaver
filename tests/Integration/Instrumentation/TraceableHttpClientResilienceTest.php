@@ -11,6 +11,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\RequestPropagation;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\ResponseMetadata;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\TraceableHttpClient;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpClientTelemetryTestCase;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpHeaders;
@@ -129,8 +130,8 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
         $client = new TraceableHttpClient(
             new MockHttpClient(new MockResponse('ok')),
             new ClientInstrumentation(
-                new HttpClientTelemetry($this->telemetry, new HostPolicy()),
-                new RequestPropagation(new OtelPropagation($propagator, OtelContext::storage()), $reporter),
+                new HttpClientTelemetry($this->telemetry, new HostPolicy(), new OtelDurationRecorder()),
+                new RequestPropagation(new OtelPropagation($propagator, OtelContext::storage(), $reporter), $reporter),
                 new ResponseMetadata($reporter),
                 $reporter,
             ),
@@ -175,9 +176,9 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
     {
         $reporter = new InstrumentationFailureReporter(new NullLogger());
         $instrumentation = new ClientInstrumentation(
-            new HttpClientTelemetry($this->telemetry, new HostPolicy()),
+            new HttpClientTelemetry($this->telemetry, new HostPolicy(), new OtelDurationRecorder()),
             new RequestPropagation(
-                new OtelPropagation(TraceContextPropagator::getInstance(), OtelContext::storage()),
+                new OtelPropagation(TraceContextPropagator::getInstance(), OtelContext::storage(), $reporter),
                 $reporter,
             ),
             new ResponseMetadata($reporter),

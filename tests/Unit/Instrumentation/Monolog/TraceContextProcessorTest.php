@@ -96,12 +96,12 @@ final class TraceContextProcessorTest extends TestCase
             'trace_flags' => $trace_flags,
         ];
 
-        return new class($current) implements ActiveTraceIdentity {
+        return new readonly class($current) implements ActiveTraceIdentity {
             /**
              * @param array{trace_id: non-empty-string, span_id: non-empty-string, trace_flags: int} $current
              */
             public function __construct(
-                private readonly array $current,
+                private array $current,
             ) {}
 
             #[\Override]

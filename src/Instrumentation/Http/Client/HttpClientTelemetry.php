@@ -8,8 +8,10 @@ use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 use Nmspaced\TelemetryWeaver\Internal\Operation\ScopedOperation;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 use OpenTelemetry\SemConv\Attributes\HttpAttributes;
@@ -46,9 +48,15 @@ final readonly class HttpClientTelemetry
 
     private HistogramInterface $responseBodySize;
 
+    /**
+     * The recorder is the same seam a duration writes through, and it is here for the
+     * same reason: it is the only way to name the trace a measurement belongs to without
+     * an OpenTelemetry context reaching instrumentation.
+     */
     public function __construct(
         private BoundaryTelemetry $telemetry,
         private HostPolicy $policy,
+        private DurationRecorder $recorder,
         OperationBuckets $buckets = DefaultBuckets::Http,
     ) {
         $metrics = $telemetry->metrics();
@@ -129,6 +137,13 @@ final readonly class HttpClientTelemetry
         }
 
         $operation->metricAttributes($outcome);
+
+        // Read before finish(), which releases it along with the span. This is the trace
+        // the duration is correlated with, and the body sizes have to name the same one:
+        // a lazy response is read whenever the caller gets round to it, so letting the
+        // instrument resolve the exemplar itself attached the body size of this request
+        // to whatever span happened to be active then — in a worker, a later request's.
+        $correlation = $operation->correlation();
         $operation->finish();
 
         // Asked again rather than remembered from start(): the policy is immutable, so
@@ -141,20 +156,20 @@ final readonly class HttpClientTelemetry
 
         // After finish(), under the labels the duration was recorded with: the
         // conventions expect the three instruments to be joinable on one label set.
-        $this->recordBodySizes($call->request->metricAttributes() + $outcome, $bodySize);
+        $this->recordBodySizes($call->request->metricAttributes() + $outcome, $bodySize, $correlation);
     }
 
     /**
      * @param array<non-empty-string, string|int> $attributes
      */
-    private function recordBodySizes(array $attributes, ClientBodySize $bodySize): void
+    private function recordBodySizes(array $attributes, ClientBodySize $bodySize, ?TraceCorrelation $correlation): void
     {
         if ($bodySize->request !== null) {
-            $this->requestBodySize->record($bodySize->request, $attributes);
+            $this->recorder->record($this->requestBodySize, $bodySize->request, $attributes, $correlation);
         }
 
         if ($bodySize->response !== null) {
-            $this->responseBodySize->record($bodySize->response, $attributes);
+            $this->recorder->record($this->responseBodySize, $bodySize->response, $attributes, $correlation);
         }
     }
 }

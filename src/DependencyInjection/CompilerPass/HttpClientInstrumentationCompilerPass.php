@@ -13,6 +13,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\RequestPropagation;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\ResponseMetadata;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\TraceableHttpClient;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -105,6 +106,7 @@ final readonly class HttpClientInstrumentationCompilerPass implements CompilerPa
             ->register(HttpClientTelemetry::class, HttpClientTelemetry::class)
             ->setArgument('$telemetry', new Reference('open_telemetry.http_client.telemetry'))
             ->setArgument('$policy', new Reference(HostPolicy::class))
+            ->setArgument('$recorder', new Reference(DurationRecorder::class))
             ->setArgument('$buckets', new Reference('open_telemetry.http_client.buckets'));
 
         $container

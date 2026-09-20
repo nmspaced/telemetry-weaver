@@ -40,7 +40,7 @@ $retained = $telemetry->operation('retained')->start();
 $retainedChild = $telemetry->operation('retained child')->start();
 $consumption = new MessengerConsumption(
     new MessengerTelemetry($telemetry),
-    new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage()),
+    new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage(), $reporter),
     $reporter,
 );
 $consumption->run(

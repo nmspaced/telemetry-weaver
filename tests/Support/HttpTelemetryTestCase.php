@@ -16,6 +16,7 @@ use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelResponsePropagation;
 use Nmspaced\TelemetryWeaver\Tests\Fake\StaticRouteTemplateProvider;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\Context\Propagation\NoopResponsePropagator;
+use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -49,9 +50,13 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
     /**
      * @param array<string, string> $routes route name to template
      * @param list<non-empty-string> $excludedPaths
+     * @param TextMapPropagatorInterface|null $propagator null is W3C trace context, the real default
      */
-    protected function boot(array $routes = [], array $excludedPaths = []): void
-    {
+    protected function boot(
+        array $routes = [],
+        array $excludedPaths = [],
+        ?TextMapPropagatorInterface $propagator = null,
+    ): void {
         $this->responsePropagation ??= new OtelResponsePropagation(
             // @mago-expect analysis:experimental-usage
             NoopResponsePropagator::getInstance(),
@@ -66,7 +71,13 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
         $this->dispatcher->addSubscriber(
             new HttpServerTracingSubscriber(
                 $this->scopes,
-                new ParentContext(new OtelPropagation(TraceContextPropagator::getInstance(), $this->contextStorage)),
+                new ParentContext(
+                    new OtelPropagation(
+                        $propagator ?? TraceContextPropagator::getInstance(),
+                        $this->contextStorage,
+                        $this->reporter,
+                    ),
+                ),
                 new RequestPolicy(
                     $excludedPaths,
                     new RequestRouteTemplateResolver(new StaticRouteTemplateProvider($routes)),

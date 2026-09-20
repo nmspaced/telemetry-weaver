@@ -249,7 +249,7 @@ not infer it from `PHP_SAPI`.
 
 | Runtime | Mode | At a boundary |
 |---|---|---|
-| PHP-FPM, one request per process | `web=1&worker=0` | flush and shut the pipeline down on terminate |
+| PHP-FPM, one request per PHP execution | `web=1&worker=0` | flush and shut the pipeline down on terminate |
 | Shared HTTP worker (FrankenPHP, RoadRunner) | `worker=1` | flush per request, shut down when the process exits |
 | Worker that rebuilds its kernel per request | `worker=2` | shut the pipeline down per request, worker identity stays stable |
 | Console, Messenger | — | flush per command or message, shut down at process exit |

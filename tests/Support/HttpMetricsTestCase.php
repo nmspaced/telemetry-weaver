@@ -67,6 +67,7 @@ abstract class HttpMetricsTestCase extends HttpTelemetryTestCase
                 new SafeMetrics($meter, $this->reporter, new OtelDurationRecorder(), $this->clock),
                 new OtelTraceCorrelationSource($this->contextStorage),
                 $this->reporter,
+                new OtelDurationRecorder(),
             ),
             $this->reporter,
         );

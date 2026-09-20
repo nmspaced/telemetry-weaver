@@ -66,8 +66,18 @@ final readonly class OutgoingRequest
     }
 
     /**
-     * The frozen label set. Every one of these is bounded: the method is normalized to a
-     * known name or `_OTHER`, and the rest come from the URL's authority.
+     * The frozen label set: the method normalized to a known name or `_OTHER`, and the
+     * URL's authority.
+     *
+     * Bounded by the application's own call sites, not by this class. The conventions
+     * require `server.address` and `server.port`, and they are as bounded as the set of
+     * hosts the application calls — for a fixed set of services, a handful of series; for
+     * a webhook dispatcher, a crawler or a multi-tenant client, one per host it has ever
+     * called. A cumulative aggregation keeps every one of them for the life of the
+     * process, and neither the boundary flush nor the queue limits bound that. An
+     * application in that shape needs an SDK view that drops or maps the destination, or
+     * delta temporality, and the guarantee this comment used to claim was never this
+     * class's to give.
      *
      * @return array<non-empty-string, string|int>
      */

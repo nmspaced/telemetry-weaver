@@ -89,7 +89,7 @@ final class HttpWorkerLifecycleTest extends TestCase
         $dispatcher->addSubscriber(
             new HttpServerTracingSubscriber(
                 $this->scopes,
-                new ParentContext(new OtelPropagation(TraceContextPropagator::getInstance(), $context)),
+                new ParentContext(new OtelPropagation(TraceContextPropagator::getInstance(), $context, $reporter)),
                 new RequestPolicy(['/health'], new RequestRouteTemplateResolver(new NullRouteTemplateProvider())),
             ),
         );

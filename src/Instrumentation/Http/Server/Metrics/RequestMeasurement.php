@@ -7,6 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Metrics;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\HttpResponseStatus;
 use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionEntry;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 use OpenTelemetry\SemConv\Attributes\HttpAttributes;
 use OpenTelemetry\SemConv\Attributes\NetworkAttributes;
@@ -32,6 +33,15 @@ final class RequestMeasurement implements ExecutionEntry
     private readonly Measurement $duration;
 
     /**
+     * Captured once, at the start of the request, and used by all three instruments.
+     *
+     * Released as soon as the measurement ends: a correlation holds the context, which
+     * holds the span, so a request that kept one would keep an SDK span reachable for as
+     * long as the entry lived — and an abandoned entry would keep it for longer than that.
+     */
+    private ?TraceCorrelation $correlation;
+
+    /**
      * @param array<non-empty-string, int|string> $attributes
      * @param int|null $requestBodySize null when the client declared no length
      */
@@ -40,7 +50,8 @@ final class RequestMeasurement implements ExecutionEntry
         private array $attributes,
         private readonly ?int $requestBodySize = null,
     ) {
-        $this->duration = $metrics->startDuration();
+        $this->correlation = $metrics->correlation();
+        $this->duration = $metrics->startDuration($this->correlation);
     }
 
     public function route(?string $route): void
@@ -107,7 +118,9 @@ final class RequestMeasurement implements ExecutionEntry
         $this->finished = true;
         $this->attributes = $this->withOutcome();
         $this->duration->stop($this->attributes);
-        $this->recordBodySizes();
+        $correlation = $this->correlation;
+        $this->correlation = null;
+        $this->recordBodySizes($correlation);
     }
 
     /**
@@ -118,6 +131,7 @@ final class RequestMeasurement implements ExecutionEntry
     public function abandon(): void
     {
         $this->finished = true;
+        $this->correlation = null;
         $this->duration->cancel();
     }
 
@@ -130,14 +144,14 @@ final class RequestMeasurement implements ExecutionEntry
      * Only sizes that were actually observed. A body nobody declared the
      * length of is not a zero-byte body.
      */
-    private function recordBodySizes(): void
+    private function recordBodySizes(?TraceCorrelation $correlation): void
     {
         if ($this->requestBodySize !== null) {
-            $this->metrics->recordRequestBodySize($this->requestBodySize, $this->attributes);
+            $this->metrics->recordRequestBodySize($this->requestBodySize, $this->attributes, $correlation);
         }
 
         if ($this->responseBodySize !== null) {
-            $this->metrics->recordResponseBodySize($this->responseBodySize, $this->attributes);
+            $this->metrics->recordResponseBodySize($this->responseBodySize, $this->attributes, $correlation);
         }
     }
 

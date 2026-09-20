@@ -112,10 +112,12 @@ abstract class MessengerTelemetryTestCase extends TestCase
         MessengerTelemetry $telemetry,
         ?MessagingSystem $systems = null,
     ): MessengerConsumption {
+        $reporter = new InstrumentationFailureReporter($this->logger);
+
         return new MessengerConsumption(
             $telemetry,
-            new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage()),
-            new InstrumentationFailureReporter($this->logger),
+            new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage(), $reporter),
+            $reporter,
             $systems ?? new MessagingSystem(),
         );
     }
@@ -164,7 +166,7 @@ abstract class MessengerTelemetryTestCase extends TestCase
                 new TraceableSendersLocator(
                     new SendersLocator([SampleMessage::class => \array_keys($senders)], new Container($senders)),
                     $telemetry,
-                    new OtelPropagation($propagator, Context::storage()),
+                    new OtelPropagation($propagator, Context::storage(), $reporter),
                     $systems,
                 ),
                 $dispatcher,

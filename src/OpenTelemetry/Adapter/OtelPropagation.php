@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter;
 
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use OpenTelemetry\Context\Context;
@@ -23,6 +24,15 @@ use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
  * failed to close, or a span belonging to the previous message. Resolving against the root
  * makes an absent trace a new trace, which is the only honest answer.
  *
+ * Both directions are fail-open, because a propagator is the one piece of the pipeline
+ * that runs *before* the application's work rather than around it. A custom or misbuilt
+ * propagator that threw out of `extract()` left `kernel.request` with the exception and
+ * turned a working request into a 500; one that threw out of `inject()` reached the
+ * Messenger sender first, so the transport was never called at all and the message was
+ * lost to a telemetry failure. Failing propagation costs a trace, never a request or a
+ * message: injection answers with no headers, and extraction answers with the root — a
+ * *new* trace, not the ambient context, which in a worker is the previous unit of work.
+ *
  * @internal
  */
 final readonly class OtelPropagation implements Propagation
@@ -30,6 +40,7 @@ final readonly class OtelPropagation implements Propagation
     public function __construct(
         private TextMapPropagatorInterface $propagator,
         private ContextStorageInterface $contextStorage,
+        private InstrumentationFailureReporter $reporter,
     ) {}
 
     #[\Override]
@@ -38,8 +49,14 @@ final readonly class OtelPropagation implements Propagation
         /** @var mixed $carrier */
         $carrier = [];
 
-        // @mago-expect analysis:mixed-assignment — inject() takes the carrier as `mixed &`
-        $this->propagator->inject($carrier, null, $this->contextStorage->current());
+        try {
+            // @mago-expect analysis:mixed-assignment — inject() takes the carrier as `mixed &`
+            $this->propagator->inject($carrier, null, $this->contextStorage->current());
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Context injection failed', 'propagation', $throwable);
+
+            return [];
+        }
 
         return \is_array($carrier) ? self::strings($carrier) : [];
     }
@@ -47,7 +64,15 @@ final readonly class OtelPropagation implements Propagation
     #[\Override]
     public function extract(array $carrier): IncomingTrace
     {
-        return OtelIncomingTrace::extracted($this->propagator->extract($carrier, null, Context::getRoot()));
+        try {
+            return OtelIncomingTrace::extracted($this->propagator->extract($carrier, null, Context::getRoot()));
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Context extraction failed', 'propagation', $throwable);
+
+            // Not null: null is how a caller says "continue whatever is running", and the
+            // one thing a boundary must never do is adopt the previous unit of work.
+            return OtelIncomingTrace::none();
+        }
     }
 
     #[\Override]
@@ -55,7 +80,15 @@ final readonly class OtelPropagation implements Propagation
     {
         $fields = [];
 
-        foreach ($this->propagator->fields() as $field) {
+        try {
+            $names = $this->propagator->fields();
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Context field names unavailable', 'propagation', $throwable);
+
+            return [];
+        }
+
+        foreach ($names as $field) {
             if ($field === '') {
                 continue;
             }

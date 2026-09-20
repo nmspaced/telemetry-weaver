@@ -11,6 +11,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\RequestPropagation;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\ResponseMetadata;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Client\TraceableHttpClient;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\Testing\InMemoryTelemetry;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
@@ -53,9 +54,9 @@ abstract class HttpClientTelemetryTestCase extends TestCase
         return new TraceableHttpClient(
             $delegate,
             new ClientInstrumentation(
-                new HttpClientTelemetry($this->telemetry, $policy ?? new HostPolicy()),
+                new HttpClientTelemetry($this->telemetry, $policy ?? new HostPolicy(), new OtelDurationRecorder()),
                 new RequestPropagation(
-                    new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage()),
+                    new OtelPropagation(TraceContextPropagator::getInstance(), Context::storage(), $reporter),
                     $reporter,
                 ),
                 new ResponseMetadata($reporter),
