@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use OpenTelemetry\SemConv\Incubating\Attributes\MessagingIncubatingAttributes;
 use Symfony\Component\Messenger\Envelope;
@@ -28,11 +29,13 @@ final readonly class TraceableSender implements SenderInterface
      * @param non-empty-string $destination the transport alias
      * @param non-empty-string $system the transport's broker, or the framework fallback
      */
+    // @mago-expect lint:excessive-parameter-list — the reporter protects propagation independently of the transport call.
     public function __construct(
         private SenderInterface $delegate,
         private MessengerTelemetry $messengerTelemetry,
         private Propagation $propagation,
         private string $destination,
+        private InstrumentationFailureReporter $reporter,
         private string $system = MessageAttributes::SYSTEM,
     ) {}
 
@@ -73,12 +76,20 @@ final readonly class TraceableSender implements SenderInterface
      */
     private function stamped(Envelope $envelope): Envelope
     {
-        $headers = $this->propagation->injectCurrent();
+        $envelope = $envelope->withoutAll(TraceContextStamp::class);
+
+        try {
+            $headers = $this->propagation->injectCurrent();
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Context injection failed', 'messenger send', $throwable);
+
+            return $envelope;
+        }
 
         if ($headers === []) {
             return $envelope;
         }
 
-        return $envelope->withoutAll(TraceContextStamp::class)->with(new TraceContextStamp($headers));
+        return $envelope->with(new TraceContextStamp($headers));
     }
 }

@@ -16,6 +16,7 @@ use OpenTelemetry\API\Trace\SpanContextInterface;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind as OtelSpanKind;
 use OpenTelemetry\API\Trace\TracerInterface;
+use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Context\ContextStorageInterface;
 
@@ -93,7 +94,9 @@ final readonly class SpanOpener implements SpanOpenerInterface
             return $ambient;
         }
 
-        return $incoming instanceof OtelIncomingTrace ? $incoming->context : $ambient;
+        // An explicit boundary without a usable SDK context, including RootTrace after
+        // a propagation failure, must not adopt the ambient span.
+        return $incoming instanceof OtelIncomingTrace ? $incoming->context : Context::getRoot();
     }
 
     /**

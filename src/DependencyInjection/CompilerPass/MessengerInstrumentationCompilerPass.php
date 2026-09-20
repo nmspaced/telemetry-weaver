@@ -13,6 +13,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\TraceableMessageBusMiddle
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\TraceableSendersLocator;
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\WorkerFlushSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Runtime\ProcessMetrics;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -95,6 +96,7 @@ final readonly class MessengerInstrumentationCompilerPass implements CompilerPas
             ->setArgument('$delegate', new Reference($innerId))
             ->setArgument('$messengerTelemetry', new Reference(MessengerTelemetry::class))
             ->setArgument('$propagation', new Reference(Propagation::class))
+            ->setArgument('$reporter', new Reference(InstrumentationFailureReporter::class))
             ->setArgument('$systems', new Reference(MessagingSystem::class));
     }
 

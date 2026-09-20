@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Transport\Sender\SenderInterface;
@@ -25,6 +26,7 @@ final readonly class TraceableSendersLocator implements SendersLocatorInterface
         private SendersLocatorInterface $delegate,
         private MessengerTelemetry $messengerTelemetry,
         private Propagation $propagation,
+        private InstrumentationFailureReporter $reporter,
         private MessagingSystem $systems = new MessagingSystem(),
     ) {}
 
@@ -42,6 +44,7 @@ final readonly class TraceableSendersLocator implements SendersLocatorInterface
                 $this->messengerTelemetry,
                 $this->propagation,
                 $destination === '' ? 'unknown' : $destination,
+                $this->reporter,
                 $this->systems->ofTransport($sender),
             );
         }

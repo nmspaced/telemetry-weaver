@@ -84,7 +84,8 @@ return static function (ContainerConfigurator $container): void {
 
     $services
         ->set(ParentContext::class)
-        ->arg('$propagation', service(Propagation::class));
+        ->arg('$propagation', service(Propagation::class))
+        ->arg('$reporter', service(InstrumentationFailureReporter::class));
 
     $services
         ->set(RequestTraceRegistry::class)

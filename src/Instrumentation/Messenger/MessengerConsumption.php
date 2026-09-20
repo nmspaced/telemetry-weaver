@@ -7,6 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Messenger;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\RootTrace;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 use OpenTelemetry\SemConv\Incubating\Attributes\MessagingIncubatingAttributes;
 use Symfony\Component\Messenger\Envelope;
@@ -87,12 +88,22 @@ final readonly class MessengerConsumption
      * elsewhere. Then the span is a root, never a child of the worker's ambient context:
      * that context belongs to the previous message — and an empty carrier is exactly how
      * {@see Propagation::extract()} is told to say so.
+     *
+     * A propagation that throws is answered the same way rather than by the caller's
+     * backstop: losing the incoming trace costs one edge between two traces, while
+     * losing the operation costs the message its span, its duration and its error type.
      */
     private function propagated(Envelope $envelope): IncomingTrace
     {
         $stamp = $envelope->last(TraceContextStamp::class);
 
-        return $this->propagation->extract($stamp instanceof TraceContextStamp ? $stamp->carrier : []);
+        try {
+            return $this->propagation->extract($stamp instanceof TraceContextStamp ? $stamp->carrier : []);
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Context extraction failed', 'process', $throwable);
+
+            return new RootTrace();
+        }
     }
 
     /**
