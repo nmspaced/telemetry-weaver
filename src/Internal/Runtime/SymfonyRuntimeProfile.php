@@ -49,6 +49,19 @@ final readonly class SymfonyRuntimeProfile
         return !$this->finishesAfterRequest();
     }
 
+    /**
+     * Whether a finished command ends a unit of work of *this* pipeline.
+     *
+     * Console and Messenger are the runtime here, so their events decide the boundaries.
+     * Under a web runtime they do not: a console Application run from a controller — with
+     * the kernel's dispatcher, which is the ordinary programmatic call — dispatches the
+     * same TERMINATE in the middle of a request the HTTP boundary still owns.
+     */
+    public function commandsAreBoundaries(): bool
+    {
+        return !$this->web;
+    }
+
     public function hasWorkerIdentity(): bool
     {
         return !$this->web || $this->workerMode > 0;

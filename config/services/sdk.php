@@ -183,7 +183,8 @@ return static function (ContainerConfigurator $container): void {
     $services
         ->set(Propagation::class, OtelPropagation::class)
         ->arg('$propagator', service(TextMapPropagatorInterface::class))
-        ->arg('$contextStorage', service(ContextStorageInterface::class));
+        ->arg('$contextStorage', service(ContextStorageInterface::class))
+        ->arg('$reporter', service(InstrumentationFailureReporter::class));
 
     $services
         ->set(ActiveTraceIdentity::class, OtelActiveTraceIdentity::class)

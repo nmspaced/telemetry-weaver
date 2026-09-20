@@ -16,16 +16,16 @@ use Symfony\Component\Routing\RouterInterface;
  * `RouterInterface` has five methods and the bundle reads one of them; a mock would spell
  * out the other four anyway, and PHPUnit rightly complains about a mock with no expectations.
  */
-final class StubRouter implements RouterInterface
+final readonly class StubRouter implements RouterInterface
 {
-    private readonly RouteCollection $collection;
+    private RouteCollection $collection;
 
     /**
      * @param array<string, string> $routes route name to path
      */
     public function __construct(
         array $routes = [],
-        private readonly ?\Throwable $failure = null,
+        private ?\Throwable $failure = null,
     ) {
         $this->collection = new RouteCollection();
 

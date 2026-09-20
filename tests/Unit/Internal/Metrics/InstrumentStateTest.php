@@ -11,8 +11,10 @@ use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Metrics\CounterInterface;
 use OpenTelemetry\API\Metrics\GaugeInterface;
 use OpenTelemetry\API\Metrics\UpDownCounterInterface;
+use PHPUnit\Event\NoPreviousThrowableException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception;
 
 /**
  * `isEnabled()` on the fail-open instrument wrappers.
@@ -32,8 +34,8 @@ final class InstrumentStateTest extends PublicTelemetryTestCase
      * False on failure, never true: a caller that gets true builds attributes and then records
      * into an instrument that has already proven it throws.
      *
-     * @throws \PHPUnit\Event\NoPreviousThrowableException
-     * @throws \PHPUnit\Framework\MockObject\Exception
+     * @throws NoPreviousThrowableException
+     * @throws Exception
      */
     #[Test]
     public function aBrokenInstrumentAnswersIsEnabledWithFalseAndReports(): void

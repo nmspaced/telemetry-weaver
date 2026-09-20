@@ -11,6 +11,7 @@ use Nmspaced\TelemetryWeaver\Tests\Fake\StubRouter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Random\RandomException;
 
 /**
  * The dump this writes is what every server span's `http.route` is read from in production —
@@ -24,7 +25,7 @@ final class RouteTemplateCacheWarmerTest extends TestCase
 {
     private string $dir;
 
-    /** @throws \Random\RandomException */
+    /** @throws RandomException */
     #[\Override]
     protected function setUp(): void
     {

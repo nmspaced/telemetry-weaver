@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ParentContext;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpTelemetryTestCase;
+use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 
 #[CoversClass(ParentContext::class)]
+#[CoversClass(OtelPropagation::class)]
 final class HttpParentContextTest extends HttpTelemetryTestCase
 {
     private const string TRACEPARENT = '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01';
@@ -102,5 +105,41 @@ final class HttpParentContextTest extends HttpTelemetryTestCase
         self::assertFalse($span->getParentContext()->isValid());
         self::assertTrue($span->getContext()->isValid());
         $this->assertNoReports();
+    }
+
+    /**
+     * A propagator that throws — a custom one, or one misconfigured at the SDK level —
+     * used to take the request with it: extraction happens on `kernel.request`, before the
+     * operation exists, so the exception left the listener and a working request answered
+     * 500. Telemetry may cost a trace, never a response.
+     *
+     * The fallback is a *new* root rather than the ambient context. In a worker the
+     * ambient context is the previous unit of work, so inheriting it would answer a
+     * propagation failure by filing this request under the last one.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function aThrowingPropagatorCostsTheTraceAndNotTheRequest(): void
+    {
+        $propagator = $this->createStub(TextMapPropagatorInterface::class);
+        $propagator->method('extract')->willThrowException(new \RuntimeException('propagator unavailable'));
+        $this->boot(propagator: $propagator);
+
+        $leaked = $this->leak('left-behind-by-someone-else');
+
+        $response = $this->handle($this->request(static fn(): Response => new Response('ok'), headers: [
+            'traceparent' => self::TRACEPARENT,
+        ]));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('ok', $response->getContent());
+
+        $span = $this->exportedSpan();
+        self::assertFalse($span->getParentContext()->isValid());
+        self::assertNotSame($leaked->getContext()->getTraceId(), $span->getContext()->getTraceId());
+        self::assertNotSame('0af7651916cd43dd8448eb211c80319c', $span->getContext()->getTraceId());
+
+        $leaked->end();
     }
 }

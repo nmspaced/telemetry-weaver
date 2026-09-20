@@ -9,8 +9,12 @@ use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\BaggageReader;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOwner;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 
+// @mago-expect lint:too-many-methods — the running-operation contract plus the two things a
+// framework lifecycle needs from an operation it owns: releasing the activation early, and
+// naming the trace a later measurement of the same work belongs to.
 /**
  * @internal Mutable execution ownership, never stored by a shared facade. First completion revokes all retained work.
  */
@@ -95,6 +99,22 @@ final class ActiveOperation implements ScopedOperation
     public function detach(): void
     {
         $this->owner->detach();
+    }
+
+    #[\Override]
+    public function correlation(): ?TraceCorrelation
+    {
+        if ($this->finished) {
+            return null;
+        }
+
+        try {
+            return $this->owner->correlation();
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Operation correlation read failed', $this->owner->name(), $throwable);
+
+            return null;
+        }
     }
 
     #[\Override]

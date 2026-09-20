@@ -9,8 +9,10 @@ use Nmspaced\TelemetryWeaver\Api\Metrics;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Durations;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelationSource;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\SemConv\Incubating\Metrics\HttpIncubatingMetrics;
@@ -28,6 +30,12 @@ use OpenTelemetry\SemConv\Metrics\HttpMetrics;
  * so that they survive tracing being switched off. There is therefore no span to take a
  * correlation from, and the source is asked for whatever the tracing subscriber — which
  * runs first — has already made current.
+ *
+ * It is asked exactly once per request, by the measurement, and all three instruments are
+ * written with what it answered. Reading it again when the body sizes are recorded would
+ * read a different moment: those are recorded at terminate, after `finish_request` has
+ * released the server span's activation, so the instrument would have resolved the
+ * exemplar against whatever context the worker held by then.
  */
 final readonly class HttpServerMetrics
 {
@@ -41,6 +49,7 @@ final readonly class HttpServerMetrics
         Metrics $metrics,
         private TraceCorrelationSource $correlations,
         private InstrumentationFailureReporter $reporter,
+        private DurationRecorder $recorder,
         OperationBuckets $buckets = DefaultBuckets::Http,
     ) {
         $this->duration = $metrics->duration(
@@ -61,11 +70,23 @@ final readonly class HttpServerMetrics
         );
     }
 
-    public function startDuration(): Measurement
+    /** The trace this request's measurements belong to, while the server span is still current. */
+    public function correlation(): ?TraceCorrelation
+    {
+        try {
+            return $this->correlations->current();
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Trace correlation read failed', 'http_server', $throwable);
+
+            return null;
+        }
+    }
+
+    public function startDuration(?TraceCorrelation $correlation): Measurement
     {
         return Durations::start(
             $this->duration,
-            $this->correlations->current(),
+            $correlation,
             $this->reporter,
             HttpMetrics::HTTP_SERVER_REQUEST_DURATION,
         );
@@ -74,16 +95,16 @@ final readonly class HttpServerMetrics
     /**
      * @param array<non-empty-string, int|string> $attributes
      */
-    public function recordRequestBodySize(int $bytes, array $attributes): void
+    public function recordRequestBodySize(int $bytes, array $attributes, ?TraceCorrelation $correlation): void
     {
-        $this->requestBodySize->record($bytes, $attributes);
+        $this->recorder->record($this->requestBodySize, $bytes, $attributes, $correlation);
     }
 
     /**
      * @param array<non-empty-string, int|string> $attributes
      */
-    public function recordResponseBodySize(int $bytes, array $attributes): void
+    public function recordResponseBodySize(int $bytes, array $attributes, ?TraceCorrelation $correlation): void
     {
-        $this->responseBodySize->record($bytes, $attributes);
+        $this->recorder->record($this->responseBodySize, $bytes, $attributes, $correlation);
     }
 }

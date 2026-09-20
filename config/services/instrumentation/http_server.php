@@ -19,6 +19,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ServerSpanAttri
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ServerTraceResponseSubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\BoundaryFlush;
@@ -72,7 +73,8 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$metrics', service('open_telemetry.http_server.metrics'))
         ->arg('$buckets', service('open_telemetry.http_server.buckets'))
         ->arg('$correlations', service(TraceCorrelationSource::class))
-        ->arg('$reporter', service(InstrumentationFailureReporter::class));
+        ->arg('$reporter', service(InstrumentationFailureReporter::class))
+        ->arg('$recorder', service(DurationRecorder::class));
 
     $services
         ->set(RequestMeasurementRegistry::class)

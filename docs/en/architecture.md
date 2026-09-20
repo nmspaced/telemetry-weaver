@@ -29,10 +29,15 @@ Which boundary behaviour applies follows Symfony's `kernel.runtime_mode.web` and
 
 | Runtime shape | Mode | Effective model | Finalization |
 |---|---|---|---|
-| PHP-FPM, one request per process | `web=1&worker=0` | the pipeline belongs to one request | `shutdown()` on terminate |
+| PHP-FPM, one request per PHP execution | `web=1&worker=0` | the pipeline belongs to one request | `shutdown()` on terminate |
 | Shared HTTP worker | `worker=1` | the pipeline outlives requests | `forceFlush()` per request, `shutdown()` at process exit |
 | Worker that rebuilds its kernel per request | `worker=2` | the process survives, the container does not | provider shutdown per request, worker identity stays stable |
 | Console, Messenger | — | events define the boundaries | flush per command or message, shutdown at process exit |
+
+FPM is not "a new OS process per request": a pool child serves many requests in turn. What ends
+with the request is the PHP execution and the container built for it, which is why the pipeline
+can be finalized on terminate — and why the cooldown a failing collector caused is not remembered
+by the next request.
 
 `forceFlush()` drains a pipeline that keeps living. `shutdown()` is terminal. Conflating them is
 how a worker ends up with a provider that was shut down on its first request.

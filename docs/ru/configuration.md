@@ -252,7 +252,7 @@ OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer%20token
 
 | Рантайм | Режим | На границе |
 |---|---|---|
-| PHP-FPM, процесс на запрос | `web=1&worker=0` | flush и завершение конвейера на terminate |
+| PHP-FPM, одно PHP-исполнение на запрос | `web=1&worker=0` | flush и завершение конвейера на terminate |
 | Общий HTTP-воркер (FrankenPHP, RoadRunner) | `worker=1` | flush на каждый запрос, shutdown при выходе процесса |
 | Воркер, пересобирающий ядро на каждый запрос | `worker=2` | завершение конвейера на каждый запрос, идентичность воркера сохраняется |
 | Console, Messenger | — | flush на команду или сообщение, shutdown при выходе процесса |
