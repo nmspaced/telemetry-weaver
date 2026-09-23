@@ -70,9 +70,11 @@ final readonly class TraceableSender implements SenderInterface
      * keeping the existing stamp would make both consumers continue from the first
      * send's span, which is exactly the bug per-transport spans exist to fix.
      *
-     * A re-send — to a failure transport, or by a retry — is re-stamped for the same
-     * reason: its consumer belongs under the send that actually delivered it, and the
-     * chain back to the original producer is still there through that send's own parent.
+     * A re-send by a retry or to a failure transport never reaches this class:
+     * `SendFailedMessageForRetryListener` and `SendFailedMessageToFailureTransportListener`
+     * are wired with the transports themselves, not with the senders locator this wraps.
+     * Such an envelope keeps the stamp of its original send, so the redelivery is still
+     * parented to the producer — but it gets no send span and no sent-message count.
      */
     private function stamped(Envelope $envelope): Envelope
     {
