@@ -42,6 +42,8 @@ abstract class ContainerTestCase extends TestCase
 
     /**
      * @param array<string, mixed> $config
+     * @param bool $exposeAll make every service public for the test to reach; false compiles the
+     *                        container as a kernel does, private services removed or inlined
      *
      * @throws \Throwable
      */
@@ -49,6 +51,7 @@ abstract class ContainerTestCase extends TestCase
         array $config = [],
         ?Definition $loopFactory = null,
         ?\Closure $configure = null,
+        bool $exposeAll = true,
     ): ContainerBuilder {
         $bundle = new TelemetryWeaverBundle();
         $extension = $bundle->getContainerExtension();
@@ -86,16 +89,20 @@ abstract class ContainerTestCase extends TestCase
         // the bundle's own instrumentation passes): those passes register definitions
         // themselves, and a pass that ran first would never see them.
         $container->addCompilerPass(
-            new class implements CompilerPassInterface {
+            new readonly class($exposeAll) implements CompilerPassInterface {
+                public function __construct(
+                    private bool $exposeAll,
+                ) {}
+
                 #[\Override]
                 public function process(ContainerBuilder $container): void
                 {
                     foreach ($container->getDefinitions() as $definition) {
-                        $definition->setPublic(true);
+                        $definition->setPublic($this->exposeAll || $definition->isPublic());
                     }
 
                     foreach ($container->getAliases() as $alias) {
-                        $alias->setPublic(true);
+                        $alias->setPublic($this->exposeAll || $alias->isPublic());
                     }
                 }
             },

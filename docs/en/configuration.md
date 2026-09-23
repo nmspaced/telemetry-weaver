@@ -267,42 +267,91 @@ tells two workers of the same service apart. Set one by hand only if you can gua
 unique per concurrent worker — the same hostname on every process makes their series
 indistinguishable, which is worse than the generated value.
 
-## 11. FPM request metrics
+## 11. Request-pipeline metrics (FPM, `FRANKENPHP_RESET_KERNEL`)
 
-A request-per-process pipeline starts a new MeterProvider for every request, so cumulative
-counters restart constantly and worker state means nothing. Request metrics are therefore off:
+PHP-FPM and FrankenPHP with `FRANKENPHP_RESET_KERNEL=1` build a new container, and with it a new
+MeterProvider, for every request. A cumulative counter from such a pipeline starts at zero on
+every request, so **metrics from these runtimes are off by default** — traces and logs are not
+affected.
 
-```yaml
-open_telemetry:
-    runtime:
-        request_metrics:
-            mode: disabled    # the default
-```
+They can be exported, under two conditions: the application sends **delta** temporality, and
+something downstream turns delta back into cumulative if the backend needs it.
 
-Enable only with the downstream model in mind:
+### 1. Opt in to delta
 
 ```yaml
 open_telemetry:
     runtime:
         request_metrics:
-            mode: delta
+            mode: delta    # default: disabled
 ```
 
-In `delta` mode, counters and histograms are exported with delta temporality chosen before
-aggregation; everything else stays cumulative and describes that one request. It requires:
+Every request then exports what it recorded, once, after the response is sent:
 
-- a resource that tells writers apart — `service.instance.id`, or `process.pid` plus host or
-  container attributes. One shared `service.instance.id=${HOSTNAME}` across FPM children is
-  exactly the case this breaks on;
-- detectors that actually provide that identity. Restricting `OTEL_PHP_DETECTORS` to `env`
-  removes it. A safe explicit set is `env,host,process,process_runtime,sdk`; the SDK default
-  `all` is also fine;
-- a collector pipeline that accepts independent short-lived delta sequences. A stateful
-  delta-to-cumulative processor may read each request as a reset.
+- Counters and histograms are DELTA streams. Each FPM child (or FrankenPHP worker thread) is one
+  stream that continues across the requests it serves.
+- UpDownCounters and gauges stay cumulative and describe that one request.
+- `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` does not apply here; it still governs
+  long-lived processes.
 
-An explicit cumulative `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` conflicts with this
-mode. When the requirements are not met, metrics stay off and a diagnostic says why. Traces and
-logs are unaffected either way.
+**Writer identity.** A backend has to tell the streams apart. Under FPM the bundle derives a
+stable `service.instance.id` for each child: a UUID v5 of `container.id`, `host.id`, `host.name`
+and `process.pid`. It is the same on every request the child serves and differs between children.
+This matters for anything on the Prometheus mapping, where `instance` comes from
+`service.instance.id` and nothing else. Without the id, every child would write into one series.
+FrankenPHP worker threads already carry the SDK's per-thread id. An id you set yourself
+(`OTEL_RESOURCE_ATTRIBUTES` or `sdk.resource_attributes`) always wins. It must still be unique per
+child: one `service.instance.id=${HOSTNAME}` shared by a whole pool is exactly what breaks.
+
+The derivation needs the SDK's `process` detector and at least one of `host` or `container`. The
+SDK default `OTEL_PHP_DETECTORS=all` includes them. `env,host,process,process_runtime,sdk` is a
+safe explicit set. Without them no id is derived, and metrics are exported anyway.
+
+The bundle does not check whether the backend accepts delta or whether writers are told apart:
+getting the receiving side right is the deployment's responsibility.
+
+### 2. Convert delta to cumulative in the collector
+
+Prometheus, Mimir, and everything fed by Prometheus remote write store cumulative series. Put the
+collector's `deltatocumulative` processor in front of them:
+
+```yaml
+processors:
+    deltatocumulative:
+        max_stale: 5m
+        max_streams: 100000
+
+service:
+    pipelines:
+        metrics:
+            receivers: [otlp]
+            processors: [memory_limiter, deltatocumulative, batch]
+            exporters: [otlphttp/prometheus]
+```
+
+A complete, validated configuration is in
+[`config/examples/collector.yaml`](../../config/examples/collector.yaml).
+Three things about it matter:
+
+- **The processor keeps state per stream, so every point of a stream must reach the same collector
+  instance.** Run the collector as an agent: a sidecar, or one per node that the pods on that node
+  send to. A pool of gateways needs a `loadbalancing` exporter with `routing_key: streamID` in front
+  of it. Round-robin across stateful collectors silently produces wrong totals.
+- `max_stale` bounds how long a quiet stream is remembered. A child recycled by `pm.max_requests`
+  stops writing, and its series ends after that interval. `max_streams` bounds memory, roughly
+  children per host × hosts × series per child. Streams above it are dropped.
+- A backend that ingests delta natively needs no processor. Send the data as is.
+
+### 3. What it costs
+
+- **One OTLP metrics export per request**, after the response is sent. It is inside the boundary
+  budget (`sdk.export.flush_timeout_ms`), but the collector sees one request per PHP request.
+- **One series per FPM child**, plus new series whenever children are recycled. Aggregate in
+  queries, for example `sum without (instance) (rate(http_server_request_duration_seconds_count[5m]))`.
+  A high or unlimited `pm.max_requests` keeps the churn down.
+
+Worker metrics (`php.memory.usage`, `php.worker.uptime`) are never recorded in these runtimes:
+a pipeline that lives for one request has no worker state to report.
 
 ## 12. Development
 
@@ -336,11 +385,18 @@ open_telemetry:
 
 ## Complete examples
 
-- [`config/examples/worker.env`](../../config/examples/worker.env) — shared worker over OTLP/HTTP
-- [`config/examples/fpm.env`](../../config/examples/fpm.env) — request per process
+Recommended sets, each checked end to end against a real collector, Prometheus and Jaeger:
+
+- Workers that keep their kernel (FrankenPHP worker mode, RoadRunner, Messenger):
+  [`worker.env`](../../config/examples/worker.env) · [`worker.yaml`](../../config/examples/worker.yaml)
+- PHP-FPM, or FrankenPHP with `FRANKENPHP_RESET_KERNEL=1`:
+  [`fpm.env`](../../config/examples/fpm.env) · [`fpm.yaml`](../../config/examples/fpm.yaml)
+- The collector for both: [`collector.yaml`](../../config/examples/collector.yaml)
+
+Variations:
+
 - [`config/examples/grpc.env`](../../config/examples/grpc.env) — OTLP/gRPC
 - [`config/examples/split-endpoints.env`](../../config/examples/split-endpoints.env) — one backend per signal
-- [`config/examples/worker.yaml`](../../config/examples/worker.yaml) · [`config/examples/fpm.yaml`](../../config/examples/fpm.yaml)
 - [`config/example_config.yaml`](../../config/example_config.yaml) — every key with its default
 
 OpenTelemetry references: [PHP SDK configuration](https://opentelemetry.io/docs/languages/php/sdk/) ·

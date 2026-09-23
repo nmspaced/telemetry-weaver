@@ -69,16 +69,23 @@ open_telemetry:
 
     runtime:
         request_metrics:
-            # Metrics from a pipeline that lives for one request. Off by default:
-            # cumulative series restart on every request, and gauges and worker
-            # memory/uptime mean nothing there. `delta` exports counters and
-            # histograms with delta temporality chosen before aggregation; every
-            # other instrument stays cumulative and describes that request alone.
-            # An explicit cumulative OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
-            # conflicts with it. It needs a resource that tells writers
-            # apart (process.pid plus host or container attributes) and a backend
-            # or collector that accepts delta; otherwise metrics stay off and a
-            # diagnostic says why. Traces and logs are unaffected either way.
+            # Metrics from a pipeline that lives for one request: PHP-FPM, and
+            # FrankenPHP with FRANKENPHP_RESET_KERNEL. Off by default: cumulative
+            # series would restart on every request. Shared workers ignore this key.
+            #
+            # `delta` exports counters and histograms as DELTA, one stream per FPM
+            # child or worker thread; other instruments stay cumulative and describe
+            # that request alone. It REQUIRES, downstream:
+            #   - a backend that ingests delta, or the collector's
+            #     deltatocumulative processor in front of a cumulative one
+            #     (Prometheus, Mimir) — see config/examples/collector.yaml;
+            #   - every point of a stream reaching the same collector instance
+            #     (an agent per node or pod, or loadbalancing by streamID).
+            # Under FPM each child gets a service.instance.id derived from host and
+            # pid (the SDK's process and host or container detectors), so children
+            # stay separate series. OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+            # does not apply to these pipelines. None of this is validated: the
+            # receiving side is the deployment's to get right.
             mode: disabled
 
     # -------------------------------------------------------------------------

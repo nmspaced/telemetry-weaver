@@ -103,9 +103,11 @@ A value you set wins over the generated one, so set it only when it really ident
 concurrent producer. The same hostname on every worker process is worse than the default.
 
 Request-per-process pipelines deliberately do not get a random instance id per request — that
-would create a new series for every request. Request metrics, when enabled, instead require a
-usable writer identity such as `process.pid` plus host or container attributes; see
-[Configuration](configuration.md#11-fpm-request-metrics).
+would create a new series for every request. When request metrics are enabled, an FPM child
+instead gets an id *derived* from `process.pid` and its host or container attributes: stable
+across the requests it serves, distinct between children, and the one resource attribute the
+Prometheus mapping keys `instance` on. See
+[Configuration](configuration.md#11-request-pipeline-metrics-fpm-frankenphp_reset_kernel).
 
 ## Metric temporality
 

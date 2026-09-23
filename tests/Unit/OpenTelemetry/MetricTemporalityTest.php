@@ -18,7 +18,6 @@ use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 use OpenTelemetry\SDK\Metrics\Data\Temporality;
 use OpenTelemetry\SDK\Metrics\InstrumentType;
-use OpenTelemetry\SDK\Resource\ResourceInfo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -103,12 +102,7 @@ final class MetricTemporalityTest extends TestCase
             $exporter = new MetricExporterFactory(
                 new ResilientExporters($reporter, $gate),
                 new BudgetedOtlpTransports($gate),
-                RequestMetricPolicy::forRuntime(
-                    SymfonyRuntimeProfile::fromKernel(1, true),
-                    'disabled',
-                    $reporter,
-                    ResourceInfo::emptyResource(),
-                ),
+                RequestMetricPolicy::forRuntime(SymfonyRuntimeProfile::fromKernel(1, true), 'disabled'),
             )->create();
         } finally {
             foreach ($previous as $name => $value) {

@@ -10,7 +10,6 @@ use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ProviderRegistry;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\RequestMetricPolicy;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
-use OpenTelemetry\SDK\Resource\ResourceInfo;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
@@ -54,7 +53,5 @@ return static function (ContainerConfigurator $container): void {
         ->set(RequestMetricPolicy::class)
         ->factory(RequestMetricPolicy::forRuntime(...))
         ->arg('$runtime', service(SymfonyRuntimeProfile::class))
-        ->arg('$mode', param('open_telemetry.runtime.request_metrics.mode'))
-        ->arg('$failures', service(ExportFailureReporter::class))
-        ->arg('$resource', service(ResourceInfo::class));
+        ->arg('$mode', param('open_telemetry.runtime.request_metrics.mode'));
 };

@@ -23,7 +23,9 @@ return static function (ContainerConfigurator $container): void {
         // MonologBundle rewrites the `logger` argument above to this channel's logger.
         // Inert without MonologBundle, which is the only case where there is no channel
         // to rewrite it to.
-        ->tag('monolog.logger', ['channel' => DiagnosticsLogger::CHANNEL]);
+        ->tag('monolog.logger', ['channel' => DiagnosticsLogger::CHANNEL])
+        // The bundle's boot() hands it to the SDK, and get() only reaches public ids.
+        ->public();
 
     $services
         ->set(InstrumentationFailureReporter::class)

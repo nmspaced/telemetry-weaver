@@ -58,8 +58,11 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service_c
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    $services->set(ResourceInfoFactory::class)->arg('$attributes', param('open_telemetry.sdk.resource_attributes'))
-        ->arg('$runtime', service(SymfonyRuntimeProfile::class));
+    $services
+        ->set(ResourceInfoFactory::class)
+        ->arg('$attributes', param('open_telemetry.sdk.resource_attributes'))
+        ->arg('$runtime', service(SymfonyRuntimeProfile::class))
+        ->arg('$requestMetrics', param('open_telemetry.runtime.request_metrics.mode'));
 
     $services->set(ResourceInfo::class)->factory([service(ResourceInfoFactory::class), 'create']);
 

@@ -8,6 +8,7 @@ use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Common\Instrumentation\InstrumentationScope;
 use OpenTelemetry\SDK\Metrics\Data\Gauge;
 use OpenTelemetry\SDK\Metrics\Data\Metric;
+use OpenTelemetry\SDK\Metrics\Data\NumberDataPoint;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 
 /**
@@ -18,13 +19,32 @@ final readonly class Metrics
     /** @param non-empty-string $name */
     public static function metric(string $name): Metric
     {
+        return self::withPoints($name, [new NumberDataPoint(1, Attributes::create([]), 0, 1)]);
+    }
+
+    /**
+     * What the SDK collects from a cumulative instrument that was created and never recorded.
+     *
+     * @param non-empty-string $name
+     */
+    public static function empty(string $name): Metric
+    {
+        return self::withPoints($name, []);
+    }
+
+    /**
+     * @param non-empty-string $name
+     * @param list<NumberDataPoint> $points
+     */
+    private static function withPoints(string $name, array $points): Metric
+    {
         return new Metric(
             new InstrumentationScope('test', null, null, Attributes::create([])),
             ResourceInfo::emptyResource(),
             $name,
             null,
             null,
-            new Gauge([]),
+            new Gauge($points),
         );
     }
 

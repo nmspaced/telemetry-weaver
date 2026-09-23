@@ -15,7 +15,6 @@ use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\RequestMetricPolicy;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TelemetryFlusher;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use OpenTelemetry\API\Metrics\ObserverInterface;
-use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Metrics\Data\Histogram;
 use OpenTelemetry\SDK\Metrics\Data\Sum;
 use OpenTelemetry\SDK\Metrics\Data\Temporality;
@@ -26,36 +25,27 @@ use PHPUnit\Framework\TestCase;
 
 final class RequestMetricPolicyTest extends TestCase
 {
+    /**
+     * The mode is the only switch. Whether the backend takes delta, or the resource tells
+     * writers apart, is the deployment's concern: an explicit cumulative preference or a
+     * resource without identity no longer turns request metrics off.
+     */
     #[Test]
-    public function requestMetricsRequireOptInAndWriterIdentity(): void
+    public function onlyTheModeDecidesWhetherARequestPipelineExports(): void
     {
-        $reporter = new ExportFailureReporter(new RecordingLogger());
-        $runtime = SymfonyRuntimeProfile::fromKernel(0, true);
-        $resource = ResourceInfo::create(Attributes::create(['host.name' => 'host-a', 'process.pid' => 42]));
-        $policy = static fn(
-            SymfonyRuntimeProfile $runtime,
-            bool $delta,
-            ResourceInfo $resource,
-        ): RequestMetricPolicy => RequestMetricPolicy::forRuntime(
-            $runtime,
-            $delta ? 'delta' : 'disabled',
-            $reporter,
-            $resource,
+        $fpm = SymfonyRuntimeProfile::fromKernel(0, true);
+
+        self::assertFalse(RequestMetricPolicy::forRuntime($fpm, 'disabled')->allows());
+        self::assertTrue(
+            RequestMetricPolicy::forRuntime(SymfonyRuntimeProfile::fromKernel(1, true), 'disabled')->allows(),
         );
-        self::assertFalse($policy($runtime, false, $resource)->allows());
-        $delta = $policy($runtime, true, $resource);
-        self::assertTrue($delta->allows());
-        self::assertFalse($policy($runtime, true, ResourceInfo::emptyResource())->allows());
-        self::assertSame(1, $reporter->total());
-        $_SERVER['OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'] = 'delta';
+        self::assertTrue(
+            RequestMetricPolicy::forRuntime(SymfonyRuntimeProfile::fromKernel(0, false), 'disabled')->allows(),
+        );
+
+        $_SERVER['OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'] = 'cumulative';
         try {
-            // An explicitly set variable is an enum to the SDK: reading it must not throw.
-            self::assertTrue($delta->allows(), 'an explicit delta preference');
-            $_SERVER['OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'] = 'LowMemory';
-            self::assertTrue($delta->allows(), 'lowmemory keeps counters and histograms delta');
-            $_SERVER['OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE'] = 'cumulative';
-            self::assertFalse($delta->allows());
-            self::assertTrue($policy(SymfonyRuntimeProfile::fromKernel(0, false), false, $resource)->allows());
+            self::assertTrue(RequestMetricPolicy::forRuntime($fpm, 'delta')->allows());
         } finally {
             unset($_SERVER['OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE']);
         }
@@ -68,12 +58,7 @@ final class RequestMetricPolicyTest extends TestCase
         $budget = new FlushBudget();
         $gate = ExportGate::forBudget($budget);
         $registry = new ProviderRegistry($gate, $reporter);
-        $policy = RequestMetricPolicy::forRuntime(
-            SymfonyRuntimeProfile::fromKernel(0, true),
-            'delta',
-            $reporter,
-            ResourceInfo::emptyResource(),
-        );
+        $policy = RequestMetricPolicy::forRuntime(SymfonyRuntimeProfile::fromKernel(0, true), 'delta');
         $exporter = new InMemoryExporter();
         $provider = $registry->metrics(
             new MeterProviderFactory(

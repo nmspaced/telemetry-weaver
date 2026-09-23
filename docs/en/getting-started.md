@@ -322,7 +322,7 @@ metrics. `reset()` clears both between cases.
 ## Next
 
 - [Configuration](configuration.md) — what to change before production: sampling, the flush
-  budget, a local collector, FPM request metrics, worker identity.
+  budget, a local collector, request-pipeline metrics (FPM, `FRANKENPHP_RESET_KERNEL`), worker identity.
 - [Instrumentation](instrumentation.md) — what each component emits, and which captures are
   off until you ask for them.
 - [Architecture and lifecycle](architecture.md) — why a worker needs any of this.

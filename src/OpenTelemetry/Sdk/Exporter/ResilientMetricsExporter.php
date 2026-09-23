@@ -7,6 +7,7 @@ namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use OpenTelemetry\SDK\Metrics\AggregationTemporalitySelectorInterface;
+use OpenTelemetry\SDK\Metrics\Data\Metric;
 use OpenTelemetry\SDK\Metrics\Data\Temporality;
 use OpenTelemetry\SDK\Metrics\MetricExporterInterface;
 use OpenTelemetry\SDK\Metrics\MetricMetadataInterface;
@@ -37,6 +38,13 @@ final readonly class ResilientMetricsExporter implements
         return $metric->temporality();
     }
 
+    /**
+     * Sends only metrics that carry data points. The SDK collects a cumulative instrument that
+     * was never recorded as a metric without any, and Prometheus's OTLP receiver rejects the
+     * whole request over it.
+     *
+     * @param iterable<Metric> $batch
+     */
     #[\Override]
     public function export(iterable $batch): bool
     {
@@ -44,13 +52,9 @@ final readonly class ResilientMetricsExporter implements
             return false;
         }
 
-        try {
-            return $this->delegate->export($batch);
-        } catch (\Throwable $throwable) {
-            $this->reporter->record('Failed to export metrics', $throwable);
+        $metrics = \array_filter(\iterator_to_array($batch, false), self::hasDataPoints(...));
 
-            return false;
-        }
+        return $metrics === [] || $this->send($metrics);
     }
 
     #[\Override]
@@ -87,5 +91,22 @@ final readonly class ResilientMetricsExporter implements
 
             return false;
         }
+    }
+
+    /** @param array<int, Metric> $metrics */
+    private function send(array $metrics): bool
+    {
+        try {
+            return $this->delegate->export($metrics);
+        } catch (\Throwable $throwable) {
+            $this->reporter->record('Failed to export metrics', $throwable);
+
+            return false;
+        }
+    }
+
+    private static function hasDataPoints(Metric $metric): bool
+    {
+        return $metric->data->dataPointCount() > 0;
     }
 }

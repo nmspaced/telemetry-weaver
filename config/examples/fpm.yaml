@@ -1,13 +1,13 @@
-# PHP-FPM / request-scoped pipeline example.
+# PHP-FPM, or FrankenPHP with FRANKENPHP_RESET_KERNEL=1. SDK settings: fpm.env.
 open_telemetry:
     runtime:
         request_metrics:
-            # Safe default. Enable `delta` only with process/host writer identity and
-            # a downstream pipeline that understands independent request delta streams.
-            mode: disabled
+            # One DELTA stream per FPM child. A cumulative backend (Prometheus, Mimir) needs the
+            # collector's deltatocumulative processor: collector.yaml.
+            mode: delta
 
     sdk:
         export:
-            flush_timeout_ms: 1000
-            failure_cooldown_ms: 30000
-            max_retries: 0
+            # The export runs after the response but holds the FPM child, and a collector's
+            # cooldown does not outlive the request. Keep the per-request worst case short.
+            flush_timeout_ms: 250

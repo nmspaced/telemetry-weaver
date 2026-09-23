@@ -78,9 +78,17 @@ open_telemetry:
 That is a complete configuration. Every component is instrumented, every sensitive capture is
 off, and the export budget defaults to one second per boundary with no retries.
 
+> **PHP-FPM and `FRANKENPHP_RESET_KERNEL`: metrics are off by default.** These runtimes build a
+> new pipeline for every request, so metrics can only be exported as **delta**
+> (`runtime.request_metrics.mode: delta`). A Prometheus-style backend then needs the collector's
+> `deltatocumulative` processor, running where every point of a stream reaches the same instance.
+> Traces and logs work out of the box. See
+> [Request-pipeline metrics](docs/en/configuration.md#11-request-pipeline-metrics-fpm-frankenphp_reset_kernel)
+> and the ready-made [collector configuration](config/examples/collector.yaml).
+
 Send an OTLP endpoint a real trace in ten minutes: [Getting started](docs/en/getting-started.md).
 Before production, read [Configuration](docs/en/configuration.md) — sampling, the flush budget,
-FPM request metrics and worker identity are the four decisions worth making deliberately.
+request-pipeline metrics and worker identity are the four decisions worth making deliberately.
 
 ## Built-in instrumentation
 

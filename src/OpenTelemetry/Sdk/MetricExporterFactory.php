@@ -44,8 +44,7 @@ final readonly class MetricExporterFactory
 
     /**
      * An application's own exporter (`sdk.metrics.exporter`) under the pipeline's rules: a request
-     * pipeline still needs the opt-in and a writer identity, and still exports with the request
-     * temporality. Outside one the exporter keeps its own temporality — the OTLP preference
+     * pipeline still needs the opt-in, and still exports with the request temporality. Outside one the exporter keeps its own temporality — the OTLP preference
      * variable belongs to the OTLP exporter the bundle builds.
      */
     public function adopt(MetricExporterInterface $exporter): ?MetricExporterInterface

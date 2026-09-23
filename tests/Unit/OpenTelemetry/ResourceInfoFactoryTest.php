@@ -36,7 +36,7 @@ final class ResourceInfoFactoryTest extends TestCase
 
     /**
      * Under FPM the detector's static does not outlive the request, so the id would be a
-     * new instance per request. The SDK default resource is left as it is.
+     * new instance per request. Without request metrics the SDK default resource is left as it is.
      */
     #[Test]
     public function aRequestResourceDoesNotInventAServiceInstanceId(): void
@@ -45,6 +45,55 @@ final class ResourceInfoFactoryTest extends TestCase
 
         self::assertFalse($resource->getAttributes()->has(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID));
         self::assertSame(Version::VERSION_1_44_0->url(), $resource->getSchemaUrl());
+    }
+
+    /**
+     * Opting into request metrics makes every FPM child a writer of its own delta stream, and
+     * the Prometheus mapping tells writers apart by `service.instance.id` alone.
+     */
+    #[Test]
+    public function requestMetricsGiveAnFpmChildAnIdStableAcrossItsRequests(): void
+    {
+        $fpm = SymfonyRuntimeProfile::fromKernel(0, true);
+
+        $first = new ResourceInfoFactory($fpm, requestMetrics: 'delta')->create()->getAttributes();
+        $second = new ResourceInfoFactory($fpm, requestMetrics: 'delta')->create()->getAttributes();
+
+        self::assertIsInt($first->get('process.pid'), 'the SDK process detector identifies the child');
+        self::assertIsString($first->get(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID));
+        self::assertSame(
+            $first->get(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID),
+            $second->get(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID),
+        );
+    }
+
+    #[Test]
+    public function aConfiguredIdWinsOverTheDerivedOne(): void
+    {
+        $resource = new ResourceInfoFactory(
+            SymfonyRuntimeProfile::fromKernel(0, true),
+            [ServiceIncubatingAttributes::SERVICE_INSTANCE_ID => 'pool-a'],
+            requestMetrics: 'delta',
+        )->create();
+
+        self::assertSame('pool-a', $resource->getAttributes()->get(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID));
+    }
+
+    /** A kernel-resetting worker keeps the detector's id: its PHP execution outlives the request. */
+    #[Test]
+    public function aResetKernelWorkerKeepsItsDetectedIdWithRequestMetrics(): void
+    {
+        $detected = new ResourceInfoFactory(SymfonyRuntimeProfile::fromKernel(2, true))
+            ->create()
+            ->getAttributes()
+            ->get(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID);
+        $withMetrics = new ResourceInfoFactory(SymfonyRuntimeProfile::fromKernel(2, true), requestMetrics: 'delta')
+            ->create()
+            ->getAttributes()
+            ->get(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID);
+
+        self::assertIsString($detected);
+        self::assertSame($detected, $withMetrics);
     }
 
     private static function worker(): SymfonyRuntimeProfile

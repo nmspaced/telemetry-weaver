@@ -23,7 +23,6 @@ use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingTransportFactory;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 use OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter;
-use OpenTelemetry\SDK\Resource\ResourceInfo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -74,16 +73,10 @@ final class ExporterFactoryTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $reporter = new ExportFailureReporter(new RecordingLogger());
         new MetricExporterFactory(
             self::resilient(),
             self::transports(),
-            RequestMetricPolicy::forRuntime(
-                SymfonyRuntimeProfile::fromKernel(1, true),
-                'disabled',
-                $reporter,
-                ResourceInfo::emptyResource(),
-            ),
+            RequestMetricPolicy::forRuntime(SymfonyRuntimeProfile::fromKernel(1, true), 'disabled'),
         )->create();
     }
 
@@ -119,11 +112,10 @@ final class ExporterFactoryTest extends TestCase
     #[Test]
     public function anApplicationsMetricExporterIsHeldToTheRequestPipelinesRules(): void
     {
-        $reporter = new ExportFailureReporter(new RecordingLogger());
         $factory = static fn(SymfonyRuntimeProfile $runtime): MetricExporterFactory => new MetricExporterFactory(
             self::resilient(),
             self::transports(),
-            RequestMetricPolicy::forRuntime($runtime, 'disabled', $reporter, ResourceInfo::emptyResource()),
+            RequestMetricPolicy::forRuntime($runtime, 'disabled'),
         );
 
         self::assertNull($factory(SymfonyRuntimeProfile::fromKernel(0, true))->adopt(new InMemoryExporter()));

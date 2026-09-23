@@ -270,43 +270,97 @@ APP_RUNTIME_MODE=web=1&worker=1
 уникальность на каждый одновременно работающий воркер: одинаковое имя хоста на всех процессах
 делает их ряды неразличимыми, что хуже сгенерированного значения.
 
-## 11. Request-метрики под FPM
+## 11. Метрики конвейеров «на запрос» (FPM, `FRANKENPHP_RESET_KERNEL`)
 
-Конвейер «процесс на запрос» создаёт новый MeterProvider на каждый запрос, поэтому кумулятивные
-счётчики постоянно начинаются заново, а состояние воркера не значит ничего. Request-метрики
-поэтому выключены:
+PHP-FPM и FrankenPHP с `FRANKENPHP_RESET_KERNEL=1` на каждый запрос строят новый контейнер, а
+вместе с ним и новый MeterProvider. Кумулятивный счётчик из такого конвейера на каждом запросе
+начинается с нуля, поэтому **метрики из этих рантаймов по умолчанию выключены**. Трейсы и логи это
+не затрагивает.
 
-```yaml
-open_telemetry:
-    runtime:
-        request_metrics:
-            mode: disabled    # по умолчанию
-```
+Экспортировать их можно при двух условиях: приложение отправляет **delta**-temporality, и где-то
+ниже по конвейеру delta превращается обратно в cumulative, если этого требует бэкенд.
 
-Включайте, только держа в голове модель на принимающей стороне:
+### 1. Включить delta
 
 ```yaml
 open_telemetry:
     runtime:
         request_metrics:
-            mode: delta
+            mode: delta    # по умолчанию: disabled
 ```
 
-В режиме `delta` счётчики и гистограммы экспортируются с дельтовой temporality, выбранной до
-агрегации; всё остальное остаётся кумулятивным и описывает один этот запрос. Требуется:
+Тогда каждый запрос один раз, после отправки ответа, экспортирует то, что записал:
 
-- ресурс, различающий писателей — `service.instance.id` либо `process.pid` вместе с атрибутами
-  хоста или контейнера. Один общий `service.instance.id=${HOSTNAME}` на всех детей FPM — ровно
-  тот случай, на котором это ломается;
-- детекторы, которые эту идентичность действительно дают. Ограничение `OTEL_PHP_DETECTORS`
-  значением `env` её убирает. Безопасный явный набор — `env,host,process,process_runtime,sdk`;
-  значение SDK по умолчанию `all` тоже подходит;
-- конвейер коллектора, принимающий независимые короткоживущие дельта-последовательности.
-  Процессор delta-to-cumulative с состоянием может прочитать каждый запрос как сброс.
+- Счётчики и гистограммы идут DELTA-потоками. Каждый ребёнок FPM (или поток воркера FrankenPHP) —
+  один поток, который продолжается через все обслуженные им запросы.
+- UpDownCounter и gauge остаются кумулятивными и описывают один этот запрос.
+- `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` здесь не действует, она по-прежнему
+  управляет долгоживущими процессами.
 
-Явный кумулятивный `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` конфликтует с этим
-режимом. Если требования не выполнены, метрики остаются выключенными, а диагностика говорит,
-почему. Трейсы и логи это не затрагивает ни в одном из случаев.
+**Идентичность писателя.** Бэкенд должен различать потоки. Под FPM бандл выводит для каждого
+ребёнка стабильный `service.instance.id`: UUID v5 от `container.id`, `host.id`, `host.name` и
+`process.pid`. Он одинаков на всех запросах одного ребёнка и различается между детьми. Это важно
+для всего, что работает через маппинг Prometheus: там `instance` берётся из `service.instance.id`,
+и ни из чего больше. Без него все дети писали бы в одну серию. У потоков воркера FrankenPHP уже
+есть свой id на поток от SDK. Заданный вами id (`OTEL_RESOURCE_ATTRIBUTES` или
+`sdk.resource_attributes`) всегда побеждает. Но он всё равно должен быть уникален для каждого
+ребёнка: один `service.instance.id=${HOSTNAME}` на весь пул — ровно тот случай, который всё
+ломает.
+
+Для вывода id нужен детектор SDK `process` и хотя бы один из `host` или `container`. Значение SDK
+по умолчанию `OTEL_PHP_DETECTORS=all` их включает. Безопасный явный набор —
+`env,host,process,process_runtime,sdk`. Без них id не выводится, а метрики всё равно
+экспортируются.
+
+Бандл не проверяет, принимает ли бэкенд delta и различаются ли писатели: правильная настройка
+принимающей стороны — ответственность развёртывания.
+
+### 2. Преобразовать delta в cumulative в коллекторе
+
+Prometheus, Mimir и всё, что получает данные через Prometheus remote write, хранят кумулятивные
+ряды. Поставьте перед ними процессор коллектора `deltatocumulative`:
+
+```yaml
+processors:
+    deltatocumulative:
+        max_stale: 5m
+        max_streams: 100000
+
+service:
+    pipelines:
+        metrics:
+            receivers: [otlp]
+            processors: [memory_limiter, deltatocumulative, batch]
+            exporters: [otlphttp/prometheus]
+```
+
+Полная проверенная конфигурация лежит в
+[`config/examples/collector.yaml`](../../config/examples/collector.yaml).
+В ней важны три вещи:
+
+- **Процессор хранит состояние каждого потока, поэтому все точки одного потока должны попадать в
+  один и тот же экземпляр коллектора.** Запускайте коллектор агентом: sidecar'ом или по одному на
+  узел, куда шлют поды этого узла. Пулу шлюзов нужен экспортёр `loadbalancing` с
+  `routing_key: streamID` перед ним. Round-robin между коллекторами с состоянием молча даёт
+  неверные суммы.
+- `max_stale` ограничивает, сколько помнится поток без новых точек. Ребёнок, перезапущенный по
+  `pm.max_requests`, перестаёт писать, и его ряд заканчивается через этот интервал. `max_streams`
+  ограничивает память: примерно дети на хост × хосты × ряды на ребёнка. Потоки сверх лимита
+  отбрасываются.
+- Бэкенду, который принимает delta нативно, процессор не нужен. Отправляйте данные как есть.
+
+### 3. Во что это обходится
+
+- **Один экспорт метрик по OTLP на каждый запрос**, после отправки ответа. Он укладывается в бюджет
+  границы (`sdk.export.flush_timeout_ms`), но коллектор получает столько же запросов, сколько
+  получает PHP.
+- **Отдельная серия на каждого ребёнка FPM**, плюс новые серии при каждом перезапуске детей.
+  Агрегируйте в запросах, например
+  `sum without (instance) (rate(http_server_request_duration_seconds_count[5m]))`. Высокий или
+  неограниченный `pm.max_requests` уменьшает эту текучку.
+
+Метрики воркера (`php.memory.usage`, `php.worker.uptime`) в этих рантаймах не пишутся никогда: у
+конвейера, живущего один запрос, нет состояния воркера, о котором можно сообщить.
 
 ## 12. Разработка
 
@@ -341,11 +395,18 @@ open_telemetry:
 
 ## Готовые примеры
 
-- [`config/examples/worker.env`](../../config/examples/worker.env) — общий воркер поверх OTLP/HTTP
-- [`config/examples/fpm.env`](../../config/examples/fpm.env) — процесс на запрос
+Рекомендуемые наборы, каждый проверен end-to-end с настоящими коллектором, Prometheus и Jaeger:
+
+- Воркеры, сохраняющие ядро (FrankenPHP worker mode, RoadRunner, Messenger):
+  [`worker.env`](../../config/examples/worker.env) · [`worker.yaml`](../../config/examples/worker.yaml)
+- PHP-FPM или FrankenPHP с `FRANKENPHP_RESET_KERNEL=1`:
+  [`fpm.env`](../../config/examples/fpm.env) · [`fpm.yaml`](../../config/examples/fpm.yaml)
+- Коллектор для обоих: [`collector.yaml`](../../config/examples/collector.yaml)
+
+Варианты:
+
 - [`config/examples/grpc.env`](../../config/examples/grpc.env) — OTLP/gRPC
 - [`config/examples/split-endpoints.env`](../../config/examples/split-endpoints.env) — свой бэкенд на каждый сигнал
-- [`config/examples/worker.yaml`](../../config/examples/worker.yaml) · [`config/examples/fpm.yaml`](../../config/examples/fpm.yaml)
 - [`config/example_config.yaml`](../../config/example_config.yaml) — все ключи со значениями по умолчанию
 
 Документация OpenTelemetry: [конфигурация PHP SDK](https://opentelemetry.io/docs/languages/php/sdk/) ·

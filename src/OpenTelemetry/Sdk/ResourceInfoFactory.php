@@ -9,6 +9,7 @@ use OpenTelemetry\SDK\Common\Attribute\Attributes;
 use OpenTelemetry\SDK\Resource\Detectors\ServiceInstance;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory as ResourceInfoFactorySDK;
+use OpenTelemetry\SemConv\Incubating\Attributes\ServiceIncubatingAttributes;
 use OpenTelemetry\SemConv\Version;
 
 /**
@@ -31,6 +32,10 @@ use OpenTelemetry\SemConv\Version;
  * writer; see `RequestMetricPolicy`). An id the user asked for is still kept: naming
  * `service_instance` in `OTEL_PHP_DETECTORS` or setting the attribute explicitly is not
  * silently undone.
+ *
+ * One exception: with `runtime.request_metrics.mode: delta` each FPM child writes its own delta
+ * stream, and the Prometheus mapping tells writers apart only by `service.instance.id`. There,
+ * and only there, the id is derived from the child's host and pid (`WriterInstanceId`).
  *
  * Which of the two applies is decided by `SymfonyRuntimeProfile::hasWorkerIdentity()`: any
  * worker mode, including the one that clones its kernel after each request — the container
@@ -64,24 +69,41 @@ final readonly class ResourceInfoFactory
 {
     /**
      * @param iterable<string, mixed> $attributes
+     * @param 'disabled'|'delta' $requestMetrics `runtime.request_metrics.mode`
      */
     public function __construct(
         private SymfonyRuntimeProfile $runtime,
         private iterable $attributes = [],
         private Version $version = Version::VERSION_1_44_0,
+        private string $requestMetrics = 'disabled',
     ) {}
 
     public function create(): ResourceInfo
     {
-        $resource = ResourceInfoFactorySDK::defaultResource();
-        if ($this->runtime->hasWorkerIdentity()) {
-            $resource = new ServiceInstance()
-                ->getResource()
-                ->merge($resource);
-        }
+        $detected = ResourceInfoFactorySDK::defaultResource();
 
-        $merged = $resource->merge(ResourceInfo::create(Attributes::create($this->attributes)));
+        $identity = match (true) {
+            $this->runtime->hasWorkerIdentity() => new ServiceInstance()->getResource(),
+            $this->requestMetrics === 'delta' => self::derivedInstance($detected),
+            default => ResourceInfo::emptyResource(),
+        };
+
+        $merged = $identity
+            ->merge($detected)
+            ->merge(ResourceInfo::create(Attributes::create($this->attributes)));
 
         return ResourceInfo::create($merged->getAttributes(), $this->version->url());
+    }
+
+    /**
+     * The FPM child's id, derived from its host and pid; empty when they are not detected.
+     */
+    private static function derivedInstance(ResourceInfo $detected): ResourceInfo
+    {
+        $id = WriterInstanceId::derive($detected->getAttributes()->toArray());
+
+        return ResourceInfo::create(Attributes::create(\array_filter([
+            ServiceIncubatingAttributes::SERVICE_INSTANCE_ID => $id,
+        ])));
     }
 }

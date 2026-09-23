@@ -51,6 +51,30 @@ final class ResilientMetricsExporterTest extends TestCase
         self::assertSame('collector unreachable', $this->logger->contextAt(0)['exception'] ?? null);
     }
 
+    /**
+     * The SDK collects a cumulative instrument that was never recorded as a metric without data
+     * points, on every export. Prometheus's OTLP receiver answers such a request with a 500 and
+     * appends none of it, so one unused instrument silenced every metric of a worker.
+     */
+    #[Test]
+    public function metricsWithoutDataPointsAreNotExported(): void
+    {
+        $delegate = new RecordingMetricExporter();
+        $exporter = new ResilientMetricsExporter(
+            $delegate,
+            new ExportFailureReporter($this->logger),
+            Flushers::openGate(),
+        );
+
+        self::assertTrue($exporter->export([
+            Metrics::metric('http.server.request.duration'),
+            Metrics::empty('http.server.request.body.size'),
+        ]));
+        self::assertTrue($exporter->export([Metrics::empty('http.server.request.body.size')]));
+
+        self::assertSame([['http.server.request.duration']], $delegate->batches, 'an empty batch is not sent at all');
+    }
+
     #[Test]
     public function metricExporterPassesSuccessThrough(): void
     {

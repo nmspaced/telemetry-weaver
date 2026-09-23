@@ -1,0 +1,53 @@
+# OpenTelemetry Collector for both runtimes (fpm.env, worker.env). Needs otelcol-contrib, or
+# another distribution with deltatocumulative.
+#
+# Run it next to PHP: a sidecar, or one per node. Under FPM every FPM child sends its own DELTA
+# metric stream, and deltatocumulative keeps state per stream, so every point of a stream must
+# reach the SAME collector instance. A gateway pool needs a `loadbalancing` exporter with
+# `routing_key: streamID` in front of it. Cumulative streams from workers pass through unchanged.
+
+receivers:
+    otlp:
+        protocols:
+            http:
+                endpoint: 0.0.0.0:4318
+            grpc:
+                endpoint: 0.0.0.0:4317
+
+processors:
+    memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 20
+
+    deltatocumulative:
+        # A stream nobody writes to for this long is forgotten: an FPM child recycled by
+        # pm.max_requests ends its series here.
+        max_stale: 5m
+        # Roughly FPM children per host × hosts × series per child. Streams above it are dropped.
+        max_streams: 100000
+
+    batch: {}
+
+exporters:
+    # Tempo, Jaeger or any OTLP trace backend.
+    otlp/traces:
+        endpoint: tempo:4317
+        tls:
+            insecure: true
+
+    # Prometheus 3 or Mimir OTLP ingestion. Series are keyed by service.instance.id, one per FPM
+    # child or worker; sum them in queries: sum without (instance) (rate(...)).
+    otlphttp/metrics:
+        endpoint: http://prometheus:9090/api/v1/otlp
+
+service:
+    pipelines:
+        traces:
+            receivers: [otlp]
+            processors: [memory_limiter, batch]
+            exporters: [otlp/traces]
+        metrics:
+            receivers: [otlp]
+            processors: [memory_limiter, deltatocumulative, batch]
+            exporters: [otlphttp/metrics]

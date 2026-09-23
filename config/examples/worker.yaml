@@ -1,17 +1,4 @@
-# Production-oriented long-lived worker example.
-# SDK/export endpoint, protocol, sampler and queue sizes belong in OTEL_* variables.
+# Workers that keep their kernel: FrankenPHP worker mode, RoadRunner, messenger:consume.
+# The defaults are the recommendation; SDK settings live in worker.env.
 open_telemetry:
-    instrumentation:
-        # Serializer spans can be noisy. Metrics are often enough for capacity work.
-        serializer:
-            traces: false
-            metrics: true
-
-    sdk:
-        export:
-            # Total time one execution boundary may spend in the default export path.
-            flush_timeout_ms: 1000
-            failure_cooldown_ms: 30000
-
-            # Do not synchronously retry inside the PHP worker.
-            max_retries: 0
+    enabled: true

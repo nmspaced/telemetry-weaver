@@ -36,12 +36,7 @@ foreach ([['host-a', 100, 3], ['host-a', 100, 5], ['host-b', 100, 7], ['host-b',
         'host.name' => $host,
         'process.pid' => $pid,
     ]));
-    $policy = RequestMetricPolicy::forRuntime(
-        SymfonyRuntimeProfile::fromKernel(0, true),
-        'delta',
-        $failures,
-        $resource,
-    );
+    $policy = RequestMetricPolicy::forRuntime(SymfonyRuntimeProfile::fromKernel(0, true), 'delta');
     $exporter = new MetricExporterFactory(
         new ResilientExporters($failures, $gate),
         new BudgetedOtlpTransports($gate),

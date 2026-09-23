@@ -90,4 +90,41 @@ final class RequestRuntimeTest extends ContainerTestCase
         self::assertSame('explicit', $resource->getAttributes()->get('service.instance.id'));
         self::assertTrue($container->initialized(MetricExporterFactory::class));
     }
+
+    /**
+     * FRANKENPHP_RESET_KERNEL builds a container per request like FPM does, so it takes the same
+     * opt-in, while its resource keeps the worker thread's detected id.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function deltaOptInExportsFromAResetKernelWorker(): void
+    {
+        $container = $this->compile([
+            'runtime' => ['request_metrics' => ['mode' => 'delta']],
+        ], configure: static function (ContainerBuilder $container): void {
+            $container->setParameter('kernel.runtime_mode.worker', 2);
+        });
+
+        self::assertNotInstanceOf(NoopMeterProvider::class, $container->get(MeterProviderInterface::class));
+        $resource = $container->get(ResourceInfo::class);
+        self::assertInstanceOf(ResourceInfo::class, $resource);
+        self::assertTrue($resource->getAttributes()->has('service.instance.id'));
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function deltaOptInUnderFpmDerivesTheWriterIdentity(): void
+    {
+        $container = $this->compile([
+            'runtime' => ['request_metrics' => ['mode' => 'delta']],
+        ], configure: static function (ContainerBuilder $container): void {
+            $container->setParameter('kernel.runtime_mode.worker', 0);
+        });
+
+        self::assertNotInstanceOf(NoopMeterProvider::class, $container->get(MeterProviderInterface::class));
+        $resource = $container->get(ResourceInfo::class);
+        self::assertInstanceOf(ResourceInfo::class, $resource);
+        self::assertIsString($resource->getAttributes()->get('service.instance.id'));
+    }
 }
