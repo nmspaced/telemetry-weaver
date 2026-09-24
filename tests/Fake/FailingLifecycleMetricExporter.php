@@ -63,7 +63,7 @@ final class FailingLifecycleMetricExporter implements PushMetricExporterInterfac
         throw $this->failure;
     }
 
-    public function temporality(MetricMetadataInterface $_metric): Temporality|string|null
+    public function temporality(MetricMetadataInterface $_metric): string
     {
         return Temporality::DELTA;
     }
