@@ -57,7 +57,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         );
         self::assertFalse($bodyRead);
         self::assertSame([], $this->telemetry->spans());
-        self::assertSame($parentId, $this->telemetry->activeTrace()['span_id'] ?? null);
+        self::assertSame($parentId, $this->telemetry->activeTrace()?->spanId);
         self::assertSame(['X-Test: keep'], HttpHeaders::values($headers, 'x-test'));
         self::assertCount(1, HttpHeaders::values($headers, 'traceparent'));
         self::assertStringNotContainsString('stale', HttpHeaders::value($headers, 'traceparent'));

@@ -83,7 +83,7 @@ off, and the export budget defaults to one second per boundary with no retries.
 > (`runtime.request_metrics.mode: delta`). A Prometheus-style backend then needs the collector's
 > `deltatocumulative` processor, running where every point of a stream reaches the same instance.
 > Traces and logs work out of the box. See
-> [Request-pipeline metrics](docs/en/configuration.md#11-request-pipeline-metrics-fpm-frankenphp_reset_kernel)
+> [Request-pipeline metrics](docs/en/configuration.md#export-metrics-from-a-request-per-process-runtime-fpm-frankenphp_reset_kernel)
 > and the ready-made [collector configuration](config/examples/collector.yaml).
 
 Send an OTLP endpoint a real trace in ten minutes: [Getting started](docs/en/getting-started.md).
@@ -165,8 +165,10 @@ inventing an exception. Metric attributes stay separate from span attributes on 
 order id belongs in a trace, and in a metric label it is a new time series.
 
 Also in the API: every OpenTelemetry instrument through `metrics()`, `Operation::baggage()` for
-values that must travel to the services you call, and `Span::traceId()` for putting a trace id
-on an error page. See [Application API](docs/en/getting-started.md#the-application-api).
+values that must travel to the services you call, `Span::traceId()` for putting a trace id on an
+error page, and `ActiveTrace` for the code that cannot be handed a span at all — a Monolog
+processor, a Doctrine middleware — which reads the running trace as three values rather than as
+a handle. See [Application API](docs/en/getting-started.md#the-application-api).
 
 ## Worker lifecycle
 

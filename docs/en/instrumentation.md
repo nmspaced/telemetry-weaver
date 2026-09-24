@@ -18,12 +18,12 @@ open_telemetry:
             metrics: true
 ```
 
-Above them are two master switches. With `traces.enabled: false` or `metrics.enabled: false` no
+Two master switches sit above them. With `traces.enabled: false` or `metrics.enabled: false`, no
 component produces that signal, whatever its own key says.
 
 Where a signal needs options of its own, the same key takes a long form, and the short form
-normalises into it. This exists for one real asymmetry — a health check is noise in a trace and
-load in a metric:
+normalises into it. This exists for one real asymmetry: a health check is noise in a trace and
+load in a metric.
 
 ```yaml
 http_server:
@@ -35,8 +35,8 @@ http_server:
         excluded_paths: ['/_profiler', '/_wdt']
 ```
 
-A component only wires itself when its Symfony component is actually installed — checked against
-what a `--no-dev` install will contain, not against `class_exists()` today.
+A component wires itself only when its Symfony component is actually installed, checked against
+what a `--no-dev` install will contain rather than against `class_exists()` today.
 
 Every component that records a duration also takes `duration_buckets`; see
 [Histogram boundaries](#histogram-boundaries).
@@ -48,14 +48,8 @@ Every component that records a duration also takes `duration_buckets`; see
 | | |
 |---|---|
 | Spans | one server span per main request, named `{method} {route}` — for example `GET /orders/{id}` |
-| Attributes | `http.request.method`, `http.route`, `http.response.status_code`, and `client.address` / `user.*` when opted in |
+| Attributes | `http.request.method`, `http.route`, `http.response.status_code`, plus `client.address` and `user.*` when opted in |
 | Metrics | `http.server.request.duration`, request and response body size |
-
-Route templates rather than raw paths, because `/orders/{id}` is one series and `/orders/17` is
-a million.
-
-A 4xx is not a server error: the span's status follows the conventions, which put the threshold
-at 500. What is configurable is when the exception is recorded as a span event:
 
 ```yaml
 http_server:
@@ -66,32 +60,39 @@ http_server:
     record_exception_min_status: 500
 ```
 
+Span names use route templates rather than raw paths, because `/orders/{id}` is one series and
+`/orders/17` is a million.
+
+A 4xx leaves the span status unset. The conventions put the error threshold at 500, and the span
+follows them. `record_exception_min_status` controls only when the exception is recorded as a
+span event.
+
 ### The authenticated user
 
-With `symfony/security-core` installed, the server span can carry who made the request. Two
-separate keys, because they are two different decisions.
+With `symfony/security-core` installed, the server span can carry who made the request. There are
+two keys, because these are two different decisions.
 
 `user.id` names a person. A trace carrying it is personal data, with retention, access and
-erasure obligations attached — and a tracing backend is rarely governed as tightly as the
+erasure obligations attached, and a tracing backend is rarely governed as tightly as the
 application's own database.
 
 `user.roles` names a group, and answers the question usually asked of a trace: was this slow for
-admins, or for everyone. It is the one most applications can turn on.
+admins, or for everyone. Most applications can turn this one on.
 
-The value is `UserInterface::getUserIdentifier()` as it is, not hashed: a hash salted by this
+The value is `UserInterface::getUserIdentifier()` as it is, not hashed. A hash salted by this
 bundle would be neither reversible for support nor stable across deployments, and applications
 that compute a real one have `user.hash` for it.
 
-It is written on `kernel.controller` — at the priority the server span opens at, the firewall
-has not authenticated yet — and only for the main request, since a sub-request runs inside the
-same trace and two identities on one trace are worse than none.
+It is written on `kernel.controller`, because at the priority the server span opens at the
+firewall has not authenticated yet. Only the main request is annotated: a sub-request runs inside
+the same trace, and two identities on one trace are worse than none.
 
-The token comes from `security.untracked_token_storage`, and is read only once there is a span
-to write it to. `security.token_storage` tracks reads: a single one behind a lazy firewall
-increments the session usage index, and `AbstractSessionListener` answers that with
-`Cache-Control: private, must-revalidate` and `max-age=0` — on every response, including the
-ones an application deliberately made public. Turning this key on must not change what your
-application sends, and it does not.
+The token comes from `security.untracked_token_storage` and is read only once there is a span to
+write it to. `security.token_storage` tracks reads, and a single read behind a lazy firewall
+increments the session usage index. `AbstractSessionListener` answers that with
+`Cache-Control: private, must-revalidate` and `max-age=0` on every response, including the ones
+an application deliberately made public. Turning this key on does not change what your
+application sends.
 
 ## HTTP client
 
@@ -103,18 +104,16 @@ application sends, and it does not.
 | Propagation | trace context added to outgoing headers, so the callee continues the trace |
 | Metrics | `http.client.request.duration`, request and response body size |
 
-Lazy and streamed responses are handled by the instrumentation lifecycle: the span ends when the
-response is actually complete, not when the client returns.
-
-Exclude the collector, or telemetry instruments its own export:
-
 ```yaml
 http_client:
     excluded_hosts: ['otel-collector', 'alloy']
 ```
 
-Use the hostname the application really calls. Excluding `localhost` does nothing when the
-endpoint is `http://alloy:4318`.
+Lazy and streamed responses are handled by the instrumentation lifecycle: the span ends when the
+response is actually complete, not when the client returns.
+
+Exclude the collector, or telemetry instruments its own export. Use the hostname the application
+really calls: excluding `localhost` does nothing when the endpoint is `http://alloy:4318`.
 
 ## Doctrine DBAL
 
@@ -132,16 +131,16 @@ doctrine:
     transactions: true
 ```
 
-`query_text` records the statement as `db.query.text`. Off by default because raw SQL carries
-literals, and literals carry data about people.
+`query_text` records the statement as `db.query.text`. It is off by default because raw SQL
+carries literals, and literals carry data about people.
 
-`only_with_parent` keeps query spans out of traces that have no parent operation. The case it
-exists for is a Messenger transport polling the database every idle second: those queries are
-real load, so the metrics record them either way, but as traces they are thousands of orphans a
-day and nothing else.
+`only_with_parent` keeps query spans out of traces that have no parent operation. It exists for
+the Messenger transport that polls the database every idle second: those queries are real load,
+so the metrics record them either way, but as traces they are thousands of orphans a day and
+nothing else.
 
-`transactions` makes `BEGIN`, `COMMIT` and `ROLLBACK` operations of their own — one span per
-round trip, labelled by `db.operation.name`. Without it, a slow or failing commit is folded into
+`transactions` makes `BEGIN`, `COMMIT` and `ROLLBACK` operations of their own, one span per round
+trip, labelled by `db.operation.name`. Without it, a slow or failing commit is folded into
 whatever statement happened to precede it. Nested transactions are savepoint statements and are
 traced as statements.
 
@@ -156,9 +155,9 @@ traced as statements.
 | Metrics | messages sent, messages consumed, `messaging.process.duration` |
 
 Dispatch is deliberately not measured as a messaging client operation. A dispatch may validate,
-open a transaction and run a handler in-process without a broker being involved at all; folding
-that into send percentiles would make a synchronous bus appear to send messages it never sent.
-The real send is measured per transport, inside the dispatch span.
+open a transaction and run a handler in-process without a broker being involved at all, and
+folding that into send percentiles would make a synchronous bus appear to send messages it never
+sent. The real send is measured per transport, inside the dispatch span.
 
 The unit of work is the message, not the worker. See [Console](#console) for why.
 
@@ -166,19 +165,21 @@ The unit of work is the message, not the worker. See [Console](#console) for why
 
 *Defaults: traces on, metrics off.*
 
-One span per command, carrying the exit code and any error. Turning `metrics: true` on adds a
-`console.command.duration` histogram.
+| | |
+|---|---|
+| Spans | one per command, carrying the exit code and any error |
+| Metrics | `console.command.duration`, with `metrics: true` |
 
 ```yaml
 console:
     excluded_commands: ['cache:clear', 'cache:warmup', 'assets:install', 'lint:container', 'lint:yaml']
 ```
 
-Setting the list replaces these defaults but never the Messenger workers: `messenger:consume`
-and `messenger:consume-messages` are always excluded. A span covering a whole worker process is
-never exported — spans export when they end, and that end is the process exiting — it swallows
-every message into one unbounded trace, and it makes `doctrine.only_with_parent` useless, since
-an always-active span makes idle polling look like work inside a unit of work.
+Setting the list replaces these defaults but never the Messenger workers: `messenger:consume` and
+`messenger:consume-messages` are always excluded. A span covering a whole worker process is never
+exported, because spans export when they end and that end is the process exiting. It also
+swallows every message into one unbounded trace, and it makes `doctrine.only_with_parent`
+useless, since an always-active span makes idle polling look like work inside a unit of work.
 
 ## Cache
 
@@ -200,24 +201,30 @@ cache:
         - cache.messenger.restart_workers_signal
 ```
 
-`['*']` takes every supported pool tagged `cache.pool`; `[]` takes none. The excluded defaults
+`['*']` takes every supported pool tagged `cache.pool`, and `[]` takes none. The excluded defaults
 are the framework's own pools: infrastructure, not application behaviour.
 
 ## Serializer
 
 *Defaults: traces on, metrics off.*
 
-Spans named `serializer.{operation}`, and a `serializer.operation.duration` histogram.
+| | |
+|---|---|
+| Spans | `serializer.{operation}` |
+| Metrics | `serializer.operation.duration`, with `metrics: true` |
 
-Spans require an existing trace. Work outside one — Messenger decoding a message before
-consumption begins, for instance — still contributes to the duration metric. Metrics are off by
+Spans require an existing trace. Work outside one still contributes to the duration metric, which
+is what happens when Messenger decodes a message before consumption begins. Metrics are off by
 default because serialization is usually visible enough inside the span that contains it.
 
 ## Mailer
 
 *Defaults: traces on, metrics off.*
 
-One span per transport send, and a `mailer.send.duration` histogram when `metrics: true`.
+| | |
+|---|---|
+| Spans | one per transport send |
+| Metrics | `mailer.send.duration`, with `metrics: true` |
 
 ```yaml
 mailer:
@@ -230,9 +237,10 @@ Subjects are user-generated content and frequently name a person or an order.
 
 *Defaults: traces on, metrics off.*
 
-A `scheduler.run` span around a scheduled task's execution inside message processing, with
-`scheduler.schedule.name`, `scheduler.task.id` and the message type, plus a
-`scheduler.task.duration` histogram.
+| | |
+|---|---|
+| Spans | `scheduler.run` around a scheduled task inside message processing, with `scheduler.schedule.name`, `scheduler.task.id` and the message type |
+| Metrics | `scheduler.task.duration`, with `metrics: true` |
 
 ## Monolog
 
@@ -247,28 +255,31 @@ open_telemetry:
             enabled: false    # the records themselves, over OTLP
 ```
 
-Correlation is what makes a log line findable from a trace and vice versa. Export is a second
-destination for every log line; see [Configuration](configuration.md#7-logs-correlation-and-export-are-separate).
+Correlation is what makes a log line findable from a trace and a trace findable from a line.
+Export is a second destination for every log line; see
+[Configuration](configuration.md#correlate-and-export-logs).
 
 Everything the bundle reports about itself goes to the `open_telemetry` Monolog channel, and so
-does the OpenTelemetry SDK's own output — without that, the SDK falls back to `error_log()` and
+does the OpenTelemetry SDK's own output. Without that, the SDK falls back to `error_log()`, and
 "the collector refused the batch" lands outside the application's logging while the bundle's own
 reports land inside it. That channel is never exported over OTLP, whatever
 `logs.export.excluded_channels` says.
 
 ## PHP runtime
 
-*Defaults: metrics on. No traces — there is no operation here, only state.*
+*Defaults: metrics on. No traces: there is no operation here, only state.*
 
-`php.memory.usage` (the Zend allocator heap) and `php.worker.uptime`, sampled at each export.
+| | |
+|---|---|
+| Metrics | `php.memory.usage` (the Zend allocator heap) and `php.worker.uptime`, sampled at each export |
 
-In worker mode this is the only place a slow leak is visible: a collector scraping the host sees
-one long-lived process, not its heap. Workers are told apart by `service.instance.id` on the
-resource, not by a label on these metrics.
+In worker mode this is the only place a slow leak is visible, because a collector scraping the
+host sees one long-lived process rather than its heap. Workers are told apart by
+`service.instance.id` on the resource, not by a label on these metrics.
 
-Only processes that serve work repeatedly report them — an HTTP worker, a Messenger consume
-loop. A one-shot console command never starts: its two-second lifetime is noise in a series
-meant to show a slow climb.
+Only processes that serve work repeatedly report them, such as an HTTP worker or a Messenger
+consume loop. A one-shot console command never starts: its two-second lifetime is noise in a
+series meant to show a slow climb.
 
 ## Histogram boundaries
 
@@ -282,37 +293,37 @@ open_telemetry:
 ```
 
 The defaults follow the semantic conventions, which are chosen to be comparable across services
-rather than tight around any one of them — an SLO stated in single-digit milliseconds is
-invisible in buckets whose second step is 10 ms.
+rather than tight around any one of them. An SLO stated in single-digit milliseconds is invisible
+in buckets whose second step is 10 ms.
 
-Boundaries must be strictly increasing and greater than zero; anything else is rejected when the
+Boundaries must be strictly increasing and greater than zero. Anything else is rejected when the
 container compiles, because the SDK would build the buckets as given and the histogram would
 quietly stop meaning anything. An empty list keeps the defaults. The unit stays seconds: a
 histogram whose unit varies by component cannot be compared across components.
 
 For what this cannot reach — an instrument the bundle did not create, or an attribute key whose
-cardinality has to be cut — use a [metric view](sdk-customization.md#metric-views).
+cardinality has to be cut — use a [metric view](sdk-customization.md#add-a-metric-view).
 
 ## Response propagation
 
-Nothing is written back to the caller by default. Set `OTEL_EXPERIMENTAL_RESPONSE_PROPAGATORS`
-and install a propagator package that registers itself with the SDK — the SDK's own registry
-ships only `none` — and the bundle adds the resulting headers to the main request's response.
+Nothing is written back to the caller by default. Set `OTEL_EXPERIMENTAL_RESPONSE_PROPAGATORS` and
+install a propagator package that registers itself with the SDK, whose own registry ships only
+`none`. The bundle then adds the resulting headers to the main request's response.
 
-Sub-requests are not propagated into: their response is rendered into the page rather than sent,
-and doing it per sub-request would overwrite the main request's header with an internal span.
-The header names the server span, not the caller's.
+Sub-requests are not propagated into. Their response is rendered into the page rather than sent,
+and doing it per sub-request would overwrite the main request's header with an internal span. The
+header names the server span, not the caller's.
 
 The upstream contract is marked experimental; the bundle wires it deliberately.
 
 ## Sensitive and high-cardinality data
 
 Trace attributes and metric labels deserve different answers. A request, order or user id in a
-trace may be exactly what an investigation needs; the same id in a metric attribute is a new
-time series, forever.
+trace may be exactly what an investigation needs. The same id in a metric attribute is a new time
+series, forever.
 
-The bundle never copies a span attribute into a metric label. Turning any capture on changes
-what a trace carries and never how many series exist.
+The bundle never copies a span attribute into a metric label. Turning any capture on changes what
+a trace carries and never how many series exist.
 
 Every capture that can identify a person is opt-in, each behind its own key, so the decision is
 made once per kind rather than once for all of them:

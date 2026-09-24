@@ -6,8 +6,9 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Instrumentation\Monolog;
 
 use Monolog\Level;
 use Monolog\LogRecord;
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
+use Nmspaced\TelemetryWeaver\Api\TraceContext;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\TraceContextProcessor;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\ActiveTraceIdentity;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -23,11 +24,11 @@ final class TraceContextProcessorTest extends TestCase
     #[Test]
     public function theRunningTraceIsStampedOnTheRecord(): void
     {
-        $processor = new TraceContextProcessor($this->tracing([
-            'trace_id' => '0af7651916cd43dd8448eb211c80319c',
-            'span_id' => 'b7ad6b7169203331',
-            'trace_flags' => 1,
-        ]));
+        $processor = new TraceContextProcessor($this->reading(new TraceContext(
+            '0af7651916cd43dd8448eb211c80319c',
+            'b7ad6b7169203331',
+            1,
+        )));
 
         $extra = $processor($this->record())->extra;
 
@@ -42,8 +43,8 @@ final class TraceContextProcessorTest extends TestCase
     #[Test]
     public function theFlagsAreTwoHexDigits(): void
     {
-        $sampled = new TraceContextProcessor($this->tracing(trace_flags: 1));
-        $notSampled = new TraceContextProcessor($this->tracing(trace_flags: 0));
+        $sampled = new TraceContextProcessor($this->tracing(traceFlags: 1));
+        $notSampled = new TraceContextProcessor($this->tracing(traceFlags: 0));
 
         self::assertSame('01', $sampled($this->record())->extra['trace_flags'] ?? null);
         self::assertSame('00', $notSampled($this->record())->extra['trace_flags'] ?? null);
@@ -56,13 +57,7 @@ final class TraceContextProcessorTest extends TestCase
     #[Test]
     public function aRecordOutsideATraceIsUntouched(): void
     {
-        $processor = new TraceContextProcessor(new class implements ActiveTraceIdentity {
-            #[\Override]
-            public function current(): ?array
-            {
-                return null;
-            }
-        });
+        $processor = new TraceContextProcessor($this->reading(null));
 
         $record = $this->record(['app.order' => 7]);
         $result = $processor($record);
@@ -86,26 +81,22 @@ final class TraceContextProcessorTest extends TestCase
     }
 
     /**
-     * @param array{trace_id: non-empty-string, span_id: non-empty-string, trace_flags: int}|null $current
+     * @param int<0, 255> $traceFlags
      */
-    private function tracing(?array $current = null, int $trace_flags = 1): ActiveTraceIdentity
+    private function tracing(int $traceFlags = 1): ActiveTrace
     {
-        $current ??= [
-            'trace_id' => \str_repeat('a', 32),
-            'span_id' => \str_repeat('b', 16),
-            'trace_flags' => $trace_flags,
-        ];
+        return $this->reading(new TraceContext(\str_repeat('a', 32), \str_repeat('b', 16), $traceFlags));
+    }
 
-        return new readonly class($current) implements ActiveTraceIdentity {
-            /**
-             * @param array{trace_id: non-empty-string, span_id: non-empty-string, trace_flags: int} $current
-             */
+    private function reading(?TraceContext $current): ActiveTrace
+    {
+        return new readonly class($current) implements ActiveTrace {
             public function __construct(
-                private array $current,
+                private ?TraceContext $current,
             ) {}
 
             #[\Override]
-            public function current(): ?array
+            public function current(): ?TraceContext
             {
                 return $this->current;
             }

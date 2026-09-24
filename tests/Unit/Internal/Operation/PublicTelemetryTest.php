@@ -85,7 +85,7 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
             ->from($this->rootTrace())
             ->run(static fn(): bool => true);
         self::assertFalse($this->exportedSpan()->getParentContext()->isValid());
-        self::assertSame($id, $this->activeTrace()['span_id'] ?? null, 'the root operation restored the outer one');
+        self::assertSame($id, $this->activeTrace()?->spanId, 'the root operation restored the outer one');
         $outer->finish();
         self::assertTrue($this->exportedSpan(1)->getAttributes()->get('borrowed'));
     }

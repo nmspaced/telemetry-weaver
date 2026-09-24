@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Api\TelemetryFactory;
 use Nmspaced\TelemetryWeaver\Internal\Operation\DisabledTelemetryFactory;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\NoActiveTrace;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
@@ -21,4 +23,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$name', 'app');
 
     $services->alias(Telemetry::class, 'open_telemetry.app.telemetry');
+
+    $services->set(ActiveTrace::class, NoActiveTrace::class);
 };

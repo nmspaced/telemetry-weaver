@@ -163,7 +163,7 @@ final class HttpParentContextTest extends HttpTelemetryTestCase
         self::assertFalse($span->getParentContext()->isValid());
         self::assertNotSame($leaked->getContext()->getTraceId(), $span->getContext()->getTraceId());
         self::assertNull($this->scopes->of($request));
-        self::assertSame($leaked->getContext()->getSpanId(), $this->activeTrace()['span_id'] ?? null);
+        self::assertSame($leaked->getContext()->getSpanId(), $this->activeTrace()?->spanId);
         self::assertSame(1, $this->reporter->total());
         $leaked->end();
     }

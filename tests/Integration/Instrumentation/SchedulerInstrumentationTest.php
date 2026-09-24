@@ -90,9 +90,9 @@ final class SchedulerInstrumentationTest extends FrameworkInstrumentationTestCas
         $envelope = new Envelope(new \stdClass(), [new ScheduledStamp($context)]);
         $parent = $this->telemetry->operation('messenger.consume')->start();
         $dispatcher->dispatch(new WorkerMessageReceivedEvent($envelope, 'scheduler_default'));
-        self::assertNotSame($parent->span()->spanId(), $this->telemetry->activeTrace()['span_id'] ?? null);
+        self::assertNotSame($parent->span()->spanId(), $this->telemetry->activeTrace()?->spanId);
         $dispatcher->dispatch(new WorkerMessageHandledEvent($envelope, 'scheduler_default'));
-        self::assertSame($parent->span()->spanId(), $this->telemetry->activeTrace()['span_id'] ?? null);
+        self::assertSame($parent->span()->spanId(), $this->telemetry->activeTrace()?->spanId);
         $parent->finish();
         self::assertCount(2, $this->telemetry->spans());
     }

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass;
 
 use Monolog\Logger;
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
 use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationGate;
 use Nmspaced\TelemetryWeaver\DependencyInjection\SignalSwitch;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\OtelLogHandler;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\TraceContextProcessor;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\ActiveTraceIdentity;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -43,7 +43,7 @@ final readonly class MonologInstrumentationCompilerPass implements CompilerPassI
         if (SignalSwitch::on($container, 'open_telemetry.logs.correlation.enabled')) {
             $container
                 ->register(TraceContextProcessor::class, TraceContextProcessor::class)
-                ->setArgument('$trace', new Reference(ActiveTraceIdentity::class))
+                ->setArgument('$trace', new Reference(ActiveTrace::class))
                 ->addTag('monolog.processor');
         }
 

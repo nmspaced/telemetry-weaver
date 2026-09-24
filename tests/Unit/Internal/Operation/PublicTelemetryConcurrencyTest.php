@@ -6,7 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\Internal\Operation;
 
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Api\Span;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTrace;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Trace\Span as OtelSpan;
 use PHPUnit\Framework\Attributes\Test;
@@ -27,7 +27,7 @@ final class PublicTelemetryConcurrencyTest extends PublicTelemetryTestCase
     {
         $this->useFiberBoundStorage();
         $telemetry = $this->telemetry();
-        $identity = new OtelActiveTraceIdentity($this->contextStorage);
+        $identity = new OtelActiveTrace($this->contextStorage);
         $run =
             /**
              * @param non-empty-string $name
@@ -41,7 +41,7 @@ final class PublicTelemetryConcurrencyTest extends PublicTelemetryTestCase
                     static function (Span $span) use ($identity): void {
                         $id = $span->spanId();
                         \Fiber::suspend();
-                        self::assertSame($id, $identity->current()['span_id'] ?? null);
+                        self::assertSame($id, $identity->current()?->spanId);
                     },
                 );
                 self::assertNull($identity->current());

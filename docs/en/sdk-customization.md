@@ -3,13 +3,12 @@
 The defaults are safe, not mandatory. Every part of the export pipeline can be replaced with a
 service of your own through `open_telemetry.sdk.*`, which takes service ids.
 
-This is not the same thing as an `OTEL_*` variable, and the distinction is worth keeping
-straight: a variable picks among implementations the SDK already knows; a service id hands the
-pipeline one it does not.
+A service id is not the same thing as an `OTEL_*` variable. A variable picks among
+implementations the SDK already knows; a service id hands the pipeline one it does not.
 
 **Everything here is validated when the container compiles.** A misspelled id, a service that
-does not implement the required interface, or a combination that describes a pipeline which
-cannot exist is a build error — not a surprise on the first request in production.
+does not implement the required interface, or a combination describing a pipeline that cannot
+exist is a build error rather than a surprise on the first request in production.
 
 ## Two kinds of override
 
@@ -32,10 +31,11 @@ Prefer the first kind. It is enough for most of what people reach for a provider
 
 ## Inside the provider
 
-### Sampler
+### Replace the sampler
 
-For a decision no `OTEL_TRACES_SAMPLER` value can express — never this health check, always
-checkout, five percent of the rest, or anything that depends on the route, tenant or user:
+Use a service when the decision is one no `OTEL_TRACES_SAMPLER` value can express: never this
+health check, always checkout, five percent of the rest, or anything that depends on the route,
+tenant or user.
 
 ```yaml
 open_telemetry:
@@ -44,10 +44,10 @@ open_telemetry:
             sampler: app.telemetry.per_route_sampler
 ```
 
-Implements `OpenTelemetry\SDK\Trace\SamplerInterface`, and is used instead of
+The service implements `OpenTelemetry\SDK\Trace\SamplerInterface` and is used instead of
 `OTEL_TRACES_SAMPLER`.
 
-### Id generator
+### Replace the id generator
 
 ```yaml
 open_telemetry:
@@ -56,10 +56,11 @@ open_telemetry:
             id_generator: app.telemetry.xray_id_generator
 ```
 
-Implements `OpenTelemetry\SDK\Trace\IdGeneratorInterface`. Backends that read structure out of
-the trace id need this — AWS X-Ray requires the start timestamp in the id's first four bytes.
+The service implements `OpenTelemetry\SDK\Trace\IdGeneratorInterface`. Backends that read
+structure out of the trace id need this: AWS X-Ray requires the start timestamp in the id's first
+four bytes.
 
-### Span processors
+### Add span processors
 
 ```yaml
 open_telemetry:
@@ -69,11 +70,11 @@ open_telemetry:
                 - app.telemetry.redacting_processor
 ```
 
-`OpenTelemetry\SDK\Trace\SpanProcessorInterface` services, added **in front of** the bundle's
-own — so a processor that edits a span as it ends sees it before it is queued for export. They
-are added to the pipeline, never instead of it.
+These are `OpenTelemetry\SDK\Trace\SpanProcessorInterface` services, added **in front of** the
+bundle's own, so a processor that edits a span as it ends sees it before it is queued for export.
+They are added to the pipeline, never instead of it.
 
-### Metric views
+### Add a metric view
 
 A view changes what an instrument produces without changing the code that writes it: a different
 aggregation, a narrower set of attributes, or an instrument dropped entirely.
@@ -99,7 +100,7 @@ $services
     ]);
 ```
 
-`MetricView` is a pair — the SDK has no type for one — and both halves are the SDK's own types,
+`MetricView` is a pair, because the SDK has no type for one. Both halves are the SDK's own types,
 passed through untouched.
 
 To change the boundaries of a histogram the bundle created, use
@@ -108,13 +109,12 @@ instead; it needs no service. Views are for what that cannot reach: an instrumen
 not create, and attribute keys whose cardinality has to be cut at the source.
 
 All four of these are **refused next to a `provider` for the same signal**. A provider builds its
-own sampling, id generation, processors and views, so naming them beside one describes a
-pipeline that will not exist — and that is a configuration error, not something to ignore
-silently.
+own sampling, id generation, processors and views, so naming them beside one describes a pipeline
+that will not exist. That is a configuration error rather than something to ignore silently.
 
 ## Around the provider
 
-### Transport family
+### Replace the transport family
 
 ```yaml
 open_telemetry:
@@ -129,21 +129,21 @@ The service implements `OpenTelemetry\SDK\Common\Export\TransportFactoryInterfac
 
 HTTP and gRPC are separate families because a generic factory cannot tell gRPC from
 `http/protobuf` by its arguments alone. The HTTP family covers the HTTP OTLP protocols the
-installed SDK supports (`http/protobuf`, `http/json`, and `http/ndjson` where available). A
-family left unset keeps the bundle's own transport.
+installed SDK supports: `http/protobuf`, `http/json`, and `http/ndjson` where available. A family
+left unset keeps the bundle's own transport.
 
-A custom family bypasses the bundle's transport layer, and therefore:
+A custom family bypasses the bundle's transport layer, and therefore gives up three things:
 
-- no flush budget for that family — the transport's own timeout applies, and a transport that
-  ignores its timeout holds the boundary for as long as it waits;
-- no `max_retries` override;
-- no `sdk.exporter_otlp_headers` merge — authentication is yours.
+- no flush budget for that family. The transport's own timeout applies, and a transport that
+  ignores its timeout holds the boundary for as long as it waits.
+- no `max_retries` override.
+- no `sdk.exporter_otlp_headers` merge. Authentication is yours.
 
 The resilient exporter above it still catches failures and respects the export gate. The SDK
 still resolves the protocol through its own registry, so it must still know the protocol you
 selected.
 
-### Exporter
+### Replace the exporter
 
 ```yaml
 open_telemetry:
@@ -152,7 +152,7 @@ open_telemetry:
             exporter: app.telemetry.span_exporter
 ```
 
-The service implements the SDK exporter interface for that signal, and is used instead of
+The service implements the SDK exporter interface for that signal and is used instead of
 `OTEL_<SIGNAL>_EXPORTER`. The bundle's provider still drives it, still wraps it in the resilient
 exporter and the export gate, and a custom metrics exporter still follows
 `runtime.request_metrics`.
@@ -162,7 +162,7 @@ seconds, `flush_timeout_ms` cannot stop that PHP code.
 
 An exporter and a provider for the same signal is an error.
 
-### Provider
+### Replace the provider
 
 ```yaml
 open_telemetry:
@@ -171,12 +171,12 @@ open_telemetry:
             provider: app.telemetry.tracer_provider
 ```
 
-This replaces the signal's SDK pipeline completely: processors, exporter, transport, auto-flush
+This replaces the signal's SDK pipeline completely. Processors, exporter, transport, auto-flush
 and timeout behaviour all become the application's.
 
 The bundle still adopts it into the boundary registry, so `forceFlush()` and `shutdown()` still
 happen at the right moments and it is still handed to `Globals`. Nothing inside it is wrapped or
-gated — the queueing, the boundary budget and the export gate are yours to rebuild.
+gated: the queueing, the boundary budget and the export gate are yours to rebuild.
 
 ## Guarantee matrix
 
@@ -198,5 +198,5 @@ gated — the queueing, the boundary budget and the export gate are yours to reb
   authentication scheme, a queue, an async handoff, your own circuit breaker.
 - An **exporter** when the signal conversion or export behaviour must change but the bundle's
   provider lifecycle is still worth having.
-- A **provider** only for full manual SDK construction — knowing that the queueing, the boundary
+- A **provider** only for full manual SDK construction, knowing that the queueing, the boundary
   budget and the export gate come with it.

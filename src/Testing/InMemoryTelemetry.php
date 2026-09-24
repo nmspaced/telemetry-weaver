@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Testing;
 
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
 use Nmspaced\TelemetryWeaver\Api\Metrics;
 use Nmspaced\TelemetryWeaver\Api\Operation;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
+use Nmspaced\TelemetryWeaver\Api\TraceContext;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryOperation;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 use Nmspaced\TelemetryWeaver\Internal\Operation\DefaultTelemetry;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\ActiveTraceIdentity;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTrace;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
@@ -54,7 +55,7 @@ final readonly class InMemoryTelemetry implements BoundaryTelemetry
         private MetricExporter $metricExporter,
         private TracerProviderInterface $tracers,
         private MeterProviderInterface $meters,
-        private ActiveTraceIdentity $activeTrace,
+        private ActiveTrace $activeTrace,
     ) {}
 
     public static function create(string $scope = 'test'): self
@@ -75,14 +76,7 @@ final readonly class InMemoryTelemetry implements BoundaryTelemetry
             new OtelBaggageReader(),
         );
 
-        return new self(
-            $telemetry,
-            $spans,
-            $metrics,
-            $tracers,
-            $meters,
-            new OtelActiveTraceIdentity(Context::storage()),
-        );
+        return new self($telemetry, $spans, $metrics, $tracers, $meters, new OtelActiveTrace(Context::storage()));
     }
 
     #[\Override]
@@ -115,13 +109,10 @@ final readonly class InMemoryTelemetry implements BoundaryTelemetry
     /**
      * The trace running right now, or null when nothing is.
      *
-     * The assertion an ownership bug fails: after a unit of work, nothing may still be
-     * active. The public API deliberately offers no way to read ambient state — that is
-     * what is being tested, so the test double reads it instead of the code under test.
-     *
-     * @return array{trace_id: non-empty-string, span_id: non-empty-string, trace_flags: int}|null
+     * Uses the same reader as {@see ActiveTrace}. After a top-level operation finishes,
+     * null confirms that it left no active span behind; nested operations restore their parent.
      */
-    public function activeTrace(): ?array
+    public function activeTrace(): ?TraceContext
     {
         return $this->activeTrace->current();
     }

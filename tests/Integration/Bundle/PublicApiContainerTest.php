@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
+use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Api\TelemetryFactory;
+use Nmspaced\TelemetryWeaver\Api\TraceContext;
 use Nmspaced\TelemetryWeaver\TelemetryWeaverBundle;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
+use OpenTelemetry\API\Trace\Span as OtelSpan;
+use OpenTelemetry\API\Trace\SpanContext;
+use OpenTelemetry\Context\Context;
 use OpenTelemetry\SDK\Trace\ImmutableSpan;
 use OpenTelemetry\SDK\Trace\SpanExporter\InMemoryExporter;
 use OpenTelemetry\SDK\Trace\SpanExporterInterface;
@@ -55,9 +61,75 @@ final class PublicApiContainerTest extends ContainerTestCase
             'The API is autowirable, not a public service locator entry.',
         );
         self::assertFalse($container->has(TelemetryFactory::class));
+        self::assertFalse($container->has(ActiveTrace::class));
         $consumer = $container->get(PublicApiConsumer::class);
         self::assertSame(42, $consumer->telemetry->trace('application', static fn(): int => 42));
         self::assertSame(7, $consumer->factory->scope('library')->trace('library', static fn(): int => 7));
+        self::assertNull($consumer->activeTrace->current(), 'nothing is running outside an operation');
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    #[DataProvider('enabled')]
+    public function externalContextRemainsVisibleWithTracingOffButNotWithTheBundleDisabled(bool $enabled): void
+    {
+        $container = $this->compile(['enabled' => $enabled, 'traces' => ['enabled' => false]]);
+        $external = SpanContext::createFromRemoteParent(\str_repeat('a', 32), \str_repeat('b', 16));
+        $scope = Context::storage()->attach(Context::getRoot()->withContextValue(OtelSpan::wrap($external)));
+
+        try {
+            $activeTrace = $container->get(ActiveTrace::class);
+            $container->get(Telemetry::class)->trace('suppressed', static function (Span $span) use (
+                $activeTrace,
+                $enabled,
+                $external,
+            ): void {
+                self::assertNull($span->spanId());
+                $current = $activeTrace->current();
+
+                if (!$enabled) {
+                    self::assertNull($current);
+
+                    return;
+                }
+
+                self::assertNotNull($current);
+                self::assertSame($external->getTraceId(), $current->traceId);
+                self::assertSame($external->getSpanId(), $current->spanId);
+                self::assertFalse($current->sampled());
+            });
+        } finally {
+            $scope->detach();
+        }
+    }
+
+    /**
+     * The point of the port: code with no operation in scope can still name the trace it
+     * is running inside, and the ids it reads are the ids of the span that is current.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function theActiveTraceNamesTheSpanTheCallerIsInside(): void
+    {
+        $container = $this->compile();
+        $telemetry = $container->get(Telemetry::class);
+        $ambient = $container->get(ActiveTrace::class);
+
+        [$traceId, $spanId, $current] = $telemetry->trace(
+            'operation',
+            /**
+             * @return array{non-empty-string|null, non-empty-string|null, TraceContext|null}
+             *
+             * @throws \Throwable
+             */
+            static fn(Span $span): array => [$span->traceId(), $span->spanId(), $ambient->current()],
+        );
+        self::assertNotNull($current);
+        self::assertSame($traceId, $current->traceId);
+        self::assertSame($spanId, $current->spanId);
+        self::assertTrue($current->sampled(), 'the default sampler sets the sampled flag');
+        self::assertNull($ambient->current(), 'and the operation released it on the way out');
     }
 
     /**

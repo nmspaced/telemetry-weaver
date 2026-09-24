@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\ExportFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
@@ -9,10 +10,9 @@ use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\ActiveTraceIdentity;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\BaggageReader;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelationSource;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTraceIdentity;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTrace;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
@@ -190,7 +190,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$reporter', service(InstrumentationFailureReporter::class));
 
     $services
-        ->set(ActiveTraceIdentity::class, OtelActiveTraceIdentity::class)
+        ->set(ActiveTrace::class, OtelActiveTrace::class)
         ->arg('$contextStorage', service(ContextStorageInterface::class));
 
     $services->set(PropagatorFactory::class);
