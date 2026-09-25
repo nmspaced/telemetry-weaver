@@ -117,7 +117,11 @@ final readonly class SqlScanner
         $verb = $match['schemaOperation'] ?? '';
         $object = $match['object'] ?? '';
 
-        return $verb === '' || $object === '' ? $verb : $verb . ' ' . $object;
+        if ($verb === '' || $object === '') {
+            return $verb;
+        }
+
+        return \sprintf('%s %s', $verb, $object);
     }
 
     /**

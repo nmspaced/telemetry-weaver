@@ -73,7 +73,7 @@ final readonly class TransportFactory implements TransportFactoryInterface
                 $contentType,
                 $this->settings->headers($headers),
                 $compression,
-                $timeout > 0 ? \min($timeout, $remaining) : $remaining,
+                self::timeout($timeout, $remaining),
                 $this->settings->retryDelay,
                 0,
                 $cacert,
@@ -94,13 +94,30 @@ final readonly class TransportFactory implements TransportFactoryInterface
         }
 
         $scheme = \strtolower($parts['scheme'] ?? 'http');
-        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+        $port = $parts['port'] ?? match ($scheme) {
+            'https' => 443,
+            default => 80,
+        };
 
-        return $scheme . '://' . \strtolower($parts['host']) . ':' . $port;
+        return \sprintf('%s://%s:%d', $scheme, \strtolower($parts['host']), $port);
     }
 
     private function factory(): TransportFactoryInterface
     {
-        return $this->delegate instanceof \Closure ? ($this->delegate)() : $this->delegate;
+        if ($this->delegate instanceof \Closure) {
+            return ($this->delegate)();
+        }
+
+        return $this->delegate;
+    }
+
+    /** The configured timeout, capped by what is left of the flush budget; zero means none. */
+    private static function timeout(float $configured, float $remaining): float
+    {
+        if ($configured <= 0) {
+            return $remaining;
+        }
+
+        return \min($configured, $remaining);
     }
 }

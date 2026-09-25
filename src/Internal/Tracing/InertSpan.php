@@ -53,8 +53,7 @@ final class InertSpan implements Span, SpanOwner
             return;
         }
 
-        $type = $attributes[ErrorAttributes::ERROR_TYPE];
-        $this->errorType = \is_string($type) && $type !== '' ? $type : null;
+        $this->errorType = ErrorType::from($attributes[ErrorAttributes::ERROR_TYPE]);
     }
 
     #[\Override]

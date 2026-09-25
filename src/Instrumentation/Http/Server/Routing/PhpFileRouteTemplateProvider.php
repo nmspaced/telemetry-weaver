@@ -48,6 +48,10 @@ final readonly class PhpFileRouteTemplateProvider implements RouteTemplateProvid
         /** @var mixed $template */
         $template = $routeTemplates[$routeName] ?? null;
 
-        return \is_string($template) ? $template : null;
+        if (!\is_string($template)) {
+            return null;
+        }
+
+        return $template;
     }
 }

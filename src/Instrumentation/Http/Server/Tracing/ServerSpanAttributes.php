@@ -55,7 +55,7 @@ final readonly class ServerSpanAttributes
             $attributes[ServerAttributes::SERVER_PORT] = $request->getPort();
         }
 
-        $clientIp = $this->recordClientIp ? $request->getClientIp() : null;
+        $clientIp = $this->clientIp($request);
 
         if ($clientIp !== null) {
             $attributes[ClientAttributes::CLIENT_ADDRESS] = $clientIp;
@@ -74,6 +74,15 @@ final readonly class ServerSpanAttributes
         }
 
         return $attributes;
+    }
+
+    private function clientIp(Request $request): ?string
+    {
+        if (!$this->recordClientIp) {
+            return null;
+        }
+
+        return $request->getClientIp();
     }
 
     /**

@@ -48,7 +48,11 @@ final readonly class KnownHttpMethods
         /** @var mixed $fallback */
         $fallback = $_SERVER['OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS'] ?? null;
 
-        return \is_string($fallback) ? $fallback : null;
+        if (!\is_string($fallback)) {
+            return null;
+        }
+
+        return $fallback;
     }
 
     /**
@@ -72,6 +76,10 @@ final readonly class KnownHttpMethods
             }
         }
 
-        return $methods === [] ? null : $methods;
+        if ($methods === []) {
+            return null;
+        }
+
+        return $methods;
     }
 }

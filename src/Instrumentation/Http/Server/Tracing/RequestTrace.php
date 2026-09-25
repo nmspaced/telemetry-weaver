@@ -10,6 +10,7 @@ use Nmspaced\TelemetryWeaver\Internal\Operation\ScopedOperation;
 use OpenTelemetry\SemConv\Attributes\HttpAttributes;
 use Symfony\Component\HttpFoundation\Response;
 
+// @mago-expect lint:too-many-methods — execution-entry lifecycle plus the observed outcome
 /**
  * A server span whose outcome is decided once, in `complete()`.
  *
@@ -72,6 +73,12 @@ final class RequestTrace implements ExecutionEntry
         $this->status = HttpResponseStatus::fromResponse($response);
     }
 
+    /** An exception reached the kernel and no listener answered it; no terminate will follow. */
+    public function isUnansweredAfterException(): bool
+    {
+        return $this->status === null && $this->error !== null;
+    }
+
     /** Releases the context activation, leaving the span open. */
     public function detach(): void
     {
@@ -109,12 +116,10 @@ final class RequestTrace implements ExecutionEntry
             return;
         }
 
-        $error = $status >= $this->recordExceptionMinStatus ? $this->error : null;
-
         $span = $this->operation->span();
         $span->attribute(HttpAttributes::HTTP_RESPONSE_STATUS_CODE, $status);
-        if ($error !== null) {
-            $span->recordException($error);
+        if ($this->error !== null && $status >= $this->recordExceptionMinStatus) {
+            $span->recordException($this->error);
         }
 
         if ($status >= 500) {

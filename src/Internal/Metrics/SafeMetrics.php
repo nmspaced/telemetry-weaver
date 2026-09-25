@@ -43,27 +43,27 @@ final readonly class SafeMetrics implements Metrics
     #[\Override]
     public function counter(string $name, ?string $unit = null, ?string $description = null): CounterInterface
     {
-        self::validateName($name);
-        try {
-            return new SafeCounter($this->meter->createCounter($name, $unit, $description), $this->reporter, $name);
-        } catch (\Throwable $throwable) {
-            $this->reporter->report('Counter creation failed', $name, $throwable);
-
-            return new NoopMeter()->createCounter($name);
-        }
+        return $this->instrument(
+            'Counter',
+            $name,
+            static fn(MeterInterface $meter): CounterInterface => $meter->createCounter($name, $unit, $description),
+            fn(CounterInterface $counter): CounterInterface => new SafeCounter($counter, $this->reporter, $name),
+        );
     }
 
     #[\Override]
     public function histogram(string $name, ?string $unit = null, ?string $description = null): HistogramInterface
     {
-        self::validateName($name);
-        try {
-            return new SafeHistogram($this->meter->createHistogram($name, $unit, $description), $this->reporter, $name);
-        } catch (\Throwable $throwable) {
-            $this->reporter->report('Histogram creation failed', $name, $throwable);
-
-            return new NoopMeter()->createHistogram($name);
-        }
+        return $this->instrument(
+            'Histogram',
+            $name,
+            static fn(MeterInterface $meter): HistogramInterface => $meter->createHistogram($name, $unit, $description),
+            fn(HistogramInterface $histogram): HistogramInterface => new SafeHistogram(
+                $histogram,
+                $this->reporter,
+                $name,
+            ),
+        );
     }
 
     #[\Override]
@@ -72,19 +72,20 @@ final readonly class SafeMetrics implements Metrics
         ?string $unit = null,
         ?string $description = null,
     ): UpDownCounterInterface {
-        self::validateName($name);
-
-        try {
-            return new SafeUpDownCounter(
-                $this->meter->createUpDownCounter($name, $unit, $description),
+        return $this->instrument(
+            'UpDownCounter',
+            $name,
+            static fn(MeterInterface $meter): UpDownCounterInterface => $meter->createUpDownCounter(
+                $name,
+                $unit,
+                $description,
+            ),
+            fn(UpDownCounterInterface $counter): UpDownCounterInterface => new SafeUpDownCounter(
+                $counter,
                 $this->reporter,
                 $name,
-            );
-        } catch (\Throwable $throwable) {
-            $this->reporter->report('UpDownCounter creation failed', $name, $throwable);
-
-            return new NoopMeter()->createUpDownCounter($name);
-        }
+            ),
+        );
     }
 
     /**
@@ -95,15 +96,12 @@ final readonly class SafeMetrics implements Metrics
     #[\Override]
     public function gauge(string $name, ?string $unit = null, ?string $description = null): GaugeInterface
     {
-        self::validateName($name);
-
-        try {
-            return new SafeGauge($this->meter->createGauge($name, $unit, $description), $this->reporter, $name);
-        } catch (\Throwable $throwable) {
-            $this->reporter->report('Gauge creation failed', $name, $throwable);
-
-            return new NoopMeter()->createGauge($name);
-        }
+        return $this->instrument(
+            'Gauge',
+            $name,
+            static fn(MeterInterface $meter): GaugeInterface => $meter->createGauge($name, $unit, $description),
+            fn(GaugeInterface $gauge): GaugeInterface => new SafeGauge($gauge, $this->reporter, $name),
+        );
     }
 
     #[\Override]
@@ -161,6 +159,29 @@ final readonly class SafeMetrics implements Metrics
             $this->reporter->report('Duration instrument creation failed', $name, $throwable);
 
             return new NoopDuration();
+        }
+    }
+
+    /**
+     * Falls back to a no-op instrument on failure, so the caller always gets a valid handle.
+     *
+     * @template T of object
+     * @param non-empty-string $kind
+     * @param \Closure(MeterInterface): T $create
+     * @param \Closure(T): T $wrap
+     *
+     * @return T
+     */
+    private function instrument(string $kind, string $name, \Closure $create, \Closure $wrap): object
+    {
+        self::validateName($name);
+
+        try {
+            return $wrap($create($this->meter));
+        } catch (\Throwable $throwable) {
+            $this->reporter->report(\sprintf('%s creation failed', $kind), $name, $throwable);
+
+            return $create(new NoopMeter());
         }
     }
 

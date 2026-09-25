@@ -103,13 +103,14 @@ final readonly class HttpClientInstrumentationCompilerPass implements CompilerPa
             ->setDecoratedService($id, $innerId, self::DECORATION_PRIORITY)
             ->setArgument('$client', new Reference($innerId))
             ->setArgument('$instrumentation', new Reference(ClientInstrumentation::class))
-            ->setArgument('$baseUri', $id === self::DEFAULT_CLIENT_ID ? $this->defaultBaseUri($container) : null)
+            ->setArgument('$baseUri', $this->defaultBaseUri($container, $id))
             ->addTag('kernel.reset', ['method' => 'reset']);
     }
 
-    private function defaultBaseUri(ContainerBuilder $container): ?string
+    /** Only the default client lacks a scoping decorator to resolve relative URLs. */
+    private function defaultBaseUri(ContainerBuilder $container, string $id): ?string
     {
-        if (!$container->hasDefinition(self::TRANSPORT_ID)) {
+        if ($id !== self::DEFAULT_CLIENT_ID || !$container->hasDefinition(self::TRANSPORT_ID)) {
             return null;
         }
 
@@ -123,6 +124,10 @@ final readonly class HttpClientInstrumentationCompilerPass implements CompilerPa
         /** @var mixed $baseUri */
         $baseUri = $options['base_uri'] ?? null;
 
-        return \is_string($baseUri) ? $baseUri : null;
+        if (!\is_string($baseUri)) {
+            return null;
+        }
+
+        return $baseUri;
     }
 }

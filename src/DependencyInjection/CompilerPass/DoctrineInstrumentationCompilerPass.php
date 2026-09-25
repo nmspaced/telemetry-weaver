@@ -67,6 +67,10 @@ final readonly class DoctrineInstrumentationCompilerPass implements CompilerPass
 
     private static function string(mixed $value): string
     {
-        return \is_string($value) ? $value : QueryText::Sanitized->value;
+        if (!\is_string($value)) {
+            return QueryText::Sanitized->value;
+        }
+
+        return $value;
     }
 }

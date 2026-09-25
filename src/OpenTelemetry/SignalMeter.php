@@ -15,6 +15,10 @@ final readonly class SignalMeter
 {
     public static function create(MeterInterface $delegate, bool $metricsEnabled, bool $signalEnabled): MeterInterface
     {
-        return $metricsEnabled && $signalEnabled ? $delegate : new NoopMeter();
+        if (!$metricsEnabled || !$signalEnabled) {
+            return new NoopMeter();
+        }
+
+        return $delegate;
     }
 }

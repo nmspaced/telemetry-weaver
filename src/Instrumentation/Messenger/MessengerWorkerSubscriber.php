@@ -28,8 +28,7 @@ final readonly class MessengerWorkerSubscriber implements EventSubscriberInterfa
     public function onReceived(WorkerMessageReceivedEvent $event): void
     {
         try {
-            $destination = $event->getReceiverName();
-            $destination = $destination === '' ? 'unknown' : $destination;
+            $destination = MessageAttributes::destination($event->getReceiverName());
             $this->messengerTelemetry->received(MessageAttributes::of(
                 'process',
                 MessagingIncubatingAttributes::MESSAGING_OPERATION_TYPE_VALUE_PROCESS,

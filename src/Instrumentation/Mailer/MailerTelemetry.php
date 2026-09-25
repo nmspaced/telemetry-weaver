@@ -78,7 +78,11 @@ final readonly class MailerTelemetry
             /** @var mixed $name */
             $name = $message->getHeaders()->get(self::TRANSPORT_HEADER)?->getBody();
 
-            return \is_string($name) && $name !== '' ? $name : self::DEFAULT_TRANSPORT;
+            if (!\is_string($name) || $name === '') {
+                return self::DEFAULT_TRANSPORT;
+            }
+
+            return $name;
         } catch (\Throwable $throwable) {
             $this->reporter->report('Mail transport name extraction failed', self::OPERATION, $throwable);
 
@@ -98,7 +102,11 @@ final readonly class MailerTelemetry
         try {
             $subject = $message->getSubject();
 
-            return $subject === null || $subject === '' ? [] : ['email.subject' => $subject];
+            if ($subject === null || $subject === '') {
+                return [];
+            }
+
+            return ['email.subject' => $subject];
         } catch (\Throwable $throwable) {
             $this->reporter->report('Mail subject extraction failed', self::OPERATION, $throwable);
 

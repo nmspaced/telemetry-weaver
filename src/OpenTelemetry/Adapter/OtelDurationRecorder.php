@@ -24,10 +24,12 @@ final readonly class OtelDurationRecorder implements DurationRecorder
         array $attributes,
         ?TraceCorrelation $correlation,
     ): void {
-        $histogram->record(
-            $value,
-            $attributes,
-            $correlation instanceof OtelTraceCorrelation ? $correlation->context : false,
-        );
+        if (!$correlation instanceof OtelTraceCorrelation) {
+            $histogram->record($value, $attributes, false);
+
+            return;
+        }
+
+        $histogram->record($value, $attributes, $correlation->context);
     }
 }

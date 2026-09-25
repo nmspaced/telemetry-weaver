@@ -46,7 +46,7 @@ final readonly class OtlpTransportSettings
     private static function text(bool|float|int|string $value): string
     {
         if (\is_bool($value)) {
-            return $value ? 'true' : 'false';
+            return \var_export($value, true);
         }
 
         return (string) $value;

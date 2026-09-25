@@ -26,6 +26,10 @@ final readonly class OtelTraceCorrelationSource implements TraceCorrelationSourc
     {
         $context = $this->contextStorage->current();
 
-        return Span::fromContext($context)->getContext()->isValid() ? new OtelTraceCorrelation($context) : null;
+        if (!Span::fromContext($context)->getContext()->isValid()) {
+            return null;
+        }
+
+        return new OtelTraceCorrelation($context);
     }
 }

@@ -6,14 +6,13 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass;
 
 use Nmspaced\TelemetryWeaver\DependencyInjection\CachePoolSelection;
 use Nmspaced\TelemetryWeaver\DependencyInjection\DecoratedService;
+use Nmspaced\TelemetryWeaver\DependencyInjection\DefinitionClass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationGate;
 use Nmspaced\TelemetryWeaver\DependencyInjection\TraceablePoolClass;
 use Nmspaced\TelemetryWeaver\Instrumentation\Cache\CacheTelemetry;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
-use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
 final readonly class CacheInstrumentationCompilerPass implements CompilerPassInterface
@@ -46,7 +45,7 @@ final readonly class CacheInstrumentationCompilerPass implements CompilerPassInt
                 continue;
             }
 
-            $class = $this->resolveClass($container, $definition);
+            $class = DefinitionClass::of($container, $definition);
 
             if ($class === null || !\is_a($class, AdapterInterface::class, true)) {
                 continue;
@@ -63,26 +62,6 @@ final readonly class CacheInstrumentationCompilerPass implements CompilerPassInt
                 ->setArgument('$delegate', new Reference($innerId))
                 ->setArgument('$cacheTelemetry', new Reference(CacheTelemetry::class))
                 ->setArgument('$poolName', $poolName);
-        }
-    }
-
-    private function resolveClass(ContainerBuilder $container, Definition $definition): ?string
-    {
-        while (true) {
-            $class = $definition->getClass();
-
-            if ($class !== null) {
-                /** @var mixed $class */
-                $class = $container->getParameterBag()->resolveValue($class);
-
-                return \is_string($class) && $class !== '' ? $class : null;
-            }
-
-            if (!$definition instanceof ChildDefinition) {
-                return null;
-            }
-
-            $definition = $container->findDefinition($definition->getParent());
         }
     }
 

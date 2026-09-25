@@ -53,15 +53,21 @@ final readonly class HttpServerTracingSubscriber implements EventSubscriberInter
             return;
         }
 
-        $isMain = $event->isMainRequest();
         $method = HttpMethod::from($request, $this->knownMethods);
+        $attributes = $this->serverSpanAttributes->from($request, $method);
+
+        if (!$event->isMainRequest()) {
+            $this->requestTraces->open($request, $method, attributes: $attributes, kind: SpanKind::Internal);
+
+            return;
+        }
 
         $this->requestTraces->open(
             $request,
             $method,
-            attributes: $this->serverSpanAttributes->from($request, $method),
-            kind: $isMain ? SpanKind::Server : SpanKind::Internal,
-            parent: $isMain ? $this->parentContext->fromHeaders($request) : null,
+            attributes: $attributes,
+            kind: SpanKind::Server,
+            parent: $this->parentContext->fromHeaders($request),
         );
     }
 
@@ -83,16 +89,26 @@ final readonly class HttpServerTracingSubscriber implements EventSubscriberInter
         $this->requestTraces->of($request)?->response($event->getResponse());
     }
 
+    /**
+     * A main request stays open for terminate, unless an exception escapes the kernel: then no
+     * terminate follows, and without a reset the span would never be exported.
+     */
     public function onFinishRequest(FinishRequestEvent $event): void
     {
         $request = $event->getRequest();
+        $trace = $this->requestTraces->of($request);
 
-        if ($event->isMainRequest()) {
-            $this->requestTraces->of($request)?->detach();
+        if ($trace === null) {
+            return;
+        }
+
+        if ($event->isMainRequest() && !$trace->isUnansweredAfterException()) {
+            $trace->detach();
 
             return;
         }
 
+        $this->requestTraces->route($request, $this->requestPolicy);
         $this->requestTraces->finish($request);
     }
 

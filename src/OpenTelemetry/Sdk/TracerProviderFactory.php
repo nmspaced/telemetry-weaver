@@ -42,8 +42,7 @@ final readonly class TracerProviderFactory
      */
     public function create(): TracerProviderInterface
     {
-        $internalMetricsEnabled = Configuration::getBoolean(Variables::OTEL_PHP_INTERNAL_METRICS_ENABLED);
-        $internalMeterProvider = $internalMetricsEnabled ? $this->meterProvider : null;
+        $internalMeterProvider = $this->internalMeterProvider();
 
         $processors = \iterator_to_array($this->decisions->spanProcessors, false);
         $processors[] = $this->spanProcessor($internalMeterProvider);
@@ -56,6 +55,15 @@ final readonly class TracerProviderFactory
             spanSuppressionStrategy: $this->spanSuppressionStrategy,
             meterProvider: $internalMeterProvider,
         );
+    }
+
+    private function internalMeterProvider(): ?MeterProviderInterface
+    {
+        if (!Configuration::getBoolean(Variables::OTEL_PHP_INTERNAL_METRICS_ENABLED)) {
+            return null;
+        }
+
+        return $this->meterProvider;
     }
 
     /**

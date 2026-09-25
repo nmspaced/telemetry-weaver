@@ -43,7 +43,7 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
 
         return $this->run(
             $operation,
-            \is_string($key) ? ['cache.key' => $key] : [],
+            self::keyAttributes($key),
             /** @throws InvalidArgumentException */
             function (Span $span) use ($operation, $key): CacheItem {
                 // @phpstan-ignore argument.type (Symfony accepts mixed keys and delegates validation to the adapter; PSR PHPDoc narrows it to string.)
@@ -139,9 +139,15 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
             __FUNCTION__,
             ['cache.key' => $key],
             /** @throws InvalidArgumentException */
-            fn(): bool => $this->delegate instanceof CacheInterface
-                ? $this->delegate->delete($key)
-                : $this->delegate->deleteItem($key),
+            function () use ($key): bool {
+                $delegate = $this->delegate;
+
+                if ($delegate instanceof CacheInterface) {
+                    return $delegate->delete($key);
+                }
+
+                return $delegate->deleteItem($key);
+            },
         );
     }
 
@@ -266,8 +272,18 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
         return $this->cacheTelemetry->run($this->poolName, $operation, $attributes, $callback);
     }
 
+    /** @return array<'cache.key', string> */
+    private static function keyAttributes(mixed $key): array
+    {
+        if (!\is_string($key)) {
+            return [];
+        }
+
+        return ['cache.key' => $key];
+    }
+
     /** @param  non-empty-string  $operation */
-    private function lookup(string $operation, bool $hit, ?Span $span = null): void
+    private function lookup(string $operation, bool $hit, Span $span): void
     {
         $this->cacheTelemetry->lookup($this->poolName, $operation, $hit, $span);
     }

@@ -299,11 +299,15 @@ return new class {
     ): ArrayNodeDefinition {
         $node = new ArrayNodeDefinition($name);
 
-        $enabled = $node->addDefaultsIfNotSet()->info($info)->children()->booleanNode('enabled')->info($enabledInfo);
-
-        $defaultEnabled ? $enabled->defaultTrue() : $enabled->defaultFalse();
-
-        $enabled->end()->end();
+        $node
+            ->addDefaultsIfNotSet()
+            ->info($info)
+            ->children()
+            ->booleanNode('enabled')
+            ->info($enabledInfo)
+            ->defaultValue($defaultEnabled)
+            ->end()
+            ->end();
 
         return $node;
     }

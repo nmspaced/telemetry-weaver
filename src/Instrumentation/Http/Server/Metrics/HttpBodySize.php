@@ -30,7 +30,11 @@ final readonly class HttpBodySize
 
         $content = $response->getContent();
 
-        return \is_string($content) ? \strlen($content) : null;
+        if (!\is_string($content)) {
+            return null;
+        }
+
+        return \strlen($content);
     }
 
     private static function fromHeader(?string $value): ?int

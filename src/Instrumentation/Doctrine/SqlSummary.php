@@ -76,7 +76,11 @@ final readonly class SqlSummary
             $tokens[] = $token;
         }
 
-        return new self($tokens === [] ? null : \implode(' ', $tokens));
+        if ($tokens === []) {
+            return new self(null);
+        }
+
+        return new self(\implode(' ', $tokens));
     }
 
     private static function isDescribable(string $sql): bool

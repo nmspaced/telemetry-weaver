@@ -56,10 +56,16 @@ final readonly class ResponseMetadata
         $port = $parts['port'] ?? null;
         $query = $parts['query'] ?? null;
 
-        $safe = \strtolower($scheme) . '://' . \strtolower($host);
-        $safe .= $port === null ? '' : ':' . $port;
-        $safe .= $parts['path'] ?? '/';
+        $authority = \implode(':', \array_filter(
+            [\strtolower($host), $port],
+            static fn(mixed $part): bool => $part !== null,
+        ));
+        $safe = \sprintf('%s://%s%s', \strtolower($scheme), $authority, $parts['path'] ?? '/');
 
-        return $query === null ? $safe : $safe . '?' . QueryStringRedactor::redact($query);
+        if ($query === null) {
+            return $safe;
+        }
+
+        return \sprintf('%s?%s', $safe, QueryStringRedactor::redact($query));
     }
 }

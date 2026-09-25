@@ -37,10 +37,8 @@ final readonly class TraceableSerializer implements
     #[\Override]
     public function serialize(mixed $data, string $format, array $context = []): string
     {
-        $operation = __FUNCTION__;
-
         return $this->run(
-            $operation,
+            __FUNCTION__,
             $format,
             ['serializer.data.type' => \get_debug_type($data)],
             /** @throws ExceptionInterface */
@@ -61,10 +59,8 @@ final readonly class TraceableSerializer implements
     #[\Override]
     public function deserialize(mixed $data, string $type, string $format, array $context = []): mixed
     {
-        $operation = __FUNCTION__;
-
         return $this->run(
-            $operation,
+            __FUNCTION__,
             $format,
             ['serializer.type' => $type],
             /** @throws ExceptionInterface */
@@ -127,10 +123,8 @@ final readonly class TraceableSerializer implements
     #[\Override]
     public function encode(mixed $data, string $format, array $context = []): string
     {
-        $operation = __FUNCTION__;
-
         return $this->run(
-            $operation,
+            __FUNCTION__,
             $format,
             ['serializer.data.type' => \get_debug_type($data)],
             /** @throws ExceptionInterface */
@@ -151,10 +145,8 @@ final readonly class TraceableSerializer implements
     #[\Override]
     public function decode(string $data, string $format, array $context = []): mixed
     {
-        $operation = __FUNCTION__;
-
         return $this->run(
-            $operation,
+            __FUNCTION__,
             $format,
             [],
             /** @throws ExceptionInterface */

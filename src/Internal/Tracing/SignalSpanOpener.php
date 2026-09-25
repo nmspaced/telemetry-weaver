@@ -15,6 +15,10 @@ final readonly class SignalSpanOpener
         bool $tracesEnabled,
         bool $signalEnabled,
     ): SpanOpenerInterface {
-        return $tracesEnabled && $signalEnabled ? $delegate : $delegate->suppressed();
+        if (!$tracesEnabled || !$signalEnabled) {
+            return $delegate->suppressed();
+        }
+
+        return $delegate;
     }
 }

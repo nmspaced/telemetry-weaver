@@ -55,11 +55,10 @@ final class BudgetedTransport implements TransportInterface
 
         $allowance = $budget->allowance($this->destination);
         if ($allowance === null) {
-            return new ErrorFuture(
-                new \RuntimeException(
-                    'Telemetry flush budget exhausted for ' . $this->destination . ' before OTLP send',
-                ),
-            );
+            return new ErrorFuture(new \RuntimeException(\sprintf(
+                'Telemetry flush budget exhausted for %s before OTLP send',
+                $this->destination,
+            )));
         }
 
         try {

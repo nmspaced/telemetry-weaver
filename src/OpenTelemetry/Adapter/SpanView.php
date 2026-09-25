@@ -6,6 +6,7 @@ namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter;
 
 use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\ErrorType;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
@@ -74,8 +75,7 @@ final class SpanView implements Span
             return;
         }
 
-        $type = $attributes[ErrorAttributes::ERROR_TYPE];
-        $this->errorType = \is_string($type) && $type !== '' ? $type : null;
+        $this->errorType = ErrorType::from($attributes[ErrorAttributes::ERROR_TYPE]);
     }
 
     #[\Override]
@@ -145,7 +145,11 @@ final class SpanView implements Span
 
             $id = $read($span);
 
-            return $id === '' ? null : $id;
+            if ($id === '') {
+                return null;
+            }
+
+            return $id;
         } catch (\Throwable $throwable) {
             $this->reporter?->report('Span identity read failed', self::class, $throwable);
 

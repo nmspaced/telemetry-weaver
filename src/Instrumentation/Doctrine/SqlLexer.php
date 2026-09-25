@@ -64,7 +64,11 @@ final readonly class SqlLexer
             $sql,
         );
 
-        return $code === null || \str_contains($code, self::REFUSED) ? null : $code;
+        if ($code === null || \str_contains($code, self::REFUSED)) {
+            return null;
+        }
+
+        return $code;
     }
 
     /**

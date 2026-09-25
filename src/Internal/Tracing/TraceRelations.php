@@ -38,7 +38,11 @@ final readonly class TraceRelations
 
     public function from(?IncomingTrace $parent): self
     {
-        return $parent === null ? $this : new self($parent, $this->links, $this->linkActiveSpan);
+        if ($parent === null) {
+            return $this;
+        }
+
+        return new self($parent, $this->links, $this->linkActiveSpan);
     }
 
     public function linkedTo(IncomingTrace $trace): self

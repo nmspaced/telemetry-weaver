@@ -8,6 +8,7 @@ use Nmspaced\TelemetryWeaver\Api\Span;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Measurement;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\BaggageReader;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\ErrorType;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOwner;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
@@ -136,23 +137,17 @@ final class ActiveOperation implements ScopedOperation
             return;
         }
 
-        $this->finished = true;
-        $measurement = $this->measurement;
-        $this->measurement = null;
-
         $attributes = $this->attributes;
-        $this->attributes = [];
-
         $failure = $this->failure;
-        $this->failure = null;
+        $measurement = $this->release();
         try {
             if ($error !== null) {
-                $span = $this->owner->view();
-                $metricType = $attributes[ErrorAttributes::ERROR_TYPE] ?? null;
                 $type =
                     $failure
                     ?? $this->owner->errorType()
-                    ?? (\is_string($metricType) && $metricType !== '' ? $metricType : $error::class);
+                    ?? ErrorType::from($attributes[ErrorAttributes::ERROR_TYPE] ?? null)
+                    ?? $error::class;
+                $span = $this->owner->view();
                 $span->recordException($error);
                 $span->fail($type);
                 $attributes[ErrorAttributes::ERROR_TYPE] = $type;
@@ -174,14 +169,21 @@ final class ActiveOperation implements ScopedOperation
             return;
         }
 
+        $this->discard($this->release());
+        $this->owner->finish();
+    }
+
+    /** Marks the operation finished and hands back the measurement it held. */
+    private function release(): ?Measurement
+    {
         $this->finished = true;
         $measurement = $this->measurement;
         $this->measurement = null;
 
         $this->attributes = [];
         $this->failure = null;
-        $this->discard($measurement);
-        $this->owner->finish();
+
+        return $measurement;
     }
 
     private function discard(?Measurement $measurement): void

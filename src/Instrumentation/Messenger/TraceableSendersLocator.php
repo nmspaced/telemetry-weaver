@@ -31,13 +31,11 @@ final readonly class TraceableSendersLocator implements SendersLocatorInterface
     public function getSenders(Envelope $envelope): iterable
     {
         foreach ($this->delegate->getSenders($envelope) as $alias => $sender) {
-            $destination = \trim($alias);
-
             yield $alias => new TraceableSender(
                 $sender,
                 $this->messengerTelemetry,
                 $this->propagation,
-                $destination === '' ? 'unknown' : $destination,
+                MessageAttributes::destination(\trim($alias)),
                 $this->reporter,
                 $this->systems->ofTransport($sender),
             );

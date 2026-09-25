@@ -46,7 +46,7 @@ final readonly class CacheTelemetry
      */
     public function run(string $pool, string $operation, array $spanAttributes, \Closure $callback): mixed
     {
-        $attributes = ['cache.pool.name' => $pool, 'cache.operation.name' => $operation];
+        $attributes = self::attributes($pool, $operation);
 
         return $this->telemetry
             ->operation(\sprintf('cache.%s', $operation))
@@ -75,7 +75,7 @@ final readonly class CacheTelemetry
         array $spanAttributes,
         \Closure $read,
     ): iterable {
-        $attributes = ['cache.pool.name' => $pool, 'cache.operation.name' => $operation];
+        $attributes = self::attributes($pool, $operation);
 
         $running = $this->telemetry
             ->boundary(\sprintf('cache.%s', $operation))
@@ -118,6 +118,16 @@ final readonly class CacheTelemetry
     public function lookup(string $pool, string $operation, bool $hit, ?Span $span = null): void
     {
         $span?->attribute('cache.hit', $hit);
-        $this->lookups->add(1, ['cache.pool.name' => $pool, 'cache.operation.name' => $operation, 'cache.hit' => $hit]);
+        $this->lookups->add(1, self::attributes($pool, $operation) + ['cache.hit' => $hit]);
+    }
+
+    /**
+     * @param non-empty-string $operation
+     *
+     * @return array{'cache.pool.name': string, 'cache.operation.name': non-empty-string}
+     */
+    private static function attributes(string $pool, string $operation): array
+    {
+        return ['cache.pool.name' => $pool, 'cache.operation.name' => $operation];
     }
 }

@@ -53,7 +53,10 @@ final class HttpAttributesTest extends TestCase
         yield 'repeated keys survive' => ['id=1&id=2', 'id=REDACTED&id=REDACTED'];
         yield 'nested names survive' => ['filter[status]=paid', 'filter[status]=REDACTED'];
         yield 'value containing = is fully redacted' => ['q=a=b&p=1', 'q=REDACTED&p=REDACTED'];
-        yield 'valueless flag is kept' => ['debug&token=x', 'debug&token=REDACTED'];
+        yield 'a valueless segment is redacted whole' => ['debug&token=x', 'REDACTED&token=REDACTED'];
+        yield 'a bare token is redacted' => ['sk_live_secret', 'REDACTED'];
+        yield 'a bare segment after a pair is redacted' => ['a=1&secret', 'a=REDACTED&REDACTED'];
+        yield 'an empty segment stays empty' => ['a=1&&b=2', 'a=REDACTED&&b=REDACTED'];
         yield 'a literal semicolon does not end a value' => [
             'token=abc;private-secret',
             'token=REDACTED',
@@ -79,6 +82,14 @@ final class HttpAttributesTest extends TestCase
 
             self::assertStringNotContainsString($value, $redacted);
         });
+
+        foreach (\explode('&', $query) as $segment) {
+            if ($segment === '' || \str_contains($segment, '=')) {
+                continue;
+            }
+
+            self::assertStringNotContainsString($segment, $redacted, 'a bare segment may be a secret');
+        }
     }
 
     /** @throws \Throwable */

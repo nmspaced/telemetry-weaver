@@ -81,7 +81,11 @@ final class FlushPolicy
             $interval = 0;
         }
 
-        return $interval > 0 ? $interval : $default;
+        if ($interval <= 0) {
+            return $default;
+        }
+
+        return $interval;
     }
 
     /** @return non-empty-string */

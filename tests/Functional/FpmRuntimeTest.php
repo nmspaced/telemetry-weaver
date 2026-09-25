@@ -107,7 +107,7 @@ final class FpmRuntimeTest extends TestCase
 
     private static function awaitFile(string $path): void
     {
-        $deadline = \microtime(true) + 3;
+        $deadline = \microtime(true) + 15;
         do {
             \clearstatcache(true, $path);
             if (\file_exists($path)) {

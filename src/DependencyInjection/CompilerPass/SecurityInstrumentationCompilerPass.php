@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass;
 
 use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationGate;
+use Nmspaced\TelemetryWeaver\DependencyInjection\SignalSwitch;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Security\UserAttributes;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Security\UserAttributesSubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTraceRegistry;
@@ -34,9 +35,8 @@ final readonly class SecurityInstrumentationCompilerPass implements CompilerPass
             return;
         }
 
-        $recordUserId = $container->getParameter('open_telemetry.instrumentation.http_server.record_user_id') === true;
-        $recordRoles =
-            $container->getParameter('open_telemetry.instrumentation.http_server.record_user_roles') === true;
+        $recordUserId = SignalSwitch::on($container, 'open_telemetry.instrumentation.http_server.record_user_id');
+        $recordRoles = SignalSwitch::on($container, 'open_telemetry.instrumentation.http_server.record_user_roles');
 
         if (!$recordUserId && !$recordRoles) {
             return;

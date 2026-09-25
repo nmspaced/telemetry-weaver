@@ -37,7 +37,7 @@ final readonly class MessengerConsumption
     {
         $operation = null;
         try {
-            $destination = $destination === '' ? 'unknown' : $destination;
+            $destination = MessageAttributes::destination($destination);
             $attributes = MessageAttributes::of(
                 'process',
                 MessagingIncubatingAttributes::MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
@@ -74,10 +74,8 @@ final readonly class MessengerConsumption
      */
     private function propagated(Envelope $envelope): IncomingTrace
     {
-        $stamp = $envelope->last(TraceContextStamp::class);
-
         try {
-            return $this->propagation->extract($stamp instanceof TraceContextStamp ? $stamp->carrier : []);
+            return $this->propagation->extract($envelope->last(TraceContextStamp::class)->carrier ?? []);
         } catch (\Throwable $throwable) {
             $this->reporter->report('Context extraction failed', 'process', $throwable);
 

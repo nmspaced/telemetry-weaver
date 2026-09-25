@@ -14,6 +14,10 @@ final readonly class SignalTracerProvider
 {
     public static function create(TracerProviderInterface $delegate, bool $tracesEnabled): TracerProviderInterface
     {
-        return $tracesEnabled ? $delegate : new NoopTracerProvider();
+        if (!$tracesEnabled) {
+            return new NoopTracerProvider();
+        }
+
+        return $delegate;
     }
 }

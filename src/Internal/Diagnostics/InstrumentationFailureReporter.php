@@ -41,10 +41,10 @@ final readonly class InstrumentationFailureReporter
                     'OpenTelemetry lifecycle: %s at "%s"%s (%d total in this process)',
                     $what,
                     $where,
-                    $cause === null ? '' : ': ' . $cause->getMessage(),
+                    self::reason($cause),
                     $this->limiter->total(),
                 ),
-                $cause === null ? [] : ['exception' => $cause],
+                \array_filter(['exception' => $cause]),
             );
         } catch (\Throwable) {
             return;
@@ -54,5 +54,14 @@ final readonly class InstrumentationFailureReporter
     public function total(): int
     {
         return $this->limiter->total();
+    }
+
+    private static function reason(?\Throwable $cause): string
+    {
+        if ($cause === null) {
+            return '';
+        }
+
+        return \sprintf(': %s', $cause->getMessage());
     }
 }

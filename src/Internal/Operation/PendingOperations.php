@@ -35,6 +35,20 @@ final class PendingOperations
         unset($this->operations[$operation]);
     }
 
+    /** Releases the operation, then ends it; the error, if any, marks it failed. */
+    public function finish(RunningOperation $operation, ?\Throwable $error = null): void
+    {
+        $this->release($operation);
+        $operation->finish($error);
+    }
+
+    /** Releases the operation, then ends it without recording a duration. */
+    public function abandon(RunningOperation $operation): void
+    {
+        $this->release($operation);
+        $operation->abandon();
+    }
+
     public function abandonAll(): void
     {
         $pending = [];

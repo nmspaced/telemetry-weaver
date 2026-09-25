@@ -29,15 +29,23 @@ final readonly class ClientBodySize
         /** @var mixed $uploaded */
         $uploaded = $context->getInfo('size_upload');
 
-        return \is_int($uploaded) || \is_float($uploaded) ? \max(0, (int) $uploaded) : null;
+        if (!\is_int($uploaded) && !\is_float($uploaded)) {
+            return null;
+        }
+
+        return \max(0, (int) $uploaded);
     }
 
     private static function declared(AsyncContext $context): ?int
     {
         /** @var mixed $lengths */
         $lengths = $context->getHeaders()[self::CONTENT_LENGTH] ?? null;
+        if (!\is_array($lengths)) {
+            return null;
+        }
+
         /** @var mixed $length */
-        $length = \is_array($lengths) ? $lengths[0] ?? null : null;
+        $length = $lengths[0] ?? null;
 
         if (!\is_string($length) || !\ctype_digit($length)) {
             return null;

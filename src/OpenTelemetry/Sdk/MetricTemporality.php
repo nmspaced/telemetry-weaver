@@ -53,7 +53,10 @@ final readonly class MetricTemporality implements AggregationTemporalitySelector
             'cumulative' => self::cumulative(),
             'delta' => self::delta(),
             'lowmemory' => self::lowMemory(),
-            default => throw new \UnexpectedValueException('Unknown metrics temporality preference: ' . $preference),
+            default => throw new \UnexpectedValueException(\sprintf(
+                'Unknown metrics temporality preference: %s',
+                $preference,
+            )),
         };
     }
 

@@ -252,38 +252,6 @@
       {
         "message": "Mutation of state 'attributes' in ActiveOperation::fail()",
         "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'finished' in ActiveOperation::finish()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'measurement' in ActiveOperation::finish()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'attributes' in ActiveOperation::finish()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'failure' in ActiveOperation::finish()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'finished' in ActiveOperation::abandon()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'measurement' in ActiveOperation::abandon()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'attributes' in ActiveOperation::abandon()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
-      },
-      {
-        "message": "Mutation of state 'failure' in ActiveOperation::abandon()",
-        "reason": "Execution-owned object, not a service: one instance per operation, created when it starts and dropped with it. Its mutations are its lifecycle (finish/abandon release everything), and the process-lifetime service that tracks it holds it only through ExecutionRegistry's WeakMap or a slot cleared by kernel.reset."
       }
     ],
     "src/Internal/Runtime/DestinationCooldowns.php": [

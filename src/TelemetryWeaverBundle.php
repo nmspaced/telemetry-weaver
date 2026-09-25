@@ -101,11 +101,11 @@ final class TelemetryWeaverBundle extends AbstractBundle
 
         $container = $this->container ?? null;
 
-        if ($container === null || !$container->hasParameter('open_telemetry.enabled')) {
-            return;
-        }
-
-        if ($container->getParameter('open_telemetry.enabled') !== true) {
+        if (
+            $container === null
+            || !$container->hasParameter('open_telemetry.enabled')
+            || $container->getParameter('open_telemetry.enabled') !== true
+        ) {
             return;
         }
 

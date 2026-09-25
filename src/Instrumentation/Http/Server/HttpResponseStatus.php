@@ -24,6 +24,10 @@ final readonly class HttpResponseStatus
 
     public function errorType(): ?string
     {
-        return $this->isServerError() ? (string) $this->code : null;
+        if (!$this->isServerError()) {
+            return null;
+        }
+
+        return (string) $this->code;
     }
 }

@@ -102,6 +102,10 @@ final class DurationTimer
     /** Never negative, even with a test clock that goes backwards. */
     private function sinceResumed(): int
     {
-        return $this->runningSince === null ? 0 : \max(0, $this->runtime->clock->now() - $this->runningSince);
+        if ($this->runningSince === null) {
+            return 0;
+        }
+
+        return \max(0, $this->runtime->clock->now() - $this->runningSince);
     }
 }

@@ -38,6 +38,10 @@ final readonly class SqlQueryText
 
         $text = \preg_replace([self::NUMBERS, self::REPEATED_TUPLES], ['?', '$1'], $code);
 
-        return $text === null || $text === '' || \trim($text) === '' ? null : $text;
+        if ($text === null || $text === '' || \trim($text) === '') {
+            return null;
+        }
+
+        return $text;
     }
 }

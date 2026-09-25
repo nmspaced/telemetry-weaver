@@ -31,7 +31,7 @@ final readonly class SdkComponentRules
     public static function rejectIgnoredKeys(ContainerBuilder $container, array $signals): void
     {
         foreach ($signals as $signal) {
-            if ($container->getParameter('open_telemetry.sdk.' . $signal . '.provider') === null) {
+            if ($container->getParameter(\sprintf('open_telemetry.sdk.%s.provider', $signal)) === null) {
                 continue;
             }
 
@@ -71,7 +71,7 @@ final readonly class SdkComponentRules
     private static function rejectKeysInsideThatProvider(ContainerBuilder $container, string $signal): void
     {
         foreach (self::INSIDE_A_PROVIDER as $key) {
-            if (!self::isConfigured($container, 'open_telemetry.sdk.' . $signal . '.' . $key)) {
+            if (!self::isConfigured($container, \sprintf('open_telemetry.sdk.%s.%s', $signal, $key))) {
                 continue;
             }
 

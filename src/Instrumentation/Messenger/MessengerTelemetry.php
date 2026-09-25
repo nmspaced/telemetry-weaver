@@ -155,6 +155,10 @@ final readonly class MessengerTelemetry
             ->duration($this->processDuration, attributes: $attributes)
             ->from($parent);
 
-        return ($linkActiveSpan ? $operation->linkedToActiveSpan() : $operation)->start();
+        if (!$linkActiveSpan) {
+            return $operation->start();
+        }
+
+        return $operation->linkedToActiveSpan()->start();
     }
 }

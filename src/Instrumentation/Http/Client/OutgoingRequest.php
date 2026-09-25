@@ -38,7 +38,10 @@ final readonly class OutgoingRequest
 
         $base = self::parse($baseUri ?? '') ?? [];
 
-        $authority = ($target['host'] ?? null) === null ? $base : $target;
+        $authority = match (true) {
+            ($target['host'] ?? null) !== null => $target,
+            default => $base,
+        };
 
         $scheme = self::lower($target['scheme'] ?? $base['scheme'] ?? '');
         $host = self::lower($authority['host'] ?? '');
@@ -100,7 +103,11 @@ final readonly class OutgoingRequest
     {
         $parts = \parse_url($url);
 
-        return $parts === false ? null : $parts;
+        if ($parts === false) {
+            return null;
+        }
+
+        return $parts;
     }
 
     private static function defaultPort(string $scheme): ?int

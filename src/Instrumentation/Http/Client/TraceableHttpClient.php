@@ -49,13 +49,7 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
 
         try {
             $options = $this->instrumentation->inject($options);
-            $response = new AsyncResponse(
-                $this->client,
-                $method,
-                $url,
-                $options,
-                $call === null ? null : $this->observe($call),
-            );
+            $response = new AsyncResponse($this->client, $method, $url, $options, $this->observe($call));
 
             if ($call !== null) {
                 $this->instrumentation->describe($call->operation, $response);
@@ -64,8 +58,7 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
             return $response;
         } catch (\Throwable $throwable) {
             if ($call !== null) {
-                $this->release($call);
-                $call->operation->finish($throwable);
+                $this->pending->finish($call->operation, $throwable);
             }
 
             throw $throwable;
@@ -84,7 +77,7 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
         $clone->client = $this->client->withOptions($options);
 
         if (\array_key_exists('base_uri', $options)) {
-            $clone->baseUri = \is_string($options['base_uri']) ? $options['base_uri'] : null;
+            $clone->baseUri = self::uri($options['base_uri']);
         }
 
         return $clone;
@@ -106,7 +99,7 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
     {
         /** @var mixed $baseUri */
         $baseUri = $options['base_uri'] ?? $this->baseUri;
-        $call = $this->instrumentation->start($method, $url, \is_string($baseUri) ? $baseUri : null);
+        $call = $this->instrumentation->start($method, $url, self::uri($baseUri));
 
         if ($call !== null) {
             $this->pending->add($call->operation);
@@ -116,23 +109,27 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
     }
 
     /**
-     * @return \Closure(ChunkInterface, AsyncContext): \Generator
+     * Null for an untraced request, which then needs no response observer.
+     *
+     * @return (\Closure(ChunkInterface, AsyncContext): \Generator)|null
      */
-    private function observe(ClientCall $call): \Closure
+    private function observe(?ClientCall $call): ?\Closure
     {
+        if ($call === null) {
+            return null;
+        }
+
         return /** @throws TransportExceptionInterface */ function (ChunkInterface $chunk, AsyncContext $context) use (
             $call,
         ): \Generator {
             try {
                 $this->settle($call, $chunk, $context);
             } catch (TransportExceptionInterface $error) {
-                $this->release($call);
-                $call->operation->finish($error);
+                $this->pending->finish($call->operation, $error);
 
                 throw $error;
             } catch (\Throwable $error) {
-                $this->release($call);
-                $call->operation->abandon();
+                $this->pending->abandon($call->operation);
                 $this->instrumentation->report('HTTP client response observation failed', $error);
             }
 
@@ -148,8 +145,7 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
     private function settle(ClientCall $call, ChunkInterface $chunk, AsyncContext $context): void
     {
         if ($context->getInfo('canceled') === true) {
-            $this->release($call);
-            $call->operation->abandon();
+            $this->pending->abandon($call->operation);
             $context->passthru();
 
             return;
@@ -159,13 +155,17 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
             return;
         }
 
-        $this->release($call);
+        $this->pending->release($call->operation);
         $this->instrumentation->complete($call, $context);
         $context->passthru();
     }
 
-    private function release(ClientCall $call): void
+    private static function uri(mixed $value): ?string
     {
-        $this->pending->release($call->operation);
+        if (!\is_string($value)) {
+            return null;
+        }
+
+        return $value;
     }
 }

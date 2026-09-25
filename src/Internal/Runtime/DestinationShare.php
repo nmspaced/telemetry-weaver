@@ -35,7 +35,11 @@ final class DestinationShare
 
     public function allowance(int $now): ?SendAllowance
     {
-        $nanoseconds = $this->exhausted ? 0 : $this->end - $now;
+        if ($this->exhausted) {
+            return null;
+        }
+
+        $nanoseconds = $this->end - $now;
         if ($nanoseconds < self::MINIMUM_ALLOWANCE) {
             $this->exhausted = true;
 

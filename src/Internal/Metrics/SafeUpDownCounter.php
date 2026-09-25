@@ -37,12 +37,12 @@ final readonly class SafeUpDownCounter implements UpDownCounterInterface
     #[\Override]
     public function add($amount, iterable $attributes = [], $context = null): void
     {
+        if (!$context instanceof ContextInterface && $context !== false) {
+            $context = null;
+        }
+
         try {
-            $this->delegate->add(
-                $amount,
-                $attributes,
-                $context instanceof ContextInterface || $context === false ? $context : null,
-            );
+            $this->delegate->add($amount, $attributes, $context);
         } catch (\Throwable $throwable) {
             $this->reporter->report('Metric recording failed', $this->name, $throwable);
         }

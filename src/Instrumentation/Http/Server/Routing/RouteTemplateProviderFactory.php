@@ -24,6 +24,10 @@ final readonly class RouteTemplateProviderFactory
             return PhpFileRouteTemplateProvider::in($buildDir);
         }
 
-        return $router === null ? new NullRouteTemplateProvider() : new RouterRouteTemplateProvider($router);
+        if ($router === null) {
+            return new NullRouteTemplateProvider();
+        }
+
+        return new RouterRouteTemplateProvider($router);
     }
 }

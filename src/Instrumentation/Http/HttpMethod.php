@@ -28,14 +28,25 @@ final readonly class HttpMethod
         /** @var mixed $wire */
         $wire = $request->server->get('REQUEST_METHOD', 'GET');
 
-        return self::fromString(\is_string($wire) ? $wire : '', $known);
+        if (!\is_string($wire)) {
+            return self::fromString('', $known);
+        }
+
+        return self::fromString($wire, $known);
     }
 
     public static function fromString(string $original, KnownHttpMethods $known = new KnownHttpMethods()): self
     {
-        $method = $known->contains($original) ? $original : \strtoupper($original);
+        $method = match (true) {
+            $known->contains($original) => $original,
+            default => \strtoupper($original),
+        };
 
-        return new self($method !== '' && $known->contains($method) ? $method : self::OTHER, $original);
+        if ($method === '' || !$known->contains($method)) {
+            return new self(self::OTHER, $original);
+        }
+
+        return new self($method, $original);
     }
 
     /** Whether a non-empty original spelling differs from the normalized value. */
@@ -47,6 +58,9 @@ final readonly class HttpMethod
     /** @return non-empty-string */
     public function spanName(): string
     {
-        return $this->value === self::OTHER ? 'HTTP' : $this->value;
+        return match ($this->value) {
+            self::OTHER => 'HTTP',
+            default => $this->value,
+        };
     }
 }

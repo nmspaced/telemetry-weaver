@@ -18,6 +18,7 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
+// @mago-expect lint:too-many-methods — one test per way a request can end without terminate
 #[CoversClass(RequestTraceRegistry::class)]
 final class HttpCleanupTest extends HttpTelemetryTestCase
 {
@@ -156,6 +157,30 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         self::assertNull($span->getAttributes()->get('telemetry.incomplete'));
         self::assertNull($span->getAttributes()->get('http.response.status_code'));
         self::assertSame(StatusCode::STATUS_UNSET, $span->getStatus()->getCode());
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function anExceptionNoListenerAnsweredEndsTheSpanAtFinishRequest(): void
+    {
+        $request = $this->request(
+            /** @throws \RuntimeException always */
+            static fn(): never => throw new \RuntimeException('no listener turned this into a response'),
+        );
+
+        try {
+            $this->kernel->handle($request);
+            self::fail('the exception must reach the caller');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertSame('no listener turned this into a response', $runtimeException->getMessage());
+        }
+
+        self::assertNull($this->scopes->of($request), 'no terminate follows, so nothing may stay open');
+        $span = $this->exportedSpan();
+        self::assertSame(StatusCode::STATUS_ERROR, $span->getStatus()->getCode());
+        self::assertSame(\RuntimeException::class, $span->getAttributes()->get('error.type'));
+        self::assertNull($span->getAttributes()->get('http.response.status_code'));
+        self::assertCount(1, $span->getEvents(), 'the exception event');
     }
 
     /** @throws \Throwable */

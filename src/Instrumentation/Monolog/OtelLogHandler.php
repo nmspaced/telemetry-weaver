@@ -145,6 +145,10 @@ final class OtelLogHandler extends AbstractProcessingHandler
     {
         $json = \json_encode($value, \JSON_PARTIAL_OUTPUT_ON_ERROR | \JSON_UNESCAPED_SLASHES);
 
-        return $json === false ? null : $json;
+        if ($json === false) {
+            return null;
+        }
+
+        return $json;
     }
 }

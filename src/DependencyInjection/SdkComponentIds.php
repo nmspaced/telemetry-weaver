@@ -56,7 +56,7 @@ final readonly class SdkComponentIds
         $id = $container->getParameter($parameter);
         if ($index !== null) {
             /** @var mixed $id */
-            $id = \is_array($id) ? $id[$index] ?? null : null;
+            $id = self::item($id, $index);
             $parameter = \sprintf('%s[%s]', $parameter, (string) $index);
         }
 
@@ -68,14 +68,13 @@ final readonly class SdkComponentIds
             throw new InvalidArgumentException(\sprintf(
                 '%s names "%s", which is not a service id.',
                 $parameter,
-                \is_string($id) ? $id : \get_debug_type($id),
+                self::describe($id),
             ));
         }
 
-        /** @var mixed $class */
-        $class = $container->getParameterBag()->resolveValue($container->findDefinition($id)->getClass());
+        $class = DefinitionClass::of($container, $container->findDefinition($id));
         if (
-            \is_string($class)
+            $class !== null
             && $container->getReflectionClass($class, false) !== null
             && !\is_a($class, $interface, true)
         ) {
@@ -89,5 +88,23 @@ final readonly class SdkComponentIds
         }
 
         return new Reference($id);
+    }
+
+    private static function item(mixed $ids, int|string $index): mixed
+    {
+        if (!\is_array($ids)) {
+            return null;
+        }
+
+        return $ids[$index] ?? null;
+    }
+
+    private static function describe(mixed $id): string
+    {
+        if (!\is_string($id)) {
+            return \get_debug_type($id);
+        }
+
+        return $id;
     }
 }

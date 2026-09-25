@@ -18,6 +18,10 @@ final readonly class DiagnosticsLogger
 
     public static function create(LoggerInterface $logger, bool $enabled): LoggerInterface
     {
-        return $enabled ? $logger : new NullLogger();
+        if (!$enabled) {
+            return new NullLogger();
+        }
+
+        return $logger;
     }
 }

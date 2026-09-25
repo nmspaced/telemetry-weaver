@@ -6,10 +6,10 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass;
 
 use Nmspaced\TelemetryWeaver\DependencyInjection\DecoratedService;
 use Nmspaced\TelemetryWeaver\DependencyInjection\DecorationChain;
+use Nmspaced\TelemetryWeaver\DependencyInjection\DefinitionClass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationGate;
 use Nmspaced\TelemetryWeaver\Instrumentation\Serializer\SerializerTelemetry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Serializer\TraceableSerializer;
-use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -103,9 +103,13 @@ final readonly class SerializerInstrumentationCompilerPass implements CompilerPa
             return;
         }
 
-        $class = $this->resolveClass($container, DecorationChain::innerId($container, $id, self::DECORATION_PRIORITY));
+        // Named serializers inherit their class from `serializer`.
+        $class = DefinitionClass::of(
+            $container,
+            $container->findDefinition(DecorationChain::innerId($container, $id, self::DECORATION_PRIORITY)),
+        );
 
-        if ($class === null || !$this->isFullSerializer($class)) {
+        if ($class === null || !\class_exists($class) || !$this->isFullSerializer($class)) {
             return;
         }
 
@@ -127,24 +131,5 @@ final readonly class SerializerInstrumentationCompilerPass implements CompilerPa
         $implemented = \class_implements($class);
 
         return $implemented !== false && \array_diff(self::REQUIRED_INTERFACES, $implemented) === [];
-    }
-
-    /**
-     * Named serializers inherit their class from `serializer`, so parents are walked.
-     *
-     * @return class-string|null
-     */
-    private function resolveClass(ContainerBuilder $container, string $id): ?string
-    {
-        $definition = $container->findDefinition($id);
-
-        while ($definition->getClass() === null && $definition instanceof ChildDefinition) {
-            $definition = $container->findDefinition($definition->getParent());
-        }
-
-        /** @var mixed $class */
-        $class = $container->getParameterBag()->resolveValue($definition->getClass());
-
-        return \is_string($class) && \class_exists($class) ? $class : null;
     }
 }

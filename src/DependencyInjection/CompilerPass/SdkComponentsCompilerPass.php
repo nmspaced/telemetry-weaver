@@ -66,11 +66,11 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
         foreach (self::PROVIDERS as $signal => $interface) {
             $provider = SdkComponentIds::reference(
                 $container,
-                'open_telemetry.sdk.' . $signal . '.provider',
+                \sprintf('open_telemetry.sdk.%s.provider', $signal),
                 $interface,
             );
             if ($provider !== null) {
-                $container->setAlias('open_telemetry.' . $signal . '.provider', (string) $provider);
+                $container->setAlias(\sprintf('open_telemetry.%s.provider', $signal), (string) $provider);
             }
         }
 
@@ -151,7 +151,7 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
         foreach (OtlpProtocol::FAMILIES as $family) {
             $factory = SdkComponentIds::reference(
                 $container,
-                'open_telemetry.sdk.otlp.transport_factories.' . $family,
+                \sprintf('open_telemetry.sdk.otlp.transport_factories.%s', $family),
                 TransportFactoryInterface::class,
             );
             if ($factory !== null) {
@@ -185,7 +185,11 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
         string $interface,
         array $factory,
     ): void {
-        $exporter = SdkComponentIds::reference($container, 'open_telemetry.sdk.' . $signal . '.exporter', $interface);
+        $exporter = SdkComponentIds::reference(
+            $container,
+            \sprintf('open_telemetry.sdk.%s.exporter', $signal),
+            $interface,
+        );
         if ($exporter === null) {
             return;
         }

@@ -55,7 +55,13 @@ final readonly class TelemetryFlusher implements BoundaryFlush
                     break;
                 }
 
-                $shutdown ? $signal->atShutdown() : $signal->atBoundary();
+                if ($shutdown) {
+                    $signal->atShutdown();
+
+                    continue;
+                }
+
+                $signal->atBoundary();
             }
 
             if ($this->budget->exhausted()) {

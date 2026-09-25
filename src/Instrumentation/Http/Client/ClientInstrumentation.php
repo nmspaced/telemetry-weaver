@@ -40,7 +40,11 @@ final readonly class ClientInstrumentation
 
         $operation = $this->telemetry->start($request);
 
-        return $operation === null ? null : new ClientCall($operation, $request);
+        if ($operation === null) {
+            return null;
+        }
+
+        return new ClientCall($operation, $request);
     }
 
     /**

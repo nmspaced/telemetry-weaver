@@ -26,6 +26,19 @@ final readonly class MessageAttributes
     /** The bus a dispatch went through; a bus is not a messaging destination. */
     public const string BUS = 'symfony.messenger.bus';
 
+    /** A destination for a transport without a usable name. */
+    public const string UNKNOWN_DESTINATION = 'unknown';
+
+    /** @return non-empty-string */
+    public static function destination(string $name): string
+    {
+        if ($name === '') {
+            return self::UNKNOWN_DESTINATION;
+        }
+
+        return $name;
+    }
+
     /**
      * @param non-empty-string $busId
      *

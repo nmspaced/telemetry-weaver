@@ -35,7 +35,11 @@ final readonly class OperationParent
             return $ambient;
         }
 
-        return $incoming instanceof OtelIncomingTrace ? $incoming->context : Context::getRoot();
+        if (!$incoming instanceof OtelIncomingTrace) {
+            return Context::getRoot();
+        }
+
+        return $incoming->context;
     }
 
     /**

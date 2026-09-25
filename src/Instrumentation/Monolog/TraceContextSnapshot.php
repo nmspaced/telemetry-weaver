@@ -62,7 +62,14 @@ final readonly class TraceContextSnapshot
     /** The field, or '' (never valid) when missing or not a string. */
     private static function field(LogRecord $record, string $key): string
     {
-        return \is_string($record->extra[$key] ?? null) ? $record->extra[$key] : '';
+        /** @var mixed $value */
+        $value = $record->extra[$key] ?? null;
+
+        if (!\is_string($value)) {
+            return '';
+        }
+
+        return $value;
     }
 
     /** The flags byte, or -1 (never valid) when unreadable. */
@@ -70,6 +77,10 @@ final readonly class TraceContextSnapshot
     {
         $hex = self::field($record, self::TRACE_FLAGS);
 
-        return \strlen($hex) === 2 && \ctype_xdigit($hex) ? (int) \hexdec($hex) : -1;
+        if (\strlen($hex) !== 2 || !\ctype_xdigit($hex)) {
+            return -1;
+        }
+
+        return (int) \hexdec($hex);
     }
 }

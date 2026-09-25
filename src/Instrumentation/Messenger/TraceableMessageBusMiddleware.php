@@ -35,7 +35,7 @@ final readonly class TraceableMessageBusMiddleware implements MiddlewareInterfac
         if ($received !== null || $envelope->last(ConsumedByWorkerStamp::class) !== null) {
             return $this->consumption->run(
                 $envelope,
-                $received?->getTransportName() ?? 'unknown',
+                $received?->getTransportName() ?? '',
                 /** @throws \Throwable */
                 static fn(): Envelope => $stack->next()->handle($envelope, $stack),
             );

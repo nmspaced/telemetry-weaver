@@ -53,7 +53,10 @@ final class SignalFlusher
         $started = $this->clock->now();
         $failuresBefore = $this->failures->total();
         try {
-            $success = $shutdown ? $this->provider->shutdown() : $this->provider->forceFlush();
+            $success = match ($shutdown) {
+                true => $this->provider->shutdown(),
+                false => $this->provider->forceFlush(),
+            };
             if (!$success || $this->failures->total() > $failuresBefore) {
                 throw new \RuntimeException('Provider flush failed or its exporter reported a failure');
             }
@@ -64,7 +67,10 @@ final class SignalFlusher
             $this->retryAt = $finished + ($this->failureCooldownMilliseconds * 1_000_000);
             $this->failures->record('Telemetry signal flush failed', $throwable, [
                 'signal' => $this->flushPolicy->signal(),
-                'phase' => $shutdown ? 'shutdown' : 'boundary',
+                'phase' => match ($shutdown) {
+                    true => 'shutdown',
+                    false => 'boundary',
+                },
                 'duration_ms' => ($finished - $started) / 1_000_000,
                 'cooldown_ms' => $this->failureCooldownMilliseconds,
             ]);

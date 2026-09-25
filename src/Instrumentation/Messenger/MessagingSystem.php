@@ -64,6 +64,10 @@ final readonly class MessagingSystem
             return self::FALLBACK;
         }
 
-        return \is_object($receiver) ? $this->ofTransport($receiver) : self::FALLBACK;
+        if (!\is_object($receiver)) {
+            return self::FALLBACK;
+        }
+
+        return $this->ofTransport($receiver);
     }
 }
