@@ -42,8 +42,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$delegate', service(MeterProviderInterface::class))
         ->arg('$metricsEnabled', param('open_telemetry.metrics.enabled'));
 
-    // Public application scopes share the providers; the signal switches are resolved above, and
-    // component scopes preserve their independent switches.
     $services
         ->set(ScopedTelemetryFactory::class)
         ->arg('$tracers', service('open_telemetry.public_api.tracer_provider'))

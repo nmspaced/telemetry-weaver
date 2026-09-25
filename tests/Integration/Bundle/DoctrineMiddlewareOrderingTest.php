@@ -12,14 +12,8 @@ use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * Tagging the middleware is not enough: DoctrineBundle collects `doctrine.middleware`
- * in its own compiler pass, registered with `addCompilerPass(new MiddlewaresPass())`
- * — before-optimization, priority 0 — and turns the tagged ids into a fixed
- * `setMiddlewares()` call per connection. A middleware registered after that pass has
- * run keeps its tag and never reaches a connection: `debug:container --tag` lists it
- * while the driver chain does not contain it.
- *
- * This test stands in for that pass at the same point in the pipeline.
+ * The Doctrine middleware is registered before DoctrineBundle collects `doctrine.middleware`, so it
+ * actually ends up in every connection's driver chain.
  */
 final class DoctrineMiddlewareOrderingTest extends ContainerTestCase
 {
@@ -38,7 +32,6 @@ final class DoctrineMiddlewareOrderingTest extends ContainerTestCase
         };
 
         $this->compile(configure: static function (ContainerBuilder $container) use ($collector): void {
-            // The priority DoctrineBundle's MiddlewaresPass runs at.
             $container->addCompilerPass($collector, PassConfig::TYPE_BEFORE_OPTIMIZATION, 0);
         });
 

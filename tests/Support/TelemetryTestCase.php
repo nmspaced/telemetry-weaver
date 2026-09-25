@@ -23,9 +23,7 @@ use OpenTelemetry\SDK\Trace\TracerProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Isolates the process-wide OpenTelemetry context storage for one test and
- * puts it back afterwards, so a test that deliberately leaves the stack dirty
- * cannot bleed into the next one.
+ * Gives each test its own context storage and restores the global one afterwards.
  *
  * @internal
  */
@@ -72,12 +70,7 @@ abstract class TelemetryTestCase extends TestCase
         Context::setStorage($this->previousStorage);
     }
 
-    /**
-     * Switches to the storage the SDK installs by default, where every fiber
-     * gets its own stack head. Tests that only need isolation use the plain
-     * storage; anything that reasons about fibers has to run on this one, or
-     * it is describing a single shared stack that production never has.
-     */
+    /** Switches to the SDK's default fiber-aware storage, for tests about fibers. */
     protected function useFiberBoundStorage(): void
     {
         Context::setStorage(new FiberBoundContextStorageExecutionAwareBC());
@@ -86,8 +79,7 @@ abstract class TelemetryTestCase extends TestCase
     }
 
     /**
-     * A span activated and then walked away from, standing in for third-party
-     * instrumentation that leaks. The package must never end it.
+     * Activates a span and leaves it, like leaking third-party instrumentation.
      *
      * @param non-empty-string $name
      */
@@ -108,11 +100,7 @@ abstract class TelemetryTestCase extends TestCase
         return \array_values($spans);
     }
 
-    /**
-     * One exported span, asserted to exist. Indexing exported() directly
-     * turns a missing span into a confusing type error further down instead
-     * of the assertion failure it actually is.
-     */
+    /** One exported span, failing the test if it is missing. */
     protected function exportedSpan(int $index = 0): ImmutableSpan
     {
         $span = $this->exported()[$index] ?? null;
@@ -132,14 +120,7 @@ abstract class TelemetryTestCase extends TestCase
         return ($span->getEvents()[0] ?? null)?->getName();
     }
 
-    /**
-     * The trace running right now, or null when nothing is.
-     *
-     * Read through the adapter over this case's own storage rather than through the
-     * container's service: half of what these tests check is that nothing is left active
-     * after a boundary, and the assertion has to look at the storage the spans were
-     * actually activated in.
-     */
+    /** The trace active in this test's storage, or null. */
     protected function activeTrace(): ?TraceContext
     {
         return new OtelActiveTrace($this->contextStorage)->current();

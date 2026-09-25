@@ -11,11 +11,7 @@ use OpenTelemetry\SDK\Common\Future\CompletedFuture;
 use OpenTelemetry\SDK\Common\Future\ErrorFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
 
-/**
- * Collectors that take a given time to answer, on a frozen clock. A send to a host slower than
- * the transport's timeout advances the clock by the timeout and fails, as a real client's
- * timeout would; every send that reached a collector is recorded with the timeout it was given.
- */
+/** Transports that take a set time to answer on a frozen clock, failing past their timeout. */
 final class StallingTransportFactory implements TransportFactoryInterface
 {
     /** @var list<array{endpoint: string, timeout: float}> */

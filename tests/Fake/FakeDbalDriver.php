@@ -12,15 +12,7 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Doctrine\DBAL\ServerVersionProvider;
 
-/**
- * A driver that answers every statement with an empty result, and rejects any statement
- * naming a table it was told does not exist.
- *
- * It exists because the PHP this suite runs on has no SQLite extension, so a real
- * database is not available. Everything above the driver is still real — DriverManager,
- * Configuration::setMiddlewares(), the DBAL Connection and the middleware chain — so
- * what the fake removes is the database, not the wiring under test.
- */
+/** A DBAL driver that returns empty results and rejects statements on tables marked missing. */
 final class FakeDbalDriver implements Driver
 {
     /** @var list<string> */

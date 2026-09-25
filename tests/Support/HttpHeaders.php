@@ -7,9 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Support;
 use PHPUnit\Framework\Assert;
 
 /**
- * `normalized_headers` is how `HttpClientTrait` reports the headers a mocked request actually
- * carried, keyed by lower-cased header name. Centralizing the cast and the lookups keeps every
- * client-instrumentation test from repeating an unchecked array access.
+ * Reads the headers a mocked request carried from `normalized_headers`.
  *
  * @internal
  */

@@ -16,16 +16,14 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 /**
- * Core request/response lifecycle: propagation into headers, span parenting, and transport
- * failure identity. Span/measurement ownership under reset and cancellation lives in
- * {@see TraceableHttpClientResilienceTest}; response labelling and metric shapes live in
- * {@see TraceableHttpClientMetricsTest}.
+ * Core request/response lifecycle: propagation into headers, span parenting, and transport failure
+ * identity. Span/measurement ownership under reset and cancellation lives in {@see
+ * TraceableHttpClientResilienceTest}; response labelling and metric shapes live in {@see
+ * TraceableHttpClientMetricsTest}.
  */
 final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function lazyResponsesPropagateAChildAndRestoreTheParentImmediately(): void
     {
@@ -72,9 +70,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         $parent->finish();
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function clientErrorsAreRecordedEvenWhenContentIsNotRead(): void
     {
@@ -91,9 +87,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         self::assertNull($point->attributes->get('url.full'));
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function cancelBeforeHeadersAbandonsTheMeasurement(): void
     {
@@ -109,9 +103,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         self::assertNull($this->telemetry->activeTrace());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function synchronousTransportErrorsKeepTheirIdentity(): void
     {
@@ -133,9 +125,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         self::assertNull($this->telemetry->activeTrace());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function asyncTransportFailuresRemainObservable(): void
     {
@@ -152,9 +142,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         self::assertSame(StatusCode::STATUS_ERROR, $this->span()->getStatus()->getCode());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function streamingPreservesChunksAndConcurrentRequestsHaveSiblingParents(): void
     {
@@ -200,9 +188,7 @@ final class TraceableHttpClientTest extends HttpClientTelemetryTestCase
         $parent->finish();
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function withOptionsKeepsDefaultsAndResolvesRelativeUrls(): void
     {

@@ -14,8 +14,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Log-exporter scenarios split out of {@see ResilientExporterTest}. Span/metric exporter
- * scenarios live in {@see ResilientTracesExporterTest} and {@see ResilientMetricsExporterTest}.
+ * Log-exporter scenarios split out of {@see ResilientExporterTest}. Span/metric exporter scenarios
+ * live in {@see ResilientTracesExporterTest} and {@see ResilientMetricsExporterTest}.
  */
 #[CoversClass(ResilientLogsExporter::class)]
 #[CoversClass(ExportFailureReporter::class)]

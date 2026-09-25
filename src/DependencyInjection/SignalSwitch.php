@@ -7,14 +7,9 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * Reads the switches a compiler pass needs before it registers anything.
+ * Reads the configuration switches compiler passes decide on.
  *
- * Shared because all three instrumentation passes ask the same two questions in the
- * same way, and a copy of the answer in each was how the global `traces.enabled` came
- * to be forgotten in one of them.
- *
- * A missing parameter is a "no": the extension only writes these when the bundle is
- * enabled, so their absence means there is nothing to instrument.
+ * A missing parameter means off: the extension only writes them when the bundle is enabled.
  */
 final readonly class SignalSwitch
 {
@@ -24,7 +19,7 @@ final readonly class SignalSwitch
     }
 
     /**
-     * Both switches have to be on: the signal's own and the component's.
+     * Both the signal's global switch and the component's own must be on.
      *
      * @param non-empty-string $signal traces or metrics
      * @param non-empty-string $component
@@ -38,15 +33,7 @@ final readonly class SignalSwitch
     }
 
     /**
-     * The only question a decorating pass has to ask: is there anything to record for
-     * this component at all.
-     *
-     * Three switches, one answer. The bundle's own comes first — with it off, services.php
-     * is never imported and the telemetry service the decorator takes as an argument does
-     * not exist. Then either signal is reason enough to wrap, because the wrapper a pass
-     * registers — a middleware, a decorator — usually carries both, so a pass that asks
-     * only about traces switches the component's metrics off along with them. Asking it
-     * once, here, is what keeps the next pass from getting it wrong too.
+     * Whether the bundle is on and the component records at least one signal.
      *
      * @param non-empty-string $component
      */
@@ -59,14 +46,9 @@ final readonly class SignalSwitch
     }
 
     /**
-     * Whether the component itself is instrumented, by its own switches only.
+     * Whether the bundle is on and at least one of the component's own switches is.
      *
-     * For components that carry context across a process boundary — an outgoing request, a
-     * message. Their wrapper propagates baggage and the incoming trace, and that belongs to
-     * the application's contract rather than to either signal: `traces.enabled: false`
-     * removes spans, `metrics.enabled: false` removes measurements, and neither is a reason
-     * for `operation()->baggage()` to stop reaching downstream services. Switching both of
-     * the component's own signals off is what opts it out, headers included.
+     * The global signal switches are ignored: they stop recording, not context propagation.
      *
      * @param non-empty-string $component
      */

@@ -8,8 +8,7 @@ use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use OpenTelemetry\API\Baggage\Propagation\BaggagePropagator;
 
 /**
- * The two ways baggage is observed: what an operation reads back, and what a propagator
- * sends out from the current context.
+ * Reads baggage back from an operation and from what a propagator would send.
  *
  * @internal
  *
@@ -17,11 +16,7 @@ use OpenTelemetry\API\Baggage\Propagation\BaggagePropagator;
  */
 trait ReadsBaggage
 {
-    /**
-     * Named rather than inline so the map's own type survives into the assertions.
-     *
-     * @return array<non-empty-string, string>
-     */
+    /** @return array<non-empty-string, string> */
     protected static function baggageOf(OperationContext $context): array
     {
         return $context->baggage();

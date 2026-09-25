@@ -14,19 +14,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
-/**
- * The invariant the whole package exists for, at the scale where a leak becomes visible.
- *
- * Two messages prove that the happy path unwinds; a long run proves that nothing
- * accumulates while it does. Both properties are about to be rewritten — consumption
- * moves off `Context::getRoot()` and onto a propagation boundary — and a per-message
- * activation that stopped being released would still pass every existing test, because
- * none of them counts what is left behind.
- *
- * What is counted is the set of owners that are still activated, not memory: the in-memory
- * exporter retains every span on purpose, so the process must grow, and a byte-level
- * assertion here would measure the harness rather than the subject.
- */
+/** A long-running worker gives every message its own trace and leaves no context behind. */
 #[CoversClass(MessengerConsumption::class)]
 final class MessengerWorkerIsolationTest extends MessengerTelemetryTestCase
 {
@@ -68,10 +56,6 @@ final class MessengerWorkerIsolationTest extends MessengerTelemetryTestCase
 
     /**
      * How many spans this process still holds activated.
-     *
-     * The registry is private static and weakly keyed, which is exactly why it answers the
-     * question: an owner that released its scope calls `forget()` and leaves immediately,
-     * so a non-zero delta is a scope nobody detached rather than an object awaiting GC.
      *
      * @throws \ReflectionException
      */

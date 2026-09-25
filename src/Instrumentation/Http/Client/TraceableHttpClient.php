@@ -14,33 +14,11 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * A CLIENT span and a duration per outgoing request, through Symfony's own async
- * decorator machinery.
+ * A CLIENT span and a duration per outgoing request, built on Symfony's `AsyncDecoratorTrait`.
  *
- * `AsyncDecoratorTrait` rather than a response wrapper of our own, because a Symfony
- * response is lazy and everything that makes it work — `stream()`, `cancel()`,
- * `getContent(false)`, the timeout chunks — is the state machine `AsyncResponse` already
- * implements. Wrapping the response instead would mean reimplementing that machine, and
- * the instrumentation would be the part that gets it subtly wrong.
- *
- * The operation ends when the response headers arrive, which is the boundary the HTTP
- * conventions define for a lazy client. Reading the body afterwards still reaches the
- * application if it fails, but it no longer changes a span that has already been closed
- * and possibly exported. A timeout chunk is not an ending either: the caller is allowed
- * to handle it and go on reading, and the request it is still waiting for is the same
- * request.
- *
- * Nothing about a request is held strongly. Pending operations are the keys of a
- * `\WeakMap`, and the only strong reference to an operation is the observing closure the
- * response itself holds — so a response that is dropped before it completes takes its
- * operation with it instead of leaving an entry in a process-lifetime service. What is
- * still pending when a worker resets is abandoned: the span is ended, because an unended
- * span keeps its context scope activated, and no duration is recorded, because nobody
- * saw the request finish.
- *
- * The map belongs to the individual client. `withOptions()` clones the decorator along
- * with its delegate and starts an empty one, so resetting one client cannot end another
- * client's requests and a scoped client's options never leak into the shared one.
+ * The operation ends when the response headers arrive. Pending operations are held weakly, so
+ * a dropped response takes its operation with it; `reset()` abandons whatever is still pending.
+ * Each client instance, including each `withOptions()` clone, has its own pending set.
  */
 final class TraceableHttpClient implements HttpClientInterface, ResetInterface
 {
@@ -70,8 +48,6 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
         $call = $this->begin($method, $url, $options);
 
         try {
-            // Even a request excluded from both signals propagates the ambient parent:
-            // exclusion says what this process records, not what the next one may know.
             $options = $this->instrumentation->inject($options);
             $response = new AsyncResponse(
                 $this->client,
@@ -94,14 +70,12 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
 
             throw $throwable;
         } finally {
-            // The span was only active long enough to parent itself and to be injected;
-            // concurrent requests share the parent rather than nesting inside each other.
             $call?->operation->detach();
         }
     }
 
     /** @param array<array-key, mixed> $options */
-    // @mago-expect lint:redundant-static — required by HttpClientInterface on PHP 8.4, even in a final class
+    // @mago-expect lint:redundant-static — required by HttpClientInterface
     #[\Override]
     public function withOptions(array $options): static
     {
@@ -124,8 +98,7 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
     }
 
     /**
-     * A URL whose host cannot be determined goes uninstrumented rather than producing a
-     * span without the attributes the conventions require — but it is still propagated.
+     * Null when the URL has no usable host; such a request is still propagated.
      *
      * @param array<array-key, mixed> $options
      */
@@ -168,6 +141,8 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
     }
 
     /**
+     * Checks `isTimeout()` before `isFirst()`, which throws on a failed request.
+     *
      * @throws TransportExceptionInterface the request failed before any status was read
      */
     private function settle(ClientCall $call, ChunkInterface $chunk, AsyncContext $context): void
@@ -180,8 +155,6 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
             return;
         }
 
-        // isTimeout() first: on a failed request isFirst() is what raises the transport
-        // exception, and a timeout chunk must not be turned into one.
         if ($chunk->isTimeout() || !$chunk->isFirst()) {
             return;
         }

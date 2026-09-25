@@ -24,10 +24,7 @@ use Psr\Log\NullLogger;
 use Symfony\Component\HttpClient\MockHttpClient;
 
 /**
- * A real `TraceableHttpClient` wired to the production instrumentation, recording into
- * `InMemoryTelemetry`. Shared by the client instrumentation test classes so each one only
- * carries the scenarios specific to it. Reading recorded spans/metrics beyond a plain index
- * lookup lives in {@see HttpTelemetryAssertions}; header parsing lives in {@see HttpHeaders}.
+ * A real `TraceableHttpClient` recording into `InMemoryTelemetry`.
  *
  * @internal
  */
@@ -65,11 +62,7 @@ abstract class HttpClientTelemetryTestCase extends TestCase
         );
     }
 
-    /**
-     * One exported span, asserted to exist. Indexing spans() directly turns a missing
-     * span into a confusing type error further down instead of the assertion failure it
-     * actually is.
-     */
+    /** One exported span, failing the test if it is missing. */
     protected function span(int $index = 0): SpanDataInterface
     {
         return $this->telemetry->spans()[$index] ?? Assert::fail('no exported span at index ' . $index);

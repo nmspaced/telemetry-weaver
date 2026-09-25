@@ -45,8 +45,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$failures', service(ExportFailureReporter::class))
         ->arg('$runtime', service(SymfonyRuntimeProfile::class));
 
-    // Everything that ends a unit of work asks for the port; only the container knows which
-    // implementation delivers it.
     $services->alias(BoundaryFlush::class, TelemetryFlusher::class);
 
     $services

@@ -25,17 +25,12 @@ use const INF;
 use const NAN;
 
 /**
- * `SafeMetrics` never lets instrument creation, recording, or a broken clock reach the
- * caller, and a disabled duration never reads the clock at all. Also covers the two
- * signal switches (traces/metrics independently on or off) and the runtime rejection of
- * invalid static duration boundaries. Error/`fail()` outcomes live in
- * {@see PublicTelemetryFailureTest}.
+ * `SafeMetrics` never lets instrument creation, recording, or a broken clock reach the caller, and
+ * a disabled duration never reads the clock at all.
  */
 final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('signals')]
     public function signalSwitchesAreIndependent(bool $traces, bool $metrics): void
@@ -59,9 +54,7 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         }
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function disabledDurationNeverReadsClockAndWithoutSpanKeepsParent(): void
     {
@@ -86,9 +79,7 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         self::assertSame(1, $this->metricPoint()->count);
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function brokenMeasurementStartAndCleanupCannotReplaceTheBusinessFailure(): void
     {
@@ -123,9 +114,7 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         self::assertCount(2, $this->exported());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function instrumentCreationAndRecordingFailuresAreContained(): void
     {
@@ -154,9 +143,7 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         self::assertSame(6, $this->reporter->total());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function brokenClockDoesNotPreventExecution(): void
     {
@@ -198,15 +185,13 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
     public function invalidStaticDescriptionsAreRejectedEvenWhenDisabled(array $boundaries): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        // Deliberately wrong shapes and values: proving the runtime check rejects what the
-        // static type alone would not (an empty list, descending or duplicate bounds, NAN/INF).
         /** @var non-empty-list<float|int> $boundaries */
         $this->telemetry(false, false)->metrics()->duration('duration', DurationUnit::Seconds, $boundaries);
     }
 
     /**
-     * `Metrics::duration()` hands back the opaque application handle; these tests are about
-     * what the package does with it, which is start it.
+     * `Metrics::duration()` hands back the opaque application handle; these tests are about what
+     * the package does with it, which is start it.
      */
     private static function startable(Duration $duration): StartableDuration
     {

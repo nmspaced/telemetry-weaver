@@ -14,16 +14,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Which trace a request's measurements are correlated with.
- *
- * The server span stops being ambient at `finish_request` and the metrics are recorded at
- * terminate, so by the time the body sizes are written the request's context is no longer
- * current. Recording them straight on the instrument left the exemplar to be resolved
- * against whatever was — in a worker, some unrelated span that outlived the request, and
- * in a request that ran inside one, the caller's. The correlation is captured once, when
- * the measurement starts, and all three instruments are written with it.
- */
+/** Request metrics recorded at terminate still point their exemplars at the request's span. */
 #[CoversClass(HttpServerMetrics::class)]
 #[CoversClass(RequestMeasurement::class)]
 final class HttpServerExemplarTest extends HttpMetricsTestCase
@@ -35,7 +26,6 @@ final class HttpServerExemplarTest extends HttpMetricsTestCase
         $request = $this->request(static fn(): Response => new Response('body', 200, ['Content-Length' => '4']));
         $this->handle($request, false);
 
-        // Terminate runs after the request's activation is gone, under a span of its own.
         $intruder = $this->leak('left-behind-by-someone-else');
         $this->kernel->terminate($request, new Response('body', 200, ['Content-Length' => '4']));
         $intruder->end();

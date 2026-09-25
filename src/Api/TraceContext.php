@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Api;
 
 /**
- * An immutable snapshot of a span's identity, with no ownership of its activation.
- * Keeping it after the operation finishes does not keep the span or its context alive.
+ * An immutable snapshot of a span's identity. Holding it does not keep the span alive.
  *
  * @api
  */
@@ -52,8 +51,7 @@ final readonly class TraceContext
     }
 
     /**
-     * Whether the sampled bit is set. This does not guarantee recording or delivery
-     * to a backend, and an unsampled context can still be used for correlation.
+     * Whether the sampled bit is set. An unsampled context can still be used for correlation.
      */
     public function sampled(): bool
     {
@@ -61,7 +59,7 @@ final readonly class TraceContext
     }
 
     /**
-     * All flags as exactly two lowercase hex digits, for log correlation.
+     * The flags as two lowercase hex digits.
      *
      * @return non-empty-string
      */
@@ -71,10 +69,8 @@ final readonly class TraceContext
     }
 
     /**
-     * W3C traceparent version 00 for correlation fields such as SQL comments.
-     * Preserves sampled and random; reserved flags must be zero on the wire.
-     * Independent of OTEL_PROPAGATORS. Use the configured propagator for transport
-     * headers so tracestate, baggage and other propagation formats are preserved.
+     * A W3C `traceparent` (version 00) for correlation fields such as SQL comments. For
+     * transport headers use the configured propagator instead.
      *
      * @see https://www.w3.org/TR/trace-context-2/#other-flags
      *

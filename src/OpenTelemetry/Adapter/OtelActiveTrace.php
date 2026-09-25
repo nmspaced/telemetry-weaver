@@ -10,12 +10,9 @@ use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\Context\ContextStorageInterface;
 
 /**
- * @internal The one place `OpenTelemetry\Context` is read on someone else's behalf.
+ * @internal
  *
- * Through the injected storage rather than `Context::getCurrent()`, for the reason every
- * adapter here takes one: the static accessor reads whichever storage the process last
- * installed, and a test that swaps in a fiber-bound one — or a worker that rebuilt its
- * container — would be reading a different place than the spans were activated in.
+ * Reads the active trace from the injected storage, the one spans are activated in.
  */
 final readonly class OtelActiveTrace implements ActiveTrace
 {
@@ -24,9 +21,7 @@ final readonly class OtelActiveTrace implements ActiveTrace
     ) {}
 
     /**
-     * An invalid or half-formed context is reported as absence rather than as the all-zero
-     * id the API returns: a caller asking for a trace wants something to look up, and
-     * `0000…` is not that.
+     * Returns null for an invalid context rather than the all-zero ids.
      */
     #[\Override]
     public function current(): ?TraceContext
@@ -40,8 +35,6 @@ final readonly class OtelActiveTrace implements ActiveTrace
 
             return new TraceContext($span->getTraceId(), $span->getSpanId(), $span->getTraceFlags());
         } catch (\Throwable) {
-            // Called by the log processor itself: reporting through the application
-            // logger would recursively attempt the same failing context read.
             return null;
         }
     }

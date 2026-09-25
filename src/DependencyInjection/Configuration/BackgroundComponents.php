@@ -7,8 +7,7 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection\Configuration;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
 /**
- * Instrumentation components whose signals fire off the request path: async dispatch,
- * (de)serialization, scheduled tasks, mail and the worker's own cache and runtime state.
+ * Configuration of components that run off the request path.
  *
  * @internal
  */
@@ -63,8 +62,7 @@ final class BackgroundComponents
     }
 
     /**
-     * The PHP runtime serving each worker: memory and uptime, sampled at each export. No traces —
-     * there is no operation here, only state that exists continuously.
+     * Worker memory and uptime, sampled at each export; metrics only.
      *
      * @throws \RuntimeException
      */

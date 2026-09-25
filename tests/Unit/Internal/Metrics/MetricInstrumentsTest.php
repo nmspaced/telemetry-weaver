@@ -19,15 +19,7 @@ use OpenTelemetry\SDK\Metrics\Data\Sum;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * That each facade method reaches the OpenTelemetry instrument it claims to.
- *
- * Which instrument a name is created as is not cosmetic: it decides how a backend is
- * allowed to aggregate the series. A monotonic sum may be turned into a rate and a
- * non-monotonic one may not; a gauge is a last value and is never added across workers.
- * Getting that wrong produces a chart that is wrong rather than an error, so the shape is
- * read back off a real `MeterProvider` rather than asserted against a mock.
- */
+/** That each facade method reaches the OpenTelemetry instrument it claims to. */
 #[CoversClass(SafeMetrics::class)]
 #[CoversClass(SafeObservables::class)]
 #[CoversClass(SafeUpDownCounter::class)]
@@ -49,11 +41,6 @@ final class MetricInstrumentsTest extends PublicTelemetryTestCase
         self::assertSame(2, $this->value('app.jobs.active'));
     }
 
-    /**
-     * The distinction the facade previously forced applications to give up: without an
-     * up-down counter they would have reached for `counter()`, whose sum a backend is
-     * entitled to differentiate.
-     */
     #[Test]
     public function aCounterIsExportedAsAMonotonicSum(): void
     {
@@ -94,10 +81,6 @@ final class MetricInstrumentsTest extends PublicTelemetryTestCase
         }
     }
 
-    /**
-     * A failing instrument must still hand back something recordable, as everywhere else in
-     * the facade — an application does not check what it was given.
-     */
     #[Test]
     public function theNewInstrumentsStillAnswerWhenMetricsAreOff(): void
     {

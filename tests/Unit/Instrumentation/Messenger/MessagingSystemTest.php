@@ -18,12 +18,7 @@ use Symfony\Component\Messenger\Transport\Sync\SyncTransport;
 #[CoversClass(MessagingSystem::class)]
 final class MessagingSystemTest extends TestCase
 {
-    /**
-     * The bridges' transports, built without their constructors: resolving a system must
-     * not need a connection, a DSN or anything a constructor would set up.
-     *
-     * @return iterable<string, array{class-string, string}>
-     */
+    /** @return iterable<string, array{class-string, string}> */
     public static function transports(): iterable
     {
         yield 'amqp is rabbitmq' => [AmqpTransport::class, 'rabbitmq'];

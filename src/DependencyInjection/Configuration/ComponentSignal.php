@@ -7,16 +7,11 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection\Configuration;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
 /**
- * A component with its two signal switches, shared by every instrumented component's config
- * tree so each accepts `true`, `false` or `{enabled: bool}` the same way.
+ * A component node with its `traces` and `metrics` switches, each accepting `true`, `false` or
+ * `{enabled: bool}`.
  *
- * Lives here, as a normally-autoloaded class, rather than as a method on the anonymous class
- * `config/definition.php` returns: that file is `include`d (not `include_once`) by Symfony's
- * `DefinitionFileLoader` on every container compile, so a named class declared inside it would
- * fatal with "Cannot redeclare" the second time a test compiles the container in the same
- * process. Splitting the tree-building logic out into real, autoloaded classes is what let the
- * anonymous class shrink enough to satisfy mago's `too-many-methods` lint rule without an
- * `@mago-expect` suppression.
+ * An autoloaded class because `config/definition.php` is included on every compile and cannot
+ * declare named classes.
  *
  * @internal
  */
@@ -25,19 +20,11 @@ final class ComponentSignal
     private function __construct() {}
 
     /**
-     * @param bool $traces whether this component can produce spans at all; `runtime` is
-     *                     the one that cannot, and offering it a switch that does nothing
-     *                     would be worse than not offering one
-     * @param non-empty-string|null $overridableOption name of a component-wide list (added by
-     *                                                 the caller outside this method) that
-     *                                                 either signal may override; absent
-     *                                                 means "use the component's"
-     * @param bool $durations whether this component records an operation-duration histogram,
-     *                        and so has boundaries worth overriding; `runtime` reports state,
-     *                        not durations
+     * @param bool $traces whether the component can produce spans at all
+     * @param non-empty-string|null $overridableOption a component-wide list either signal may override
+     * @param bool $durations whether the component records an operation-duration histogram
      *
-     * @throws \RuntimeException the Config component's builder throws on internal misuse,
-     *                           which would be a defect in this tree, not a runtime input
+     * @throws \RuntimeException on misuse of the Config builder
      */
     public static function component(
         string $name,
@@ -64,16 +51,7 @@ final class ComponentSignal
     }
 
     /**
-     * The histogram boundaries of this component's operation-duration instrument.
-     *
-     * The bundle's defaults follow the semantic conventions, and those are chosen to be
-     * comparable across services rather than tight around any one of them. An application with
-     * an SLO stated in single-digit milliseconds cannot see it in buckets whose second step is
-     * 10 ms, and the OpenTelemetry answer — a view — is a heavier instrument than "these
-     * numbers instead of those". Empty keeps the default.
-     *
-     * Seconds, because every default is in seconds and a histogram whose unit varies by
-     * component cannot be compared across them.
+     * Histogram boundaries for the component's operation duration, in seconds; empty keeps the default.
      *
      * @throws \RuntimeException
      */
@@ -97,11 +75,7 @@ final class ComponentSignal
             ->end();
     }
 
-    /**
-     * The SDK does not reject unordered boundaries — it builds buckets from them as they are,
-     * and the histogram silently becomes meaningless. Caught here, where the file that wrote
-     * them can be named.
-     */
+    /** The SDK accepts unordered boundaries silently, so they are rejected here. */
     private static function isNotStrictlyIncreasing(mixed $boundaries): bool
     {
         if (!\is_array($boundaries)) {
@@ -125,13 +99,7 @@ final class ComponentSignal
         return false;
     }
 
-    /**
-     * Building the override option here, inside the same node the signal itself creates, is
-     * what lets it be typed as the concrete `ArrayNodeDefinition` `arrayNode()` returns instead
-     * of the widened `NodeDefinition` `find()` would hand back for a lookup done afterward.
-     *
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     private static function signal(
         ArrayNodeDefinition $component,
         string $signal,

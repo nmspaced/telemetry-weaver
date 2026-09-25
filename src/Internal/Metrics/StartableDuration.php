@@ -8,12 +8,7 @@ use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 
 /**
- * The half of a duration instrument that the package keeps to itself.
- *
- * `Api\Duration` is the handle an application is given; this is what can be done with one,
- * and the correlation argument is why the two are separate. Which trace a measurement
- * belongs to is decided when it starts, by whoever started it — not read from the
- * execution at the moment it is recorded, which by then may be a different request.
+ * The internal side of `Api\Duration`: starts a measurement for a trace chosen at start.
  *
  * @internal
  */

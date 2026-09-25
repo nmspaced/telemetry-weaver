@@ -25,8 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * The outcome half of a server span: what a caught exception and an observed status
- * together say about the span, decided once at complete().
+ * The outcome half of a server span: what a caught exception and an observed status together say
+ * about the span, decided once at complete().
  */
 #[CoversClass(RequestTrace::class)]
 final class RequestTraceOutcomeTest extends TestCase
@@ -64,11 +64,6 @@ final class RequestTraceOutcomeTest extends TestCase
         Context::setStorage($this->previousStorage);
     }
 
-    /**
-     * Symfony answers a NotFoundHttpException with a 404, which is the application
-     * working. Recording the exception at kernel.exception put an exception event on
-     * every such span, because at that point the answer was not known yet.
-     */
     #[Test]
     public function anExceptionAnsweredWithA404LeavesTheSpanClean(): void
     {
@@ -99,10 +94,6 @@ final class RequestTraceOutcomeTest extends TestCase
         self::assertSame(StatusCode::STATUS_ERROR, $span->getStatus()->getCode());
     }
 
-    /**
-     * The option moves the exception event, not the span's error status: the conventions
-     * fix that at >= 500 and this bundle does not let configuration contradict them.
-     */
     #[Test]
     public function theMinimumStatusMovesTheEventAndNotTheErrorStatus(): void
     {
@@ -116,11 +107,6 @@ final class RequestTraceOutcomeTest extends TestCase
         self::assertSame(StatusCode::STATUS_UNSET, $span->getStatus()->getCode());
     }
 
-    /**
-     * No response was ever produced: the exception escaped the kernel, terminate never
-     * ran and the entry was released by reset(). The span used to end with nothing on
-     * it at all, which reads as a request that succeeded.
-     */
     #[Test]
     public function anExceptionWithoutAResponseErrorsTheSpanWithItsType(): void
     {
@@ -135,10 +121,6 @@ final class RequestTraceOutcomeTest extends TestCase
         self::assertNull($span->getAttributes()->get('http.response.status_code'));
     }
 
-    /**
-     * Neither a response nor an exception: a request the process walked away from, by
-     * exit() or a fatal. Nobody saw it fail, so the span claims nothing.
-     */
     #[Test]
     public function anAbandonedRequestWithoutAnExceptionClaimsNothing(): void
     {

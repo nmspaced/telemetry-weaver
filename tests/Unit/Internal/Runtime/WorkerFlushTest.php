@@ -26,8 +26,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Event\WorkerStoppedEvent;
 
 /**
- * `messenger:consume` never dispatches `kernel.terminate`, so without this subscriber a
- * worker's telemetry waits for the process to exit — and is lost if it is killed first.
+ * `messenger:consume` never dispatches `kernel.terminate`, so without this subscriber a worker's
+ * telemetry waits for the process to exit — and is lost if it is killed first.
  */
 #[CoversClass(WorkerFlushSubscriber::class)]
 #[CoversClass(SignalFlusher::class)]
@@ -47,8 +47,6 @@ final class WorkerFlushTest extends TestCase
         FlushPolicy::resetProcessState();
 
         $this->spans = new InMemorySpanExporter();
-        // The batch processor is the one that needs a boundary: it holds spans until the
-        // batch is full or somebody flushes, and the SDK has no timer to do it.
         $this->tracers = new TracerProvider(new BatchSpanProcessor($this->spans, new FrozenClock()));
 
         $this->metrics = new InMemoryMetricExporter();
@@ -63,11 +61,6 @@ final class WorkerFlushTest extends TestCase
         FlushPolicy::resetProcessState();
     }
 
-    /**
-     * The first message a worker handles is the one most likely to be looked at — a worker
-     * that was just deployed or just recycled — and it is delivered at its own boundary
-     * rather than waiting for a second message that may be minutes away.
-     */
     #[Test]
     public function theFirstBoundaryDeliversBothSignals(): void
     {
@@ -80,11 +73,6 @@ final class WorkerFlushTest extends TestCase
         self::assertNotSame([], $this->metrics->collect(), 'metrics must not wait for the process to exit');
     }
 
-    /**
-     * The idle loop dispatches WorkerRunningEvent about once a second, and every flush
-     * is a blocking export: the interval is what keeps a quiet worker from hammering
-     * the collector.
-     */
     #[Test]
     public function anIdleLoopDoesNotExportOnEveryPoll(): void
     {
@@ -103,10 +91,6 @@ final class WorkerFlushTest extends TestCase
         self::assertSame($exported, \count($this->spans->getSpans()), 'the interval has not passed yet');
     }
 
-    /**
-     * A stopping worker has no next boundary to defer to, so the interval does not
-     * apply — whatever is queued is sent or lost.
-     */
     #[Test]
     public function stoppingFlushesWhateverIsLeftRegardlessOfTheInterval(): void
     {

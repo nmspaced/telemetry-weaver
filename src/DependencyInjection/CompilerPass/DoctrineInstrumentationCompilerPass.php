@@ -16,18 +16,10 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Registers the DBAL middleware, or does not register anything at all.
+ * Registers the DBAL middleware when `doctrine/dbal` is available and either signal is on.
  *
- * A pass rather than an entry in services.php, because two of the three conditions
- * cannot be asked there: whether `doctrine/dbal` is available (it is a `suggest`, and a
- * definition whose class does not exist has no business being in the container), and
- * what the two `enabled` flags resolved to.
- *
- * When both signals are off the middleware is absent rather than inert, so the cost of
- * the instrumentation is exactly zero. With one signal on and the other off the
- * middleware is still wired, and the disabled half is expressed by what gets injected:
- * `open_telemetry.doctrine.telemetry` resolves its span opener and its meter to no-ops,
- * so no flag has to travel into the instrumentation.
+ * With both signals off the middleware is not registered at all; with one off, the disabled
+ * half is a no-op injected through `open_telemetry.doctrine.telemetry`.
  */
 final readonly class DoctrineInstrumentationCompilerPass implements CompilerPassInterface
 {
@@ -73,7 +65,6 @@ final readonly class DoctrineInstrumentationCompilerPass implements CompilerPass
             ->addTag(self::MIDDLEWARE_TAG, ['priority' => 0]);
     }
 
-    /** The configuration tree has already constrained the value to one of the enum's. */
     private static function string(mixed $value): string
     {
         return \is_string($value) ? $value : QueryText::Sanitized->value;

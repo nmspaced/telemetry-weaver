@@ -26,7 +26,6 @@ final class FlushBudgetTest extends FlushBudgetTestCase
         $budget->begin();
 
         $this->send($budget, self::A, seconds: 0.1, expected: 1 / 3);
-        // A fast collector's unused share rolls over to the ones after it.
         $this->send($budget, self::B, seconds: 0.45, expected: 0.45, failed: true);
         self::assertAllowance(0.45, $budget->allowance(self::C));
     }
@@ -37,7 +36,6 @@ final class FlushBudgetTest extends FlushBudgetTestCase
         $budget = $this->budget(self::A, self::B);
         $budget->begin();
 
-        // A client's timeout fires slightly before the allowance it was given.
         $this->send($budget, self::A, seconds: 0.492, expected: 0.5, failed: true);
 
         self::assertNull($budget->allowance(self::A), 'a second signal to the same collector must not wait again');

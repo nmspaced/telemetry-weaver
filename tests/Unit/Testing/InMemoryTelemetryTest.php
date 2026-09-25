@@ -13,9 +13,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 final class InMemoryTelemetryTest extends TelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function resetKeepsExistingInstrumentsButDiscardsPriorMeasurements(): void
     {

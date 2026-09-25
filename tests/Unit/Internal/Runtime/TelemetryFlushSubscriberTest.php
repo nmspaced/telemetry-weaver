@@ -41,9 +41,6 @@ final class TelemetryFlushSubscriberTest extends TestCase
         FlushPolicy::resetProcessState();
     }
 
-    /**
-     * The base design fixes the order at end() -> assertRestored() -> flush; the priority is how that ordering is expressed, so it is what the test asserts.
-     */
     #[Test]
     public function itFlushesAfterTheTelemetrySubscriberHasClosedTheSpan(): void
     {

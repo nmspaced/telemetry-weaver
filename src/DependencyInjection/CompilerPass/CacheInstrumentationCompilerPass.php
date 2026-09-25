@@ -52,7 +52,7 @@ final readonly class CacheInstrumentationCompilerPass implements CompilerPassInt
                 continue;
             }
 
-            /** @var list<array<string, mixed>> $tags Symfony returns a list of tag attribute arrays. */
+            /** @var list<array<string, mixed>> $tags */
             $poolName = $this->resolvePoolName($id, $tags);
 
             $innerId = DecoratedService::innerId($id);

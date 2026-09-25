@@ -11,8 +11,7 @@ use OpenTelemetry\SDK\Metrics\Data\NumberDataPoint;
 use PHPUnit\Framework\Assert;
 
 /**
- * Reads recorded metric points and span attributes out of an {@see InMemoryTelemetry}, asserting
- * they exist rather than letting a missing one surface as a confusing type error further down.
+ * Reads recorded metric points and span attributes, failing the test when one is missing.
  *
  * @internal
  */

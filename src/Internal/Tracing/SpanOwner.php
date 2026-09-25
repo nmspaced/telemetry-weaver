@@ -7,22 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Internal\Tracing;
 use Nmspaced\TelemetryWeaver\Api\Span;
 
 /**
- * One span and its activation, as the operation that asked for it sees them.
- *
- * The operation layer needs five things from a span it owns: somewhere to write, the trace a
- * measurement taken for it belongs to, a name for diagnostics, a way to stop being ambient,
- * and a way to end. None of those is an OpenTelemetry concept, and this interface is what
- * keeps the OpenTelemetry ones — `SpanInterface`, `ScopeInterface`, `SpanContextInterface` —
- * on the other side of the perimeter, in
- * {@see \Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OwnedSpan}.
- *
- * Owning is the whole point: instrumentation may *find* an active span, but only what Weaver
- * created is ended and detached here. A view handed out by `view()` is borrowed and revoked
- * when the owner finishes, so a caller that keeps one cannot write into the next request.
- *
- * The error type is on the owner rather than the view because it outlives the view's
- * usefulness: a suppressed operation records no span at all and still has to label its
- * duration metric with whatever `error.type` the description carried.
+ * A span the package created, with its activation, seen without OpenTelemetry types. Only
+ * the owner ends or detaches it; views it hands out are revoked when it finishes.
  *
  * @internal
  */
@@ -31,10 +17,7 @@ interface SpanOwner
     /** @return non-empty-string the operation's name, for diagnostics */
     public function name(): string;
 
-    /**
-     * The borrowed view. Enrichment only — writing through it never transfers ownership,
-     * and it stops working once the owner has finished.
-     */
+    /** A borrowed view for enrichment; it stops working once the owner finishes. */
     public function view(): Span;
 
     /**
@@ -49,23 +32,15 @@ interface SpanOwner
      */
     public function rememberErrorType(array $attributes): void;
 
-    /**
-     * The trace a measurement taken for this span belongs to.
-     *
-     * Survives `detach()` on purpose: the activation is what makes the span ambient, and an
-     * operation that has stopped being ambient has not stopped being the one being measured.
-     */
+    /** The trace a measurement for this span belongs to; survives `detach()`. */
     public function correlation(): ?TraceCorrelation;
 
     /** Releases the activation, leaving the span open. */
     public function detach(): void;
 
     /**
-     * Makes the span ambient again after `detach()`, until the next `detach()`.
-     *
-     * For work that resumes in pieces, such as a lazy result: each piece of backend work
-     * belongs under the operation, while the caller's code between the pieces does not.
-     * Does nothing for a span that is active already, was never activated, or has finished.
+     * Makes the span ambient again after `detach()`, for work resumed in pieces. Does nothing
+     * if it is already active, was never activated, or has finished.
      */
     public function attach(): void;
 

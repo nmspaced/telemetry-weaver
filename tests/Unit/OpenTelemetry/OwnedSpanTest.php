@@ -42,10 +42,6 @@ final class OwnedSpanTest extends TelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * HTTP needs the two halves apart: the main request detaches when the
-     * kernel finishes but stays open until terminate.
-     */
     #[Test]
     public function detachLeavesTheSpanOpen(): void
     {
@@ -75,10 +71,6 @@ final class OwnedSpanTest extends TelemetryTestCase
         self::assertNull($attributes->get('after'));
     }
 
-    /**
-     * Enrichment runs inside application code, so an SDK failure there must
-     * not surface as an exception the application never asked for.
-     */
     #[Test]
     public function anEnrichmentFailureIsReportedNotThrown(): void
     {
@@ -93,10 +85,6 @@ final class OwnedSpanTest extends TelemetryTestCase
         self::assertStringContainsString('span enrichment failed', $this->logger->messageAt(0));
     }
 
-    /**
-     * A detach that fails must still cost nothing but the context: the span's
-     * data is already collected and ending it is the last chance to ship it.
-     */
     #[Test]
     public function aFailedDetachStillEndsTheSpan(): void
     {
@@ -120,11 +108,6 @@ final class OwnedSpanTest extends TelemetryTestCase
         self::assertStringContainsString('detach failed', $this->logger->messageAt(0));
     }
 
-    /**
-     * Out-of-order closing is the SDK's own signal, decoded rather than
-     * suppressed: hiding it would bury the one externally visible sign that
-     * the stack is not the shape we left it.
-     */
     #[Test]
     public function outOfOrderClosingIsReported(): void
     {
@@ -136,10 +119,6 @@ final class OwnedSpanTest extends TelemetryTestCase
         self::assertStringContainsString('closed out of order', \implode("\n", $this->logger->messages()));
     }
 
-    /**
-     * Third-party instrumentation that leaks is not ours to collect: ending
-     * someone else's live span is irreversible.
-     */
     #[Test]
     public function aForeignSpanIsLeftAlone(): void
     {

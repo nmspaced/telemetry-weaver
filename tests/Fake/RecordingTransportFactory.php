@@ -11,11 +11,7 @@ use OpenTelemetry\SDK\Common\Future\CompletedFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
 use PHPUnit\Framework\Assert;
 
-/**
- * Records the ten arguments a transport factory is called with. The whole point of
- * the decorator under test is which of them it replaces and which it passes through,
- * so the assertion is on the argument list itself.
- */
+/** Records the arguments a transport factory is called with. */
 final class RecordingTransportFactory implements TransportFactoryInterface
 {
     /** @var list<array<string, mixed>> */

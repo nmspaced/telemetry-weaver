@@ -5,41 +5,23 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
 
 /**
- * The operations and targets of a statement, in order — and nothing else.
- *
- * It reads the output of {@see SqlLexer}, never raw SQL: literals are already `?` and
- * comments already whitespace, so there is no data left for it to misread, and nothing
- * here depends on the dialect. What remains to be skipped is code that looks like a
- * target without being one — keywords inside a quoted identifier, `FROM` inside the
- * syntax of a function (`EXTRACT(YEAR FROM x)`), and the `UPDATE` of an upsert or a row
- * lock. Every word it returns is therefore either a keyword from a closed list or the
- * name immediately after one.
- *
- * One `preg_match_all` over the statement, with patterns that are constant strings and so
- * compiled once per process by PCRE's own cache.
+ * Extracts operations and targets from lexed code, where literals and comments are already
+ * gone. Every token is a keyword from a closed list or the name right after one.
  *
  * @internal
  */
 final readonly class SqlScanner
 {
-    /** A quoted identifier as the lexer kept it: ANSI, MySQL or SQL Server quoting. */
+    /** A quoted identifier: ANSI, MySQL or SQL Server quoting. */
     private const string QUOTED = '"(?:[^"]|"")*+"|`(?:[^`]|``)*+`|\[(?:[^\]]|\]\])*+\]';
 
-    /** One name as it may be written: quoted, or bare. */
+    /** A quoted or bare name. */
     private const string NAME = '(?:' . self::QUOTED . '|[a-z_\x80-\xff][a-z0-9_$\x80-\xff]*+)';
 
-    /**
-     * Words that follow a target without being one — the start of the next clause, or a
-     * modifier. An alias check needs them too: `FROM a JOIN b` must not read JOIN as a's
-     * alias and so lose b.
-     */
+    /** Keywords that may follow a target and are never a target or an alias. */
     private const string CLAUSE = '(?:WHERE|JOIN|INNER|LEFT|RIGHT|FULL|CROSS|OUTER|NATURAL|LATERAL|ON|USING|GROUP|ORDER|HAVING|LIMIT|OFFSET|FETCH|UNION|EXCEPT|INTERSECT|SET|VALUES|VALUE|SELECT|DEFAULT|RETURNING|FOR|WINDOW|AS|WITH|FROM|INTO|UPDATE|DELETE|INSERT|IF|ONLY|IGNORE|PARTITION|STRAIGHT_JOIN|OUTPUT)\b';
 
-    /**
-     * Consumed and discarded: quoted identifiers outside a target position, `FROM` inside
-     * the syntax of a function, and the `UPDATE` of an upsert or a row lock, which is not
-     * a second statement.
-     */
+    /** Skipped: quoted names outside targets, `FROM` inside functions, upsert and row-lock `UPDATE`. */
     private const string SKIP =
         '(?:'
             . self::QUOTED
@@ -50,10 +32,10 @@ final readonly class SqlScanner
     /** A possibly schema-qualified name. */
     private const string QUALIFIED = self::NAME . '(?:\s*+\.\s*+' . self::NAME . ')*+';
 
-    /** An optional alias, which is read past and never reported. */
+    /** An optional alias, skipped. */
     private const string ALIAS = '(?:\s++(?:AS\s++)?(?!' . self::CLAUSE . ')' . self::NAME . ')?';
 
-    /** The comma-separated names after a keyword that introduces targets. */
+    /** Comma-separated targets after a target keyword. */
     private const string LIST =
         '(?!'
             . self::CLAUSE
@@ -67,11 +49,7 @@ final readonly class SqlScanner
             . self::ALIAS
             . ')*+';
 
-    /**
-     * What a schema statement acts on, which the conventions keep in the operation:
-     * `CREATE TABLE MyTable`, not `CREATE MyTable`. Preceded by the modifiers that may sit
-     * between the verb and the object, and followed by `IF [NOT] EXISTS`.
-     */
+    /** The object of a schema statement (`TABLE`, `INDEX`, ...), kept in the operation. */
     private const string DDL_OBJECT =
         '(?:OR\s++REPLACE\s++)?(?:(?:GLOBAL|LOCAL)\s++)?(?:(?:TEMPORARY|TEMP|UNIQUE|MATERIALIZED|UNLOGGED)\s++)?'
             . '(?<object>TABLE|VIEW|INDEX|SEQUENCE|SCHEMA|DATABASE|FUNCTION|PROCEDURE|TRIGGER|TYPE|EXTENSION)\b'
@@ -94,11 +72,11 @@ final readonly class SqlScanner
             . '))?'
             . '~i';
 
-    /** Group 1 is the name; the alias after it is matched only to be skipped. */
+    /** Group 1 is the name; the alias is skipped. */
     private const string TARGETS = '~(' . self::QUALIFIED . ')' . self::ALIAS . '~i';
 
     /**
-     * @param string $code a statement as {@see SqlLexer::code()} returned it
+     * @param string $code the output of {@see SqlLexer::code()}
      *
      * @return list<non-empty-string>
      */
@@ -130,7 +108,7 @@ final readonly class SqlScanner
     }
 
     /**
-     * `CREATE TABLE`, as written; the verb alone when no object follows it.
+     * `CREATE TABLE` as written, or the verb alone.
      *
      * @param array<array-key, string|null> $match
      */
@@ -143,8 +121,7 @@ final readonly class SqlScanner
     }
 
     /**
-     * The names in `a, b AS x, "c" y`, without their aliases. Never empty: a name is at
-     * least one character.
+     * The names in `a, b AS x, "c" y`, without aliases.
      *
      * @return list<non-empty-string>
      */

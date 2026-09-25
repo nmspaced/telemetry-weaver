@@ -15,12 +15,7 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\Messenger\MessageBus;
 use Symfony\Component\Messenger\Transport\Sender\SendersLocator;
 
-/**
- * MessengerPass turns the parameter `<busId>.middleware` into the bus's middleware
- * chain at before-optimization priority 0. Everything this pass does has to be in that
- * parameter before then, so the test stands the parameter up the way FrameworkBundle
- * does and checks what came out.
- */
+/** The Messenger pass puts the instrumentation first in every bus's middleware chain. */
 final class MessengerRegistrationTest extends ContainerTestCase
 {
     private const string BUS_ID = 'messenger.bus.commands';
@@ -55,16 +50,10 @@ final class MessengerRegistrationTest extends ContainerTestCase
 
         $definition = $container->getDefinition(self::BUS_ID . '.open_telemetry_middleware');
         self::assertSame(TraceableMessageBusMiddleware::class, $definition->getClass());
-        // Argument 1: named arguments are resolved to positions by the compiler.
         self::assertSame(self::BUS_ID, $definition->getArgument(1));
     }
 
-    /**
-     * A message routed to two transports has to produce two spans, so the senders are
-     * wrapped one by one where the locator hands them out.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function everySenderIsWrappedThroughTheLocator(): void
     {
@@ -79,13 +68,7 @@ final class MessengerRegistrationTest extends ContainerTestCase
         self::assertInstanceOf(TraceableSendersLocator::class, $locator);
     }
 
-    /**
-     * The middleware and the sender decorator carry the producer's metrics as well as its
-     * spans — the dispatch and send durations and the sent counter are recorded nowhere
-     * else. So tracing alone being off is not a reason to stop wrapping.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function disablingOnlyMessengerTracingKeepsTheMiddlewareForTheMetrics(): void
     {
@@ -114,13 +97,7 @@ final class MessengerRegistrationTest extends ContainerTestCase
         self::assertSame(['validation', 'send_message', 'handle_message'], \array_column($middleware, 'id'));
     }
 
-    /**
-     * The middleware and the sender decorator also carry the message's trace and baggage.
-     * The global signal switches decide what is recorded, not whether that context
-     * travels, so with both of them off the wrapping stays.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function turningOffBothGlobalSignalsKeepsTheMiddlewareForPropagation(): void
     {

@@ -46,15 +46,8 @@ final class TelemetryWeaverBundle extends AbstractBundle
     }
 
     /**
-     * Puts the OTel handler into Monolog's own stack.
-     *
-     * Through MonologBundle's `type: service` handler rather than by pushing onto
-     * `monolog.logger_prototype`: the prototype is MonologBundle's internal shape and
-     * the ordering against its own `LoggerChannelPass` would be ours to keep right,
-     * while the handler entry is the documented way for another bundle to add one.
-     *
-     * Prepending is conditional, because a handler entry naming a service that does not
-     * exist is a compile error rather than a disabled feature.
+     * Adds the OTLP log handler to Monolog's stack through MonologBundle's `type: service`
+     * handler, and only when the handler service exists.
      */
     #[\Override]
     public function prependExtension(ContainerConfigurator $configurator, ContainerBuilder $container): void
@@ -75,11 +68,6 @@ final class TelemetryWeaverBundle extends AbstractBundle
 
     /**
      * Flattens the validated configuration into `open_telemetry.*` parameters.
-     *
-     * The mapping is mechanical and lives in {@see ConfigParameters}; the only key this
-     * method reads for itself is the master switch, because it decides which service file
-     * is imported. `instrumentation` has a flattener of its own — a component's options are
-     * written twice, once component-wide and once per signal — so it is excluded here.
      *
      * @param array<array-key, mixed> $config
      */
@@ -104,12 +92,7 @@ final class TelemetryWeaverBundle extends AbstractBundle
     }
 
     /**
-     * Claims Globals for the container's providers.
-     *
-     * Here rather than in the extension: initializers are process state, and
-     * the container is only a description of services until the kernel boots.
-     * Doing it at boot also puts this bundle's initializer after the SDK
-     * autoloader's, which is what makes it the one that wins.
+     * Claims `Globals` and SDK diagnostics at boot, when the container's services exist.
      */
     #[\Override]
     public function boot(): void
@@ -131,8 +114,7 @@ final class TelemetryWeaverBundle extends AbstractBundle
     }
 
     /**
-     * Best-effort for the same reason as Globals: losing the SDK's diagnostics costs an
-     * operator a log stream, and failing the boot costs the application everything.
+     * Best-effort: losing SDK diagnostics must not fail the boot.
      */
     private function routeSdkDiagnostics(ContainerInterface $container): void
     {
@@ -148,8 +130,7 @@ final class TelemetryWeaverBundle extends AbstractBundle
     }
 
     /**
-     * Best-effort: losing Globals costs other packages' instrumentation a pipeline, and
-     * failing the boot would cost the application everything.
+     * Best-effort: losing `Globals` must not fail the boot.
      */
     private function claimGlobals(ContainerInterface $container): void
     {

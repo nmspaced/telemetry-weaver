@@ -30,11 +30,7 @@ use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 /**
- * A real dispatcher and a real HttpKernel.
- *
- * Calling the subscriber's methods directly would prove nothing about the
- * order Symfony actually fires them in, which is where every interesting
- * question in this adapter lives.
+ * Runs requests through a real dispatcher and `HttpKernel`, so events fire in Symfony's order.
  *
  * @internal
  */
@@ -50,10 +46,7 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
 
     protected ResponsePropagation $responsePropagation;
 
-    /**
-     * The opener the server boundary uses, when a test needs it to differ from the shared
-     * one — `http_server: traces: false` is `$this->spans->suppressed()`.
-     */
+    /** The opener for server spans when it must differ from `$spans`, e.g. `$this->spans->suppressed()`. */
     protected ?SpanOpenerInterface $serverSpans = null;
 
     /**
@@ -129,9 +122,7 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
     /**
      * @param \Closure(): Response $controller
      * @param array<string, string> $attributes extra request attributes, e.g. _route
-     * @param array<string, string|list<string>> $headers a list is a header sent more than
-     *                                                    once, which a PSR-7 runtime keeps
-     *                                                    rather than folding
+     * @param array<string, string|list<string>> $headers a list sends the header more than once
      *
      * @throws \Throwable
      */
@@ -156,7 +147,7 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
     }
 
     /**
-     * The full front-controller sequence, terminate included.
+     * Handles the request and, unless told otherwise, terminates it.
      *
      * @throws \Throwable
      */
@@ -173,9 +164,7 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
 
     /**
      * @param \Closure(): Response $controller
-     * @param array<string, string> $headers the main request's headers, when a test needs
-     *                                       a sub-request that carries them the way a real
-     *                                       forwarded request would
+     * @param array<string, string> $headers headers forwarded from the main request
      *
      * @throws \Throwable
      */

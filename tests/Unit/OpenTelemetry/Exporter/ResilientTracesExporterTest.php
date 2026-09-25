@@ -15,8 +15,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Span-exporter scenarios split out of {@see ResilientExporterTest}. Metric/log exporter
- * scenarios live in {@see ResilientMetricsExporterTest} and {@see ResilientLogsExporterTest}.
+ * Span-exporter scenarios split out of {@see ResilientExporterTest}. Metric/log exporter scenarios
+ * live in {@see ResilientMetricsExporterTest} and {@see ResilientLogsExporterTest}.
  */
 #[CoversClass(ResilientTracesExporter::class)]
 #[CoversClass(ExportFailureReporter::class)]
@@ -30,9 +30,6 @@ final class ResilientTracesExporterTest extends TestCase
         $this->logger = new RecordingLogger();
     }
 
-    /**
-     * The transport can fail synchronously, before it returns a Future.
-     */
     #[Test]
     public function spanExporterSwallowsSynchronousFailures(): void
     {
@@ -47,9 +44,6 @@ final class ResilientTracesExporterTest extends TestCase
         self::assertSame('dns failure', $this->logger->contextAt(0)['exception'] ?? null);
     }
 
-    /**
-     * And deferred, via a rejected Future — a plain try alone doesn't cover this.
-     */
     #[Test]
     public function spanExporterSwallowsRejectedFutures(): void
     {
@@ -64,10 +58,6 @@ final class ResilientTracesExporterTest extends TestCase
         self::assertSame('connection reset', $this->logger->contextAt(0)['exception'] ?? null);
     }
 
-    /**
-     * The export path is named as an export, not as the shutdown it was copied from: an
-     * operator reading "failed to shut down" during normal traffic looks in the wrong place.
-     */
     #[Test]
     public function aFailedSpanExportIsReportedAsAnExport(): void
     {
@@ -82,11 +72,6 @@ final class ResilientTracesExporterTest extends TestCase
         self::assertSame('Failed to export spans', $this->logger->messageAt(0));
     }
 
-    /**
-     * The reporter runs inside the exporter's catch. A logger that throws there would
-     * carry the exception out of the one class whose job is to stop it — into a batch
-     * processor, a flush at terminate, or a worker loop.
-     */
     #[Test]
     public function aBrokenLoggerDoesNotEscapeASynchronousFailure(): void
     {

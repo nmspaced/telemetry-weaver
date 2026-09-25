@@ -26,25 +26,13 @@ final readonly class SerializerInstrumentationCompilerPass implements CompilerPa
     private const string NAMED_SERIALIZERS_PARAMETER = '.serializer.named_serializers';
 
     /**
-     * Inside every other decorator on the serializer, and that is the point.
-     *
-     * Decoration priority ascends inward, so a higher number is applied earlier and ends
-     * up closer to the decorated service. FrameworkBundle's own `debug.serializer` takes
-     * the default 0, and at -32 this decorator sat outside it — which meant the object
-     * handed to it in dev was `Debug\TraceableSerializer`, and that class implements five
-     * of the interfaces below but not the two context-aware ones. The container then
-     * fataled on the constructor's intersection type, in the error controller, where a
-     * fatal takes the error page with it.
-     *
-     * Being innermost is also the better measurement: the span covers the serializer
-     * doing the work, not the profiler's wrapper around it.
+     * Innermost decorator, inside `debug.serializer`, which does not implement the context-aware
+     * interfaces this decorator requires.
      */
     private const int DECORATION_PRIORITY = 32;
 
     /**
-     * Every interface the decorator has to forward; a serializer missing one
-     * of them cannot be wrapped without narrowing what its callers can do.
-     * Symfony's own Serializer implements all five.
+     * Interfaces the decorator forwards; a serializer missing one is not wrapped.
      *
      * @var list<class-string>
      */
@@ -115,10 +103,6 @@ final readonly class SerializerInstrumentationCompilerPass implements CompilerPa
             return;
         }
 
-        // The class this decorator will actually be handed, which is not necessarily the
-        // decorated service's: anything decorating it at a higher priority lands between
-        // the two. Checking the wrong one is what produced a constructor TypeError at
-        // runtime instead of a skipped decoration at compile time.
         $class = $this->resolveClass($container, DecorationChain::innerId($container, $id, self::DECORATION_PRIORITY));
 
         if ($class === null || !$this->isFullSerializer($class)) {
@@ -146,8 +130,7 @@ final readonly class SerializerInstrumentationCompilerPass implements CompilerPa
     }
 
     /**
-     * A named serializer is registered as a child of "serializer" and inherits
-     * its class, so the parents have to be walked before the class is known.
+     * Named serializers inherit their class from `serializer`, so parents are walked.
      *
      * @return class-string|null
      */

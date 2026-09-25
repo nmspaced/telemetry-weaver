@@ -13,8 +13,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
 /**
- * A real `InMemoryTelemetry` plus a reporter, shared by the mailer/console/scheduler
- * instrumentation adapter tests so each leaf class only carries the scenarios specific to it.
+ * A real `InMemoryTelemetry` and reporter for the mailer, console and scheduler adapter tests.
  *
  * @internal
  */
@@ -37,11 +36,7 @@ abstract class FrameworkInstrumentationTestCase extends TestCase
         $this->telemetry->shutdown();
     }
 
-    /**
-     * One exported span, asserted to exist. Indexing spans() directly turns a missing
-     * span into a confusing type error further down instead of the assertion failure it
-     * actually is.
-     */
+    /** One exported span, failing the test if it is missing. */
     protected function span(int $index = 0): SpanDataInterface
     {
         return $this->telemetry->spans()[$index] ?? Assert::fail('no exported span at index ' . $index);

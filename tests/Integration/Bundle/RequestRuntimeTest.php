@@ -91,12 +91,7 @@ final class RequestRuntimeTest extends ContainerTestCase
         self::assertTrue($container->initialized(MetricExporterFactory::class));
     }
 
-    /**
-     * FRANKENPHP_RESET_KERNEL builds a container per request like FPM does, so it takes the same
-     * opt-in, while its resource keeps the worker thread's detected id.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function deltaOptInExportsFromAResetKernelWorker(): void
     {

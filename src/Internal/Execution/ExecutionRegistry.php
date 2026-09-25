@@ -8,17 +8,8 @@ use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * Per-execution state, keyed weakly by the object the execution is about.
- *
- * Weak, because the registry must never be what keeps that object alive:
- * kernel.terminate is the normal end of an entry but it is not guaranteed —
- * exit(), a fatal, an aborted StreamedResponse all skip it — and in a worker
- * a strong reference from a process-lifetime service turns every such
- * execution into a permanent leak.
- *
- * reset() is the backstop, and it is the caller's job to run it: Symfony does
- * so through the kernel.reset tag, and a hand-written worker loop has to call
- * $kernel->reset() itself.
+ * Per-execution state, keyed weakly so a missed terminate cannot leak in a worker.
+ * `reset()` (via `kernel.reset`) abandons whatever is still open.
  *
  * @template TEntry of ExecutionEntry
  */
@@ -42,9 +33,7 @@ final class ExecutionRegistry implements ResetInterface
     }
 
     /**
-     * The entry for $key, creating it on first call. A second open() for the
-     * same key hands back what is already there rather than replacing it —
-     * two spans for one request would both be wrong.
+     * The entry for $key, created on first call and reused afterwards.
      *
      * @param \Closure(): TEntry $create
      *
@@ -69,10 +58,7 @@ final class ExecutionRegistry implements ResetInterface
         return $this->entries[$key] ?? null;
     }
 
-    /**
-     * Normal end: forget the entry first, so a throwing complete() cannot
-     * leave a half-dead record behind for the next lookup to find.
-     */
+    /** Forgets the entry before completing it, so a failure cannot leave it behind. */
     public function close(object $key): void
     {
         $entry = $this->entries[$key] ?? null;
@@ -85,14 +71,7 @@ final class ExecutionRegistry implements ResetInterface
         $entry->complete();
     }
 
-    /**
-     * Releases whatever is still open, innermost first: a scope detached out
-     * of order reports a mismatch, and the last one opened is the innermost.
-     *
-     * One entry failing must not strand the ones behind it — that is the whole
-     * point of a backstop — so each is attempted on its own and a failure is
-     * reported rather than swallowed.
-     */
+    /** Abandons every open entry, innermost first; one failure does not stop the rest. */
     #[\Override]
     public function reset(): void
     {

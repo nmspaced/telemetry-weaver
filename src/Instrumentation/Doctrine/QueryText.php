@@ -5,19 +5,15 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
 
 /**
- * What `db.query.text` carries.
- *
- * `Sanitized` is the default because it is what the database conventions ask for:
- * query text is recorded by default only when every literal has been replaced. `Raw` is the
- * statement exactly as sent, literals included, for an application that has decided its
- * statements carry nothing it may not export.
+ * What `db.query.text` carries. `Sanitized` is the default because the database conventions
+ * only allow query text by default once literals are replaced.
  */
 enum QueryText: string
 {
-    /** Literals replaced by `?`, comments removed; nothing when that cannot be done with certainty. */
+    /** Literals replaced by `?`, comments removed; no text when that cannot be done safely. */
     case Sanitized = 'sanitized';
 
-    /** The statement as sent, literals and all. */
+    /** The statement as sent, literals included. */
     case Raw = 'raw';
 
     case Off = 'off';

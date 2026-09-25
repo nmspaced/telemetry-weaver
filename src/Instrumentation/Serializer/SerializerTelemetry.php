@@ -12,11 +12,9 @@ use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 
 /**
+ * Spans serializer work only inside an existing trace; the duration is always measured.
+ *
  * @internal
- * Serializer work enriches an existing trace; it is not an execution boundary.
- * Messenger decodes its body and stamps before the consumer span opens, so tracing
- * those calls without a parent produces unrelated single-span traces per delivery.
- * Their duration is still measured, including failures, even without a trace.
  */
 final readonly class SerializerTelemetry
 {
@@ -36,17 +34,11 @@ final readonly class SerializerTelemetry
 
     /**
      * @template T
-     *
      * @param non-empty-string $serializer
-     *
      * @param non-empty-string $operation
-     *
      * @param array<non-empty-string, bool|float|int|string|list<string>> $spanAttributes
-     *
      * @param \Closure(Span): T $callback
-     *
      * @return T
-     *
      * @throws \Throwable
      */
     public function run(
@@ -67,7 +59,8 @@ final readonly class SerializerTelemetry
     }
 
     /**
-     * Payload size belongs only to the span, never to duration labels.
+     * Span-only; never a duration label.
+     *
      * @param int<0, max> $bytes
      */
     public function payload(int $bytes, Span $span): void
@@ -77,9 +70,7 @@ final readonly class SerializerTelemetry
 
     /**
      * @param non-empty-string $serializer
-     *
      * @param non-empty-string $operation
-     *
      * @return array<non-empty-string, string>
      */
     private function attributes(string $serializer, string $operation, ?string $format): array

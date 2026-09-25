@@ -8,8 +8,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\QueryText;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
 /**
- * Instrumentation components whose signals fire on the request path: HTTP in, HTTP out,
- * console commands and Doctrine queries.
+ * Configuration of components on the request path.
  *
  * @internal
  */
@@ -25,19 +24,8 @@ final class RequestComponents
     ];
 
     /**
-     * Workers that are never traced as commands, whatever the configuration says.
-     *
-     * Their console span would stay open for the life of the process, which is wrong in
-     * four separate ways: the span is never exported, because the SDK exports on end and
-     * the end comes when the process exits; every per-message span becomes its child, so
-     * one unbounded trace replaces one bounded trace per message; `only_with_parent`
-     * loses its meaning, because an always-valid active span makes the transport's idle
-     * BEGIN/SELECT/COMMIT look like work inside a unit of work; and the duration
-     * histogram gets one sample per process instead of one per run.
-     *
-     * Nothing is lost by excluding them. The work a worker actually does is already
-     * traced per message by the Messenger instrumentation, which is the bounded version
-     * of the same information.
+     * Worker commands that are never traced: a process-long span is never exported and would
+     * swallow every message trace. Messenger already traces their work per message.
      *
      * @var list<string>
      */
@@ -47,8 +35,7 @@ final class RequestComponents
     ];
 
     /**
-     * Noise a normal application does not want traced, but may legitimately want back:
-     * these are replaced when the key is set, unlike the workers above.
+     * Default exclusions, replaced when the key is set.
      *
      * @var list<string>
      */
@@ -85,14 +72,12 @@ final class RequestComponents
             ->end()
             ->booleanNode('record_user_id')
             ->info(
-                'Record user.id from the authenticated token. Off by default: it names a person, and a trace that carries it is personal data with everything that follows. Needs symfony/security-core.',
+                'Record user.id from the authenticated token. Off by default: it is personal data. Needs symfony/security-core.',
             )
             ->defaultFalse()
             ->end()
             ->booleanNode('record_user_roles')
-            ->info(
-                'Record user.roles from the authenticated token. Off by default like every identity capture, but this one names a group rather than a person, and it answers the question usually asked of a trace: slow for admins, or for everyone. Needs symfony/security-core.',
-            )
+            ->info('Record user.roles from the authenticated token. Off by default. Needs symfony/security-core.')
             ->defaultFalse()
             ->end()
             ->integerNode('record_exception_min_status')
@@ -142,7 +127,7 @@ final class RequestComponents
             ->arrayNode('excluded_commands')
             ->performNoDeepMerging()
             ->info(
-                'Command names to skip. Setting this replaces the defaults, except for the Messenger workers: those are always excluded, because a span covering the whole worker process is never exported, swallows every message into one trace, and defeats doctrine.only_with_parent. Their work is traced per message by the Messenger instrumentation instead.',
+                'Command names to skip. Replaces the defaults; Messenger workers are always skipped, since their work is traced per message.',
             )
             ->stringPrototype()
             ->cannotBeEmpty()
@@ -179,7 +164,7 @@ final class RequestComponents
             ->children()
             ->enumNode('query_text')
             ->info(
-                'What db.query.text carries. "sanitized" (default): literals replaced by ?, as the database conventions require for text recorded by default; nothing for a statement that cannot be sanitized with certainty. "raw": the statement as sent, literals included. "off": nothing. true and false are accepted as "raw" and "off".',
+                'What db.query.text carries: "sanitized" (literals replaced by ?), "raw" (as sent) or "off". true and false mean "raw" and "off".',
             )
             ->beforeNormalization()
             ->ifTrue(static fn(mixed $value): bool => \is_bool($value))
@@ -196,7 +181,7 @@ final class RequestComponents
             ->end()
             ->booleanNode('transactions')
             ->info(
-                'Record BEGIN, COMMIT and ROLLBACK as operations of their own, on both signals, named by db.operation.name. Nested levels are savepoint statements and are traced as statements.',
+                'Record BEGIN, COMMIT and ROLLBACK as operations of their own. Nested levels are traced as SAVEPOINT statements.',
             )
             ->defaultTrue()
             ->end()

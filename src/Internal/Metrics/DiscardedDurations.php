@@ -8,11 +8,7 @@ use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 
 /**
- * The recorder of a facade that is switched off.
- *
- * Unreachable in practice — a no-op meter hands back a `NoopDuration`, which never starts
- * a timer — and present so that the disabled facade can be assembled without naming the
- * OpenTelemetry adapter.
+ * The recorder of a disabled bundle; records nothing.
  *
  * @internal
  */

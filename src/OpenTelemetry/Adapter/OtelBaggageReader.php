@@ -10,18 +10,14 @@ use OpenTelemetry\API\Baggage\Baggage;
 use OpenTelemetry\API\Baggage\Entry;
 
 /**
- * Reads W3C baggage out of the context an operation was started in.
- *
- * Entries whose value is not a string are dropped rather than rendered. Baggage crosses
- * process boundaries as a header, so a value that is not already a string never survived
- * the trip in the first place; producing one here would invent data that no other service
- * in the trace can see.
+ * Reads W3C baggage from the context an operation was started in; non-string values are
+ * dropped.
  *
  * @internal
  */
 final readonly class OtelBaggageReader implements BaggageReader
 {
-    // @mago-expect analysis:mixed-assignment — Entry::getValue() is `mixed` by contract; the narrowing below is the point
+    // @mago-expect analysis:mixed-assignment — Entry::getValue() is mixed
     #[\Override]
     public function of(?TraceCorrelation $correlation): array
     {

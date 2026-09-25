@@ -8,22 +8,10 @@ use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 
 /**
- * Writes the current trace context into the request's headers.
+ * Writes the current trace context into a request's headers, also for excluded hosts.
  *
- * The propagator's own fields are replaced rather than added to: two `traceparent`
- * headers are not a valid request, and whichever the server picked would be a coin toss.
- * Everything else the caller passed survives — authorization, content type, the
- * application's own correlation headers — because this decorator has no business
- * editing a request beyond its own concern, and nothing about the body is touched.
- *
- * Headers reach Symfony in two shapes: a map of name to value, and a list of raw
- * `Name: value` strings. Both are accepted, and a header is removed by whichever of the
- * two spellings it arrived in.
- *
- * Injection happens even for a request whose span is excluded. An excluded host is a
- * statement about what this process records, not about what the next service is allowed
- * to know: dropping the header there would break the trace at the boundary rather than
- * at the exclusion.
+ * The propagator's fields replace any the caller set; other headers are kept. Both header
+ * shapes Symfony accepts (a name => value map and raw `Name: value` lines) are handled.
  */
 final readonly class RequestPropagation
 {
@@ -86,10 +74,7 @@ final readonly class RequestPropagation
         return $kept;
     }
 
-    /**
-     * The header's name, folded for comparison — the map key when there is one, and
-     * otherwise whatever precedes the colon of a raw header line.
-     */
+    /** The lower-cased header name, from the map key or the raw `Name: value` line. */
     private static function nameOf(string|int $key, mixed $value): string
     {
         if (\is_string($key)) {

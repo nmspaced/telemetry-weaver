@@ -16,24 +16,17 @@ use PHPUnit\Framework\Attributes\Test;
 
 /**
  * The handler must survive a failing export without re-entering itself or raising at the call
- * site, and its per-channel logger cache must stay bounded under worker-mode load. Record
- * mapping lives in {@see OtelLogHandlerTest}.
+ * site, and its per-channel logger cache must stay bounded under worker-mode load.
  */
 #[CoversClass(OtelLogHandler::class)]
 #[CoversClass(ChannelLoggers::class)]
 final class OtelLogHandlerResilienceTest extends OtelLogHandlerTestCase
 {
-    /**
-     * The export path reports its own failures through a PSR logger, which in a Symfony
-     * application is Monolog — so without the guard the report would arrive back here and
-     * export again, forever.
-     */
     #[Test]
     public function aLogEmittedWhileExportingDoesNotReEnterTheHandler(): void
     {
         $logger = null;
         $provider = new ThrowingLoggerProvider(static function () use (&$logger): void {
-            // What the export path does when it fails: it logs about it.
             $logger?->error('the export failed');
         });
 
@@ -58,14 +51,7 @@ final class OtelLogHandlerResilienceTest extends OtelLogHandlerTestCase
         self::assertNotSame([], $reported->records);
     }
 
-    /**
-     * `Logger::withName()` makes a channel out of any string, and a handler that kept one
-     * logger per name for the life of a worker would grow with every name ever seen. The
-     * cache is capped; a channel past the cap still exports under its own scope, it is
-     * just not remembered.
-     *
-     * @throws \ReflectionException
-     */
+    /** @throws \ReflectionException */
     #[Test]
     public function theLoggerCacheIsBoundedButEveryChannelStillExports(): void
     {

@@ -36,9 +36,7 @@ final readonly class RequestTraceRegistry implements ResetInterface
     }
 
     /**
-     * Null means the request goes untraced: a replaced boundary telemetry that throws
-     * here must not turn a working request into a 500, which is the same reason the
-     * metric side guards its own setup.
+     * Null when the span cannot be started; the request then goes untraced instead of failing.
      *
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
      */

@@ -7,10 +7,9 @@ namespace Nmspaced\TelemetryWeaver\Internal\Runtime;
 use OpenTelemetry\API\Common\Time\ClockInterface;
 
 /**
- * @internal One flush: its deadline and the share each destination was given of it.
+ * One flush: its deadline and each destination's share. Dropped when the flush ends.
  *
- * Not readonly: shares are opened as destinations are first served. The whole object is
- * dropped by `FlushBudget::end()`, so nothing about one flush can leak into the next.
+ * @internal
  */
 final class FlushWindow
 {

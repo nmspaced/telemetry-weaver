@@ -10,35 +10,11 @@ use OpenTelemetry\SDK\Metrics\InstrumentType;
 use OpenTelemetry\SDK\Metrics\MetricMetadataInterface;
 
 /**
- * @internal Aggregation temporality per instrument kind, chosen before the first measurement.
+ * @internal
  *
- * Replaces what the SDK derives from `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`,
- * because the installed OTLP exporter factory gets it wrong in both non-default modes:
- *
- *  - `delta` becomes `Temporality::DELTA` for every instrument. An UpDownCounter or an
- *    observable UpDownCounter is a current state — `php.memory.usage`, active requests — and
- *    exported as delta it turns into a chain of increments whose absolute value exists only
- *    inside a stateful `deltatocumulative` downstream. When that processor restarts, the
- *    baseline is gone and every reconstructed value after it is wrong, silently.
- *  - `lowmemory` becomes `null`, which falls back to the stream's own temporality: DELTA for
- *    every synchronous instrument, the UpDownCounter included.
- *
- * The specification's table is what is implemented here instead:
- *
- *   | instrument                     | cumulative | delta      | lowmemory  |
- *   |--------------------------------|------------|------------|------------|
- *   | Counter, Histogram             | Cumulative | Delta      | Delta      |
- *   | Asynchronous Counter           | Cumulative | Delta      | Cumulative |
- *   | UpDownCounter (both kinds)     | Cumulative | Cumulative | Cumulative |
- *   | Gauge (both kinds)             | Cumulative | Cumulative | Cumulative |
- *
- * Gauges have no temporality on the wire; Cumulative is the stream's natural mode for an
- * observation and keeps the last value, which is what a gauge means.
- *
- * Never `null`. `ExportingReader` does not read `null` as "use the default" — it skips
- * registering the metric source, so the instrument records into nothing and nothing says so.
- * An instrument kind this class does not know yet is exported Cumulative, the one mode that
- * cannot misrepresent a value, rather than disappearing.
+ * Aggregation temporality per instrument kind, following the OTLP exporter specification
+ * rather than the SDK factory, which also makes UpDownCounters delta. Never returns null:
+ * `ExportingReader` would silently drop the instrument.
  */
 final readonly class MetricTemporality implements AggregationTemporalitySelectorInterface
 {

@@ -9,7 +9,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Routing\RequestRouteTem
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Per-request decisions independent of the scope lifecycle: whether it needs a span and what to name it.
+ * Whether a request gets a span, and what it is named.
  */
 final readonly class RequestPolicy
 {
@@ -32,7 +32,7 @@ final readonly class RequestPolicy
     }
 
     /**
-     * @return string|null null means the route wasn't resolved, not an error
+     * @return string|null null when the route is not resolved
      */
     public function routeTemplate(Request $request): ?string
     {

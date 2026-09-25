@@ -7,14 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Http;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * The request method as semconv wants it reported.
- *
- * Read from the wire, before Symfony's application-level method override:
- * http.request.method describes what the client actually sent.
- *
- * Anything outside the known list becomes _OTHER, so the attribute cannot
- * become an unbounded label; the original is preserved separately when the
- * two differ.
+ * The request method as sent on the wire, before Symfony's method override. Unknown
+ * methods become `_OTHER`, with the original kept separately.
  */
 final readonly class HttpMethod
 {
@@ -44,11 +38,7 @@ final readonly class HttpMethod
         return new self($method !== '' && $known->contains($method) ? $method : self::OTHER, $original);
     }
 
-    /**
-     * Whether the original spelling is worth reporting alongside the
-     * normalized one. An unreadable REQUEST_METHOD has no original to report,
-     * and writing an empty attribute would say less than writing none.
-     */
+    /** Whether a non-empty original spelling differs from the normalized value. */
     public function hasDistinctOriginal(): bool
     {
         return $this->original !== '' && $this->original !== $this->value;

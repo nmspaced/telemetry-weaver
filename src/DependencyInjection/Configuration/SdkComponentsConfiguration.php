@@ -8,12 +8,9 @@ use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\OtlpProtocol;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
 /**
- * The `sdk` keys that name an application's own link of the export pipeline.
+ * The `sdk` keys that name an application's own service for a link of the export pipeline.
  *
- * Each value is a service id. None duplicates an OTEL_* variable: the variables choose among the
- * implementations the SDK knows, these hand the pipeline one it does not. The ids are checked by
- * `SdkComponentsCompilerPass` rather than here, because only the compiled container knows
- * whether a service exists, what it implements, and which keys it makes meaningless.
+ * The ids are validated by `SdkComponentsCompilerPass`, where the services are known.
  */
 final class SdkComponentsConfiguration
 {
@@ -43,11 +40,7 @@ final class SdkComponentsConfiguration
     }
 
     /**
-     * The traces signal, plus the three trace decisions no OTEL_* variable can express.
-     *
-     * They live on `traces` rather than in {@see self::signal()} because there is nothing
-     * equivalent for metrics or logs: a meter has no sampler, and a log record no trace id
-     * of its own to generate.
+     * The traces signal, plus its sampler, id generator and span processors.
      *
      * @throws \RuntimeException
      */
@@ -66,9 +59,7 @@ final class SdkComponentsConfiguration
         $node
             ->children()
             ->scalarNode('sampler')
-            ->info(
-                'Service implementing the SDK SamplerInterface, used instead of OTEL_TRACES_SAMPLER. For a decision the variable cannot express: per route, per tenant, per anything the request carries.',
-            )
+            ->info('Service implementing the SDK SamplerInterface, used instead of OTEL_TRACES_SAMPLER.')
             ->defaultNull()
             ->end()
             ->scalarNode('id_generator')
@@ -83,7 +74,7 @@ final class SdkComponentsConfiguration
     }
 
     /**
-     * The metrics signal, plus the views the SDK has no other way to register.
+     * The metrics signal, plus its views.
      *
      * @throws \RuntimeException
      */
@@ -91,9 +82,7 @@ final class SdkComponentsConfiguration
     {
         $views = new ArrayNodeDefinition('views');
         $views
-            ->info(
-                'Services of type MetricView, each pairing a selection criteria with a view template. For what instrumentation.<component>.duration_buckets cannot reach: an instrument the bundle did not create, or an attribute key whose cardinality has to be cut at the source.',
-            )
+            ->info('Services of type MetricView, each pairing a selection criteria with a view template.')
             ->scalarPrototype()
             ->end()
             ->defaultValue([]);
@@ -111,13 +100,13 @@ final class SdkComponentsConfiguration
             ->children()
             ->scalarNode('provider')
             ->info(
-                'Service implementing the SDK provider interface of this signal. The bundle still registers it for the boundary flush and shutdown and hands it to Globals; nothing inside it is wrapped.',
+                'Service implementing the SDK provider interface of this signal. Still flushed and shut down by the bundle; nothing inside it is wrapped.',
             )
             ->defaultNull()
             ->end()
             ->scalarNode('exporter')
             ->info(
-                'Service implementing the SDK exporter interface of this signal, used instead of OTEL_<SIGNAL>_EXPORTER. Still wrapped by the resilient exporter and the export gate. Not allowed next to a provider.',
+                'Service implementing the SDK exporter interface of this signal, used instead of OTEL_<SIGNAL>_EXPORTER. Not allowed next to a provider.',
             )
             ->defaultNull()
             ->end()

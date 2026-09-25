@@ -17,9 +17,7 @@ use Symfony\Component\HttpKernel\Controller\ControllerResolver;
 use Symfony\Component\HttpKernel\HttpKernel;
 
 /**
- * The service graph is only ever exercised by a real compile: unit tests
- * construct these classes directly and would not notice a circular reference,
- * a missing parameter, or an argument wired to the wrong service.
+ * Compiles the real bundle container, so tests catch wiring errors unit tests miss.
  *
  * @internal
  */
@@ -28,8 +26,6 @@ abstract class ContainerTestCase extends TestCase
     #[\Override]
     protected function setUp(): void
     {
-        // Without a working exporter the provider degrades to noop, which would
-        // hide every wiring question these tests are asking.
         $_SERVER['OTEL_METRICS_EXPORTER'] = 'memory';
         $_SERVER['OTEL_TRACES_EXPORTER'] = 'memory';
     }
@@ -42,8 +38,7 @@ abstract class ContainerTestCase extends TestCase
 
     /**
      * @param array<string, mixed> $config
-     * @param bool $exposeAll make every service public for the test to reach; false compiles the
-     *                        container as a kernel does, private services removed or inlined
+     * @param bool $exposeAll make every service public; false compiles as a kernel does
      *
      * @throws \Throwable
      */
@@ -58,15 +53,11 @@ abstract class ContainerTestCase extends TestCase
         self::assertNotNull($extension);
 
         $container = new ContainerBuilder();
-        // Normally supplied by FrameworkBundle; the HTTP config reads them.
         $container->setParameter('kernel.build_dir', \sys_get_temp_dir());
         $container->setParameter('kernel.debug', false);
         $container->setParameter('kernel.runtime_mode.worker', 1);
         $container->setParameter('kernel.runtime_mode.web', true);
-        // A real, non-synthetic http_kernel: without one, a decoration of a
-        // missing service is silently dropped and takes its defects with it.
-        // FrameworkBundle always provides these two; the bundle's graph references
-        // them, so a bare ContainerBuilder has to stand them up to compile at all.
+
         $container->register('logger', RecordingLogger::class);
         $container->register('event_dispatcher', EventDispatcher::class);
         $container->register('controller_resolver', ControllerResolver::class);
@@ -82,12 +73,6 @@ abstract class ContainerTestCase extends TestCase
             $container->setDefinition('open_telemetry.metrics.loop_factory', $loopFactory);
         }
 
-        // Everything here is private, so an untouched compile would inline or
-        // drop the very definitions under test.
-        //
-        // Runs last among the before-optimization passes (a priority below the -20 of
-        // the bundle's own instrumentation passes): those passes register definitions
-        // themselves, and a pass that ran first would never see them.
         $container->addCompilerPass(
             new readonly class($exposeAll) implements CompilerPassInterface {
                 public function __construct(

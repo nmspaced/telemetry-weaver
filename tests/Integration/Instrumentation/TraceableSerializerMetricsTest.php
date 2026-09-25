@@ -18,8 +18,8 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Serializer;
 
 /**
- * Duration-histogram shape and messenger-decoding trace boundaries. Span-attribute scenarios
- * for individual operations live in {@see TraceableSerializerTest}.
+ * Duration-histogram shape and messenger-decoding trace boundaries. Span-attribute scenarios for
+ * individual operations live in {@see TraceableSerializerTest}.
  */
 final class TraceableSerializerMetricsTest extends TraceableSerializerTestCase
 {

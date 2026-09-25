@@ -10,12 +10,7 @@ use OpenTelemetry\SDK\Metrics\MeterProviderInterface;
 use OpenTelemetry\SDK\Trace\TracerProviderInterface;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * `OTEL_TRACES_EXPORTER=none` is how the SDK is told not to export anything, and the
- * SDK's own factories answer it with null. Null has to survive the trip through the
- * container: it used to reach a decorator that only accepts a real exporter, so the
- * documented way of switching a signal off took the whole container down with it.
- */
+/** `OTEL_*_EXPORTER=none` builds working providers that export nothing. */
 final class ExporterNoneTest extends ContainerTestCase
 {
     #[\Override]
@@ -46,8 +41,6 @@ final class ExporterNoneTest extends ContainerTestCase
         $tracer = $container->get(TracerInterface::class);
         self::assertInstanceOf(TracerInterface::class, $tracer);
 
-        // Nothing is exported, but instrumentation must not notice: a span still opens
-        // and closes without an exporter behind it.
         $tracer->spanBuilder('probe')->startSpan()->end();
     }
 }

@@ -10,10 +10,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Yaml\Yaml;
 
-/**
- * The example files are documentation, and documentation that does not compile is
- * worse than none: it is read as a promise. Both are fed to the real tree.
- */
+/** The example configuration files compile against the real configuration tree. */
 final class ExampleConfigTest extends ContainerTestCase
 {
     /** @return iterable<string, array{string}> */
@@ -39,12 +36,7 @@ final class ExampleConfigTest extends ContainerTestCase
         self::assertTrue($container->hasParameter('open_telemetry.enabled'));
     }
 
-    /**
-     * Every key the example shows has to reach a container parameter. A key that
-     * validates and then goes nowhere is the defect this repository has had the most of.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theKeysTheExampleShowsReachTheContainer(): void
     {

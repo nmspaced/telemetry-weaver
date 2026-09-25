@@ -24,15 +24,13 @@ use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\RawMessage;
 
 /**
- * `TraceableMailTransport` behaviour: subject redaction, transport-name resolution for
- * aggregate transports, error propagation, and the queued-mail boundary where a message is
- * only measured once the messenger handler actually hands it to the real transport.
+ * `TraceableMailTransport` behaviour: subject redaction, transport-name resolution for aggregate
+ * transports, error propagation, and the queued-mail boundary where a message is only measured once
+ * the messenger handler actually hands it to the real transport.
  */
 final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function mailerRecordsTheActualSendWithoutSensitiveContent(): void
     {
@@ -56,9 +54,7 @@ final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertSame('mailer.send.duration', $this->measurement()->name);
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function mailerSubjectIsOptInAndTransportFailureIsRethrownUnchanged(): void
     {
@@ -68,9 +64,7 @@ final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
                 private \Throwable $error,
             ) {}
 
-            /**
-             * @throws \Throwable
-             */
+            /** @throws \Throwable */
             #[\Override]
             public function send(RawMessage $message, ?Envelope $envelope = null): ?SentMessage
             {
@@ -99,9 +93,7 @@ final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertNull($this->telemetry->activeTrace());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function queuedMailIsMeasuredOnlyWhenTheMessengerHandlerSendsIt(): void
     {
@@ -133,9 +125,7 @@ final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertCount(1, $this->telemetry->spans());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theTransportThatRanIsNamedFromTheMessageNotFromTheAggregate(): void
     {

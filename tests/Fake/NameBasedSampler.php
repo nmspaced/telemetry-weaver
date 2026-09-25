@@ -10,10 +10,7 @@ use OpenTelemetry\SDK\Trace\LinkInterface;
 use OpenTelemetry\SDK\Trace\SamplerInterface;
 use OpenTelemetry\SDK\Trace\SamplingResult;
 
-/**
- * Drops spans by name — the shape of decision `OTEL_TRACES_SAMPLER` cannot express, and the
- * reason `sdk.traces.sampler` exists.
- */
+/** Drops spans by name, a decision `OTEL_TRACES_SAMPLER` cannot express. */
 final readonly class NameBasedSampler implements SamplerInterface
 {
     /**

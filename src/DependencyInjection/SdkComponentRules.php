@@ -10,19 +10,14 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * The `sdk.*` combinations the bundle refuses to compile.
- *
- * Separate from {@see SdkComponentIds}, which turns an id into a reference: this one answers
- * a different question, and the answer is always "this configuration describes a pipeline that
- * will not be built". Silence would be worse than a failed compile — the file would read as a
- * promise that something was configured.
+ * The `sdk.*` combinations that cannot be built, rejected at compile time.
  *
  * @internal
  */
 final readonly class SdkComponentRules
 {
     /**
-     * Keys describing something a provider builds for itself.
+     * Keys for things a provider builds itself.
      *
      * @var list<non-empty-string>
      */
@@ -45,8 +40,7 @@ final readonly class SdkComponentRules
     }
 
     /**
-     * The bundle's transport settings are meaningless once an application's factory covers every
-     * protocol family. While one family keeps the bundle's transport they still reach it.
+     * Transport settings are rejected once the application's factories cover every protocol family.
      *
      * @param array<string, Reference> $factories keyed by protocol family
      *

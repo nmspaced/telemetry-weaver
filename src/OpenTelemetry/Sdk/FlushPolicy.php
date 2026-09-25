@@ -11,28 +11,15 @@ use OpenTelemetry\SDK\Common\Configuration\Defaults;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 
 /**
- * How often a boundary is allowed to drain a signal's queue.
- *
- * The contract is one sentence: **the first boundary of a process flushes, and after that at
- * most one flush per interval.** The state is process-wide and keyed by signal, not held by
- * the instance, because a worker that rebuilds its container between units of work must not
- * restart the schedule with it.
- *
- * It used to skip the first boundary and flush the second immediately, to avoid paying an
- * export in a process that would end right after it. That reasoning no longer describes the
- * callers: `atBoundary()` is reached from exactly two places — a shared HTTP worker's
- * terminate and the Messenger worker loop — and every process that ends after one unit of
- * work (FPM, a kernel-rebuilding worker, any console command) goes through `atShutdown()`,
- * which ignores this policy entirely. So the skip protected nothing, and it cost the first
- * request or message of every worker its visibility: its spans waited not for the interval
- * but for a second boundary to arrive, which in a quiet worker can be a long time.
+ * How often a boundary may drain a signal's queue: the first boundary of a process flushes,
+ * then at most once per interval. State is process-wide, so it survives container rebuilds.
  *
  * @internal
  */
 final class FlushPolicy
 {
     /**
-     * @var array<string, int> the monotonic time each signal may next be flushed at
+     * @var array<string, int> monotonic time each signal may next be flushed at
      */
     private static array $state = [];
 
@@ -51,12 +38,8 @@ final class FlushPolicy
     }
 
     /**
-     * Flush as often as the SDK would have exported this signal on its own.
-     *
-     * The default, and the only correct one for traces and logs: their processors run with
-     * auto-flush off, so the boundary is the only thing that drains their queues. Holding
-     * them for the metric interval overflows a 2048-entry queue at a few dozen spans a
-     * second.
+     * Flush as often as the SDK would export on its own; required for traces and logs, whose
+     * queues only drain at boundaries.
      *
      * @param non-empty-string $signal "traces", "logs" or "metrics"
      */
@@ -66,11 +49,7 @@ final class FlushPolicy
     }
 
     /**
-     * Flush no more often than this, whatever the SDK's own schedule says.
-     *
-     * For metrics, where the application configures the boundary cadence directly: every
-     * flush is a blocking export, and this is what keeps a busy worker from paying for one
-     * at the end of every request.
+     * Flush no more often than the given interval; used for metrics.
      *
      * @param non-empty-string $signal "traces", "logs" or "metrics"
      * @param positive-int $intervalMilliseconds
@@ -84,12 +63,7 @@ final class FlushPolicy
     }
 
     /**
-     * The variable the SDK itself would schedule this signal on.
-     *
-     * Traces and logs are batched with `autoFlush` off, so the boundary is the only thing
-     * that drains their queues: they must be drained as often as the SDK would have
-     * exported them on its own, not on the metric interval. Sixty seconds of spans
-     * overflows a 2048-entry queue at a few dozen spans per second.
+     * The SDK schedule delay for this signal.
      *
      * @return positive-int
      */

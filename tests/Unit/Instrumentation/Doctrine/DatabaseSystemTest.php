@@ -37,11 +37,6 @@ final class DatabaseSystemTest extends TestCase
         self::assertSame($system, DatabaseSystem::of($driver));
     }
 
-    /**
-     * Optional parameters are omitted rather than written empty: an attribute that is
-     * present but blank is worse than an absent one, and sqlite has neither host nor
-     * database name.
-     */
     #[Test]
     public function onlyTheParametersThatExistBecomeAttributes(): void
     {

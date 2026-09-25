@@ -12,15 +12,8 @@ interface OperationContext
     public function span(): Span;
 
     /**
-     * Everything the trace is carrying here: what a caller propagated, plus whatever this
-     * operation added with `Operation::baggage()`.
-     *
-     * Read it rather than a header. A message consumer and an HTTP controller receive the
-     * same values through entirely different transports, and this is the one place both
-     * of them are already looking.
-     *
-     * Values arrive from other services, so they are input: validate before branching on
-     * one, and do not put an unbounded value into a metric attribute.
+     * Baggage propagated by the caller plus entries added by this operation. The values come
+     * from other services: treat them as input.
      *
      * @return array<non-empty-string, string>
      */
@@ -32,13 +25,8 @@ interface OperationContext
     public function metricAttributes(array $attributes): void;
 
     /**
-     * Mark the operation as failed, on the span and on its duration at once, without an
-     * exception.
-     *
-     * Sets the span status to error and `error.type` on both signals, whichever of them
-     * is enabled. The last call wins; an exception that escapes later is still recorded,
-     * but does not replace the type given here. After the operation has finished or been
-     * abandoned this does nothing. `span()->fail()` remains the span-only variant.
+     * Marks the operation as failed on both the span and the duration, without an exception.
+     * The last call wins; it does nothing after the operation has finished.
      *
      * @param non-empty-string $type a low-cardinality reason, e.g. `payment.declined`
      */

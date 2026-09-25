@@ -24,15 +24,13 @@ use Symfony\Component\Scheduler\Schedule;
 use Symfony\Component\Scheduler\Trigger\PeriodicalTrigger;
 
 /**
- * `SchedulerTelemetrySubscriber` behaviour: success/failure/cancellation span boundaries,
- * reset abandoning an unfinished task without measuring it, and the handoff to the messenger
- * consumption span when scheduler events are themselves dispatched by a worker.
+ * `SchedulerTelemetrySubscriber` behaviour: success/failure/cancellation span boundaries, reset
+ * abandoning an unfinished task without measuring it, and the handoff to the messenger consumption
+ * span when scheduler events are themselves dispatched by a worker.
  */
 final class SchedulerInstrumentationTest extends FrameworkInstrumentationTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function schedulerSuccessFailureAndCancellationRespectTheirBoundaries(): void
     {

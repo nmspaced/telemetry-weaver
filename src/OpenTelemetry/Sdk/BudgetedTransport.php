@@ -11,15 +11,11 @@ use OpenTelemetry\SDK\Common\Future\ErrorFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
 
 /**
- * @internal Rebuilds the transport with its destination's remaining share of the flush budget for each OTLP batch.
+ * @internal
  *
- * Inside a flush every send asks `FlushBudget` for a `SendAllowance` keyed by the collector's
- * origin, and reports its outcome through it: a send that timed out exhausts that collector
- * for the rest of the flush, so the next signal or batch bound for it is refused without
- * waiting, while other collectors keep their share.
+ * Sends each OTLP batch with its destination's remaining share of the flush budget. A timed-out
+ * destination is refused for the rest of the flush.
  *
- * Arbitrary transports/PSR clients may ignore timeouts: this cannot preempt their code, and a
- * destination that overran is only known to be exhausted once the send has returned.
  * @template T of string
  * @implements TransportInterface<T>
  */

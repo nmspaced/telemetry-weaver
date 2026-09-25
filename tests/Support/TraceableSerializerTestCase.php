@@ -38,9 +38,7 @@ use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * A real `TraceableSerializer` wired to the production instrumentation, over an in-memory
- * tracer/meter pair. Shared by the serializer instrumentation test classes so each one only
- * carries the scenarios specific to it.
+ * A real `TraceableSerializer` over an in-memory tracer and meter.
  *
  * @internal
  */

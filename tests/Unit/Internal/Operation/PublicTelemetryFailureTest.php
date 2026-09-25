@@ -12,16 +12,13 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Error and `fail()` outcome semantics: an unhandled exception, the domain error type
- * winning over a merely-recorded exception event, `fail()` marking both signals without
- * an exception, the last explicit type winning over a later exception, and `fail()` after
- * completion changing nothing. Core lifecycle lives in {@see PublicTelemetryTest}.
+ * Error and `fail()` outcome semantics: an unhandled exception, the domain error type winning over
+ * a merely-recorded exception event, `fail()` marking both signals without an exception, the last
+ * explicit type winning over a later exception, and `fail()` after completion changing nothing.
  */
 final class PublicTelemetryFailureTest extends PublicTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function unhandledExceptionKeepsIdentityAndOneMatchingErrorOutcome(): void
     {
@@ -58,9 +55,7 @@ final class PublicTelemetryFailureTest extends PublicTelemetryTestCase
         self::assertNull($this->contextStorage->scope());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function domainErrorTypeWinsAndAnExceptionEventAloneDoesNotMarkFailure(): void
     {
@@ -79,14 +74,7 @@ final class PublicTelemetryFailureTest extends PublicTelemetryTestCase
         self::assertSame(StatusCode::STATUS_UNSET, $this->exportedSpan(1)->getStatus()->getCode());
     }
 
-    /**
-     * A logical failure — a declined payment, an empty stock — is not an exception, and
-     * it has to mark both signals at once. Before `fail()` a caller had `span()->fail()`,
-     * which left the duration recorded as a success, and nothing at all in metric-only
-     * mode, where the span is inert.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('signals')]
     public function failMarksBothSignalsWithoutAnException(bool $traces, bool $metrics): void
@@ -118,12 +106,7 @@ final class PublicTelemetryFailureTest extends PublicTelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * The explicit type is what the caller knows about the failure; an exception thrown
-     * afterwards is recorded as an event but does not overwrite that type.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theLastExplicitTypeWinsOverALaterException(): void
     {
@@ -143,7 +126,6 @@ final class PublicTelemetryFailureTest extends PublicTelemetryTestCase
                     },
                 );
         } catch (\RuntimeException $runtimeException) {
-            // The application exception escapes, as always.
             self::assertSame('gateway said no', $runtimeException->getMessage());
         }
 
@@ -165,7 +147,6 @@ final class PublicTelemetryFailureTest extends PublicTelemetryTestCase
         $abandoned->abandon();
         $abandoned->fail('too.late');
 
-        // An abandoned span is still ended — only its duration is discarded.
         self::assertCount(2, $this->exported());
         self::assertSame(StatusCode::STATUS_UNSET, $this->exportedSpan()->getStatus()->getCode());
         self::assertSame(StatusCode::STATUS_UNSET, $this->exportedSpan(1)->getStatus()->getCode());

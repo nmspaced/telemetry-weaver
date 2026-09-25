@@ -69,7 +69,6 @@ final class MessengerLifecycleTest extends MessengerTelemetryTestCase
             $priority,
         );
         if ($eventClass === WorkerMessageHandledEvent::class) {
-            // Symfony turns a Handled listener exception into a Failed event.
             $dispatcher->addListener(
                 WorkerMessageFailedEvent::class,
                 /** @throws \Throwable */ static function (WorkerMessageFailedEvent $event) use ($error): never {
@@ -240,7 +239,6 @@ final class MessengerLifecycleTest extends MessengerTelemetryTestCase
                 $event->getWorker()->stop();
             }
         });
-        // Unlike InMemoryTransport, a broker hides deliveries while they await ack.
         $receiver = $this->createMock(ReceiverInterface::class);
         $receiver
             ->expects(self::exactly(3))
@@ -267,11 +265,6 @@ final class MessengerLifecycleTest extends MessengerTelemetryTestCase
             2,
             MessengerMetricAssertions::counter($this->metrics, 'messaging.client.consumed.messages')->value,
         );
-        // One span per bus dispatch: two deliveries, then at least one flush envelope. How many
-        // flush envelopes the worker sends is its own business and has changed between Symfony
-        // patch releases — 8.1.0 reaches `flush()` on more loop iterations than 8.1.7 does, and
-        // both are correct. What this test owns is the two assertions above it: every delivery
-        // was acked exactly once, and no scope survived between them.
         self::assertGreaterThanOrEqual(
             3,
             \count(MessengerSpanAssertions::spansNamed($this->spans, 'process async')),

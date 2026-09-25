@@ -15,10 +15,6 @@ use Psr\Log\AbstractLogger;
 #[CoversClass(InstrumentationFailureReporter::class)]
 final class TelemetryReporterTest extends TestCase
 {
-    /**
-     * A systemic breakage fires on every request; an unlimited warning at
-     * high rps becomes its own incident.
-     */
     #[Test]
     public function theBurstIsFollowedByOneLinePerInterval(): void
     {
@@ -52,10 +48,6 @@ final class TelemetryReporterTest extends TestCase
         self::assertSame($cause, $logger->contextAt(0)['exception'] ?? null);
     }
 
-    /**
-     * The reporter is called from finally blocks that are already unwinding
-     * an application exception. A broken logger must not replace it.
-     */
     #[Test]
     public function aBrokenLoggerIsSwallowed(): void
     {

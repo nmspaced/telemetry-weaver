@@ -19,20 +19,10 @@ interface Operation
     public function kind(SpanKind $kind): self;
 
     /**
-     * Values carried with the trace, into this operation and every service it calls.
+     * Values sent with the trace to every service this operation calls.
      *
-     * Baggage is not an attribute. An attribute describes the span it is set on and stops
-     * there; baggage is added to the outgoing headers of every request made inside the
-     * operation, so it leaves this process and reaches services that are not yours. Put a
-     * tenant or a feature-flag cohort in it — something the whole call graph needs to
-     * agree on — and never a token, a personal identifier, or anything whose disclosure
-     * you would have to report. There is no way to unsend it.
-     *
-     * Entries add to whatever the caller already propagated; a repeated key replaces it
-     * for this operation and everything it calls, not for the caller.
-     *
-     * An operation whose span is suppressed carries no baggage: the entries live in the
-     * context activation the span owns, and there is none.
+     * Baggage leaves the process: never put secrets or personal data in it. A repeated key
+     * overrides the caller's value for this operation only.
      *
      * @param array<non-empty-string, string> $entries
      */
@@ -55,7 +45,7 @@ interface Operation
     public function run(\Closure $work): mixed;
 
     /**
-     * The caller must finish or abandon this operation in the execution context that started it.
+     * Starts the operation; the caller must finish or abandon it in the same execution.
      */
     public function start(): RunningOperation;
 }

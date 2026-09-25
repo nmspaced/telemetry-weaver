@@ -12,10 +12,6 @@ use OpenTelemetry\Context\ContextInterface;
 /**
  * An extracted OpenTelemetry context, carried as an opaque incoming trace.
  *
- * The context is always resolved against the root, so an unusable carrier yields a context
- * that is simply empty — which is exactly what "the boundary carried nothing" should mean
- * when it is used as a parent. No branch is needed anywhere else.
- *
  * @internal
  */
 final readonly class OtelIncomingTrace implements IncomingTrace
@@ -25,9 +21,7 @@ final readonly class OtelIncomingTrace implements IncomingTrace
     ) {}
 
     /**
-     * A context a propagator resolved from a carrier. It may still be empty — that is what
-     * `isValid()` answers — and an empty one is the honest result of a boundary that
-     * carried nothing.
+     * A context a propagator extracted; it may be empty when the carrier had no trace.
      */
     public static function extracted(ContextInterface $context): self
     {
@@ -35,11 +29,7 @@ final readonly class OtelIncomingTrace implements IncomingTrace
     }
 
     /**
-     * A boundary that carried no trace at all.
-     *
-     * The root context, which as a parent means "start a new trace" rather than "continue
-     * whatever this process is doing" — the distinction the whole incoming-trace type
-     * exists to keep.
+     * A boundary that carried no trace: the root context, so a new trace starts.
      */
     public static function none(): self
     {

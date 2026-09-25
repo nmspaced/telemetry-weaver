@@ -68,9 +68,7 @@ final class FrameworkInstrumentationRegistrationTest extends ContainerTestCase
             ]);
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function compiledClientsResolveScopesAndRetriesWithoutDuplicateSpans(): void
     {
@@ -126,13 +124,7 @@ final class FrameworkInstrumentationRegistrationTest extends ContainerTestCase
         }
     }
 
-    /**
-     * Either signal keeps an adapter that only records. The HTTP client also carries trace
-     * context and baggage to the next service, which the global signal switches do not
-     * govern, so it stays decorated with both of them off.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('switches')]
     public function eitherSignalKeepsTheAdapters(bool $traces, bool $metrics): void
@@ -148,9 +140,7 @@ final class FrameworkInstrumentationRegistrationTest extends ContainerTestCase
         self::assertTrue($container->has(ConsoleFlushSubscriber::class));
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function disablingTheBundleRegistersNoAdaptersOrFlushSubscribers(): void
     {

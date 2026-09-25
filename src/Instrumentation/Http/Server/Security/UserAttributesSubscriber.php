@@ -12,20 +12,8 @@ use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * Puts the authenticated user on the server span, once the firewall has decided who it is.
- *
- * On `kernel.controller` rather than `kernel.request`: the firewall authenticates during
- * `kernel.request`, and at the priority the server span is opened at (2048) there is no token
- * yet. By the time a controller has been resolved there is one, and the span this writes to
- * is still open — it is not closed until `kernel.response`.
- *
- * Only the main request. A sub-request is handled inside the main one's span, so writing the
- * same attributes again would be at best a no-op and at worst a different user's identity on
- * a span that already names one.
- *
- * The token is read only once there is a span to write it to, and never before. That ordering
- * is not an optimisation: reading the token has consequences for the response — see
- * {@see UserAttributes} — so a request the bundle is not tracing must not pay them.
+ * Adds the authenticated user to the main request's server span on `kernel.controller`, after
+ * the firewall has run. The token is read only when a span exists.
  *
  * @internal
  */
@@ -60,8 +48,6 @@ final readonly class UserAttributesSubscriber implements EventSubscriberInterfac
         try {
             $attributes = $this->users->current();
         } catch (\Throwable $throwable) {
-            // A token storage that throws is the application's problem, not the request's:
-            // reading who is logged in must never be the reason a response is not produced.
             $this->reporter->report('User attribute resolution failed', self::class, $throwable);
 
             return;

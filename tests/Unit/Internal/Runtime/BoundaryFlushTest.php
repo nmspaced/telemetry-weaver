@@ -62,10 +62,6 @@ final class BoundaryFlushTest extends TestCase
         self::assertNotSame([], $this->exporter->collect(true));
     }
 
-    /**
-     * The interval is what keeps a busy worker from paying a blocking export at the end of
-     * every request; the first boundary starts it rather than being exempt from it.
-     */
     #[Test]
     public function aBoundaryInsideTheIntervalExportsNothing(): void
     {
@@ -82,9 +78,6 @@ final class BoundaryFlushTest extends TestCase
         self::assertSame([], $this->exporter->collect(true));
     }
 
-    /**
-     * A failing export must not break request termination: the response is already sent, but an exception here still aborts a worker loop.
-     */
     #[Test]
     public function anExportFailureIsSwallowedAndReported(): void
     {

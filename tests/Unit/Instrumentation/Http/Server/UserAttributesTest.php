@@ -15,7 +15,7 @@ use Symfony\Component\Security\Core\User\InMemoryUser;
 /**
  * Identity on a span is the most consequential capture the bundle offers: a trace carrying
  * `user.id` is personal data, and the backend holding it is rarely governed as tightly as the
- * application's own database. So every test here is about it staying off unless asked for.
+ * application's own database.
  */
 #[CoversClass(UserAttributes::class)]
 final class UserAttributesTest extends TestCase
@@ -37,11 +37,6 @@ final class UserAttributesTest extends TestCase
         self::assertSame(['user.id' => 'alice'], new UserAttributes($storage, recordUserId: true)->current());
     }
 
-    /**
-     * Roles name a group rather than a person, so they are switchable on their own — the
-     * common case is wanting to know whether a request was slow for admins without putting
-     * anyone's identity in the trace.
-     */
     #[Test]
     public function rolesAreRecordedWithoutTheIdentifier(): void
     {
@@ -53,9 +48,6 @@ final class UserAttributesTest extends TestCase
         );
     }
 
-    /**
-     * "anonymous" as an attribute value would be a series and a lie at the same time.
-     */
     #[Test]
     public function anUnauthenticatedRequestCarriesNothing(): void
     {
@@ -74,9 +66,7 @@ final class UserAttributesTest extends TestCase
         self::assertSame([], $users->current());
     }
 
-    /**
-     * @param list<string> $roles
-     */
+    /** @param list<string> $roles */
     private function storageFor(string $identifier, array $roles): TokenStorage
     {
         $storage = new TokenStorage();

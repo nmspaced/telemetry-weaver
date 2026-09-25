@@ -70,7 +70,7 @@ final class DestinationCooldownTest extends FlushBudgetTestCase
     {
         $budget = $this->budget(self::A, self::B);
         $budget->begin();
-        // Something slow spent most of the budget before this collector's turn.
+
         $this->clock->advanceSeconds(0.8);
 
         $this->send($budget, self::A, seconds: 0.1, expected: 0.1, failed: true);

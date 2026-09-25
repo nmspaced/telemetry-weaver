@@ -39,9 +39,8 @@ final readonly class ResilientMetricsExporter implements
     }
 
     /**
-     * Sends only metrics that carry data points. The SDK collects a cumulative instrument that
-     * was never recorded as a metric without any, and Prometheus's OTLP receiver rejects the
-     * whole request over it.
+     * Sends only metrics with data points; the Prometheus OTLP receiver rejects a request with
+     * an empty one.
      *
      * @param iterable<Metric> $batch
      */

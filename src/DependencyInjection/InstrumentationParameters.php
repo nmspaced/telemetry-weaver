@@ -7,24 +7,17 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ParametersConfigurator;
 
 /**
- * Flattens the `instrumentation` tree into container parameters.
+ * Flattens the `instrumentation` tree into container parameters: one boolean per signal plus
+ * each option.
  *
- * Lives outside the bundle class because that class is already the largest thing in the
- * package, and because this is one job with one rule: every component becomes one
- * boolean per signal plus whatever options it carries.
- *
- * An option a signal can override is written twice — once component-wide and once per
- * signal — so a service reads a single flat parameter and never has to know the value
- * could have come from two places. That is what lets `/health` stay out of traces while
- * still being counted in metrics without a conditional anywhere below this file.
+ * An option a signal can override is written both component-wide and per signal, so services
+ * read one flat parameter.
  */
 final readonly class InstrumentationParameters
 {
     private const string PREFIX = 'open_telemetry.instrumentation.';
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     private const array SIGNALS = ['traces', 'metrics'];
 
     /**

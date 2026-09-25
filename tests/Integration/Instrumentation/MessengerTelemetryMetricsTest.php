@@ -10,8 +10,8 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 
 /**
  * `messaging.client.operation.duration`, `messaging.process.duration` and the sent/consumed
- * counters: their labels, and which of send/process/dispatch each one counts. Span structure
- * lives in {@see MessengerTelemetryTest}.
+ * counters: their labels, and which of send/process/dispatch each one counts. Span structure lives
+ * in {@see MessengerTelemetryTest}.
  */
 final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
 {
@@ -46,12 +46,7 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
         );
     }
 
-    /**
-     * The conventions count *attempts*, so a send that threw still counts — with
-     * error.type, which a successful one must not carry.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aFailedSendIsStillCountedAsAnAttempt(): void
     {
@@ -62,7 +57,6 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
             $bus->dispatch(new SampleMessage('otel'));
             self::fail('the transport was expected to reject the message');
         } catch (\RuntimeException $runtimeException) {
-            // The application sees the failure; the counter is what matters here.
             self::assertNotSame('', $runtimeException->getMessage());
         }
 
@@ -73,12 +67,7 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
         self::assertSame(\RuntimeException::class, $sent->attributes->get('error.type'));
     }
 
-    /**
-     * A consumption is counted once per delivery, not per successful handling: the
-     * conventions put the outcome in messaging.process.duration, not in this counter.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aMessageThatBlowsUpInItsHandlerIsStillCountedAsConsumed(): void
     {
@@ -127,12 +116,7 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
         );
     }
 
-    /**
-     * An in-process dispatch creates a message without sending it, and the conventions
-     * say this metric must not count those.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aSynchronousDispatchIsNotCountedAsSent(): void
     {
@@ -142,18 +126,10 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
 
         $this->reader->collect();
 
-        // The instrument exists from construction, so the stream is exported either way;
-        // what must be absent is a measurement in it.
         self::assertSame([], MessengerMetricAssertions::dataPointsOf($this->metrics, 'messaging.client.sent.messages'));
     }
 
-    /**
-     * `messaging.client.operation.duration` measures talking to a broker. A synchronous
-     * dispatch never does, and its duration — handler included — would drag the send
-     * percentiles of every async message along with it.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aSynchronousDispatchRecordsNoClientDuration(): void
     {
@@ -169,11 +145,7 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
         );
     }
 
-    /**
-     * Only the send reaches the client histogram, once per transport.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theClientDurationCountsSendsOnly(): void
     {

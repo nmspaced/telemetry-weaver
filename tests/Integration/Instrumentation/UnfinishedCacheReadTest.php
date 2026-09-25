@@ -15,20 +15,14 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 /**
- * A batch read that never reaches its end, in a worker that outlives the request. It must
- * neither claim a read that nobody saw finish nor stay open for the life of the process.
+ * A batch read that never reaches its end, in a worker that outlives the request. It must neither
+ * claim a read that nobody saw finish nor stay open for the life of the process.
  */
 #[CoversClass(LazyCacheRead::class)]
 #[CoversClass(PendingOperations::class)]
 final class UnfinishedCacheReadTest extends CacheTelemetryTestCase
 {
-    /**
-     * A result dropped unread records nothing. Nobody saw the read finish, and there is no
-     * destructor to claim otherwise: in a worker, a destructor runs at `exit` or during a
-     * collection in some later request.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aResultDroppedUnreadRecordsNothing(): void
     {
@@ -40,13 +34,7 @@ final class UnfinishedCacheReadTest extends CacheTelemetryTestCase
         self::assertNull(Context::storage()->scope());
     }
 
-    /**
-     * The worker boundary closes what the request left unread: the span ends, and no
-     * duration is recorded for a read that never happened. Reading the result later
-     * still works, but it no longer belongs to any operation.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aWorkerResetAbandonsAnUnreadBatch(): void
     {
@@ -62,12 +50,7 @@ final class UnfinishedCacheReadTest extends CacheTelemetryTestCase
         self::assertSame(0, $this->recorded()['durations']);
     }
 
-    /**
-     * Only the root pool is a service the worker resets, so a pool derived from it shares
-     * its pending reads.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theParentsResetAbandonsASubNamespaceRead(): void
     {

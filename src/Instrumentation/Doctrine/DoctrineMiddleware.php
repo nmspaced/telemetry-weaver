@@ -8,8 +8,7 @@ use Doctrine\DBAL\Driver;
 use Doctrine\DBAL\Driver\Middleware;
 
 /**
- * The entry point DBAL offers for third-party instrumentation. DoctrineBundle hands
- * this to every configured connection through the `doctrine.middleware` tag.
+ * DBAL entry point; DoctrineBundle applies it to every connection via `doctrine.middleware`.
  */
 final readonly class DoctrineMiddleware implements Middleware
 {

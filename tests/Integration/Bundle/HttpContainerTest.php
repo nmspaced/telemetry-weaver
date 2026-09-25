@@ -18,12 +18,7 @@ use Symfony\Component\HttpKernel\HttpKernel;
 #[CoversClass(TelemetryWeaverBundle::class)]
 final class HttpContainerTest extends ContainerTestCase
 {
-    /**
-     * Instantiation, not just compilation: argument order only fails when the
-     * constructor actually runs.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theHttpSubscriberIsInstantiable(): void
     {
@@ -35,13 +30,7 @@ final class HttpContainerTest extends ContainerTestCase
         self::assertInstanceOf(RequestMeasurementRegistry::class, $container->get(RequestMeasurementRegistry::class));
     }
 
-    /**
-     * The package instruments through the dispatcher. Decorating http_kernel
-     * would put a second owner on the request lifecycle and hide the
-     * instrumentation from debug:event-dispatcher.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theKernelIsNotDecorated(): void
     {

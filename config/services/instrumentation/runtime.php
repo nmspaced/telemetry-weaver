@@ -18,8 +18,6 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // The PHP process itself. Metrics only: no span opener and no facade, because there
-    // is no operation to trace — an observable gauge is read, never started or finished.
     $services
         ->set('open_telemetry.runtime.meter', MeterInterface::class)
         ->factory(SignalMeter::create(...))
@@ -33,10 +31,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$reporter', service(InstrumentationFailureReporter::class))
         ->arg('$recorder', service(DurationRecorder::class));
 
-    // Attached to the first incoming request rather than to boot(): a process that only
-    // ever runs one console command has no memory curve worth reporting, and registering
-    // at boot would give every `cache:clear` a sample of its own two-second lifetime.
-    // MessengerInstrumentationCompilerPass adds the worker-loop half of the same idea.
     $services
         ->set(ProcessMetrics::class)
         ->arg('$runtime', service(SymfonyRuntimeProfile::class))

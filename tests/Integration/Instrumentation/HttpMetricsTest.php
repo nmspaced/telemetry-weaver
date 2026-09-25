@@ -48,7 +48,6 @@ final class HttpMetricsTest extends HttpMetricsTestCase
         $request->server->set('SERVER_PROTOCOL', 'HTTP/2.0');
 
         $response = $this->handle($request, false);
-        // Sending the response is outside handle(), but inside the duration.
         $this->clock->advanceSeconds(0.15);
         $request->setMethod('POST');
         $this->kernel->terminate($request, $response);

@@ -12,7 +12,7 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 
-// @mago-expect lint:too-many-methods — the decorator must implement the complete serializer interfaces
+// @mago-expect lint:too-many-methods — implements the full serializer interfaces
 final readonly class TraceableSerializer implements
     SerializerInterface,
     NormalizerInterface,

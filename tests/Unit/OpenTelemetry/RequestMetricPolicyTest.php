@@ -25,11 +25,6 @@ use PHPUnit\Framework\TestCase;
 
 final class RequestMetricPolicyTest extends TestCase
 {
-    /**
-     * The mode is the only switch. Whether the backend takes delta, or the resource tells
-     * writers apart, is the deployment's concern: an explicit cumulative preference or a
-     * resource without identity no longer turns request metrics off.
-     */
     #[Test]
     public function onlyTheModeDecidesWhetherARequestPipelineExports(): void
     {
@@ -101,8 +96,6 @@ final class RequestMetricPolicyTest extends TestCase
                 'duration' => Temporality::DELTA,
                 'active' => Temporality::CUMULATIVE,
                 'gauge' => null,
-                // No previous observation exists in a pipeline built for this request: as delta, the
-                // whole observed total would be reported as this request's increment.
                 'observable' => Temporality::CUMULATIVE,
             ],
             $temporalities,

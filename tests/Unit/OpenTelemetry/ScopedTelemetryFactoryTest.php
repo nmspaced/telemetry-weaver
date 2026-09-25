@@ -44,10 +44,6 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         self::assertInstanceOf(NoopMeterProvider::class, SignalMeterProvider::create(new NoopMeterProvider(), false));
     }
 
-    /**
-     * A span opener over a no-op tracer would still activate a context scope for every span;
-     * an operation that changes nothing about the context activates nothing.
-     */
     #[Test]
     public function aScopeOnTheNoopTracerProviderActivatesNoContext(): void
     {
@@ -67,14 +63,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         $operation->finish();
     }
 
-    /**
-     * The audit's probe: tracing off, and a public operation that declares baggage. W3C
-     * baggage does not depend on tracing, and the documentation promises the entries reach
-     * downstream services with no condition attached. So the callback sees them and a
-     * propagator injects them.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aScopeOnTheNoopTracerProviderStillCarriesBaggage(): void
     {
@@ -104,12 +93,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         self::assertSame([], $next, 'nothing leaks into the next operation');
     }
 
-    /**
-     * A boundary with no span of its own still continues the trace it received, so a
-     * downstream service is handed the caller's trace rather than none at all.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aBoundaryOnTheNoopTracerProviderPassesTheIncomingTraceThrough(): void
     {

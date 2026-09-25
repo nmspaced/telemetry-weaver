@@ -12,20 +12,18 @@ use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOwner;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 
-// @mago-expect lint:too-many-methods — the running-operation contract plus the two things a
-// framework lifecycle needs from an operation it owns: releasing the activation early, and
-// naming the trace a later measurement of the same work belongs to.
+// @mago-expect lint:too-many-methods — running-operation contract plus lifecycle hooks
 /**
- * @internal Mutable execution ownership, never stored by a shared facade. First completion revokes all retained work.
+ * A running operation's mutable state; the first completion releases everything it holds.
+ *
+ * @internal
  */
 final class ActiveOperation implements ScopedOperation
 {
     private bool $finished = false;
 
     /**
-     * The type given to `fail()`, kept apart from the attribute arrays: in metric-only
-     * mode the span is inert and remembers nothing, and a later `metricAttributes()` or
-     * span attribute must not silently replace what the caller declared.
+     * The type given to `fail()`, kept separate so later attributes cannot overwrite it.
      *
      * @var non-empty-string|null
      */
@@ -111,7 +109,6 @@ final class ActiveOperation implements ScopedOperation
     #[\Override]
     public function resume(): void
     {
-        // Safe after `finish()`: the owner releases its re-entry and the measurement is gone.
         $this->owner->attach();
         $this->measurement?->resume();
     }

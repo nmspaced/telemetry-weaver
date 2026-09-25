@@ -15,13 +15,8 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 
 /**
- * The retry settings are the one export knob with no OTEL_* variable behind it, so the
- * only thing that can carry them is the container — and a parameter that never reaches
- * a service is the defect this repository has the most of.
- *
- * Arguments are read by index rather than by name: the compiler resolves named
- * arguments to positional ones, so `$maxRetries` no longer exists by the time a
- * compiled definition is inspected.
+ * Retry settings reach the export services through the container. Arguments are checked by index,
+ * because compilation turns named arguments into positional ones.
  */
 final class ExportRetryConfigurationTest extends ContainerTestCase
 {
@@ -55,8 +50,6 @@ final class ExportRetryConfigurationTest extends ContainerTestCase
         foreach (['SpanExporterFactory', 'MetricExporterFactory', 'LogRecordExporterFactory'] as $factory) {
             $id = 'Nmspaced\\TelemetryWeaver\\OpenTelemetry\\Sdk\\' . $factory;
             self::assertTrue($container->hasDefinition($id), $factory . ' is not registered');
-            // Argument 1: the reporter comes first, the transports second. The compile resolves
-            // the OtlpTransports alias to the service behind it.
             self::assertSame(
                 BudgetedOtlpTransports::class,
                 (string) $container->getDefinition($id)->getArgument(1),
@@ -75,7 +68,6 @@ final class ExportRetryConfigurationTest extends ContainerTestCase
                 'failure_cooldown_ms' => 500,
             ]],
         ]);
-        // The clock between them keeps its default, so the compiler leaves both as PHP named arguments.
         self::assertSame(
             ['timeoutMilliseconds' => 250, 'failureCooldownMilliseconds' => 500],
             $container->getDefinition(FlushBudget::class)->getArguments(),

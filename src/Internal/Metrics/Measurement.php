@@ -5,12 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Internal\Metrics;
 
 /**
- * One interval being measured, from the moment it started until it is recorded or dropped.
- *
- * Internal rather than public: an operation starts and finishes its own measurement, so
- * application code never holds one. What does hold one is framework instrumentation whose
- * interval is not an operation at all — request metrics span a request that may have no
- * span, because metrics keep working when tracing is switched off.
+ * One interval being measured, until it is recorded or dropped.
  *
  * @internal
  */
@@ -23,13 +18,7 @@ interface Measurement
 
     public function cancel(): void;
 
-    /**
-     * Stops the clock without ending the interval. Time until `resume()` is not measured.
-     *
-     * For work that is handed out in pieces, such as a lazy result: the time a consumer
-     * spends between two pieces is the consumer's own work and not part of the operation
-     * being measured. Idempotent, and a no-op once the interval has ended.
-     */
+    /** Stops the clock until `resume()`; idempotent, and a no-op once ended. */
     public function pause(): void;
 
     /** Restarts a paused clock. Idempotent, and a no-op unless paused. */

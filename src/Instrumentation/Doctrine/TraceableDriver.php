@@ -11,14 +11,8 @@ use Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware;
 use SensitiveParameter;
 
 /**
- * Reads the connection's attributes once, at connect time, and hands them to the
- * connection wrapper so no statement ever has to look at the parameters again.
- *
- * Extends DBAL's own middleware base class rather than implementing `Driver` directly:
- * the base forwards everything this class does not touch, so a method added to the
- * interface in a future DBAL release cannot turn into a fatal here. The consequence is
- * that this class cannot be `readonly` — the parent is not — which is also why it
- * holds nothing beyond the two constructor arguments.
+ * Reads the connection attributes once, at connect time. Extends DBAL's middleware base so
+ * that methods added to `Driver` later are forwarded rather than fatal.
  */
 final class TraceableDriver extends AbstractDriverMiddleware
 {
@@ -30,8 +24,6 @@ final class TraceableDriver extends AbstractDriverMiddleware
     }
 
     /**
-     * {@inheritDoc}
-     *
      * @throws Exception
      */
     #[\Override]

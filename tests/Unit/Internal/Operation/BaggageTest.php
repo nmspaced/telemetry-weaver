@@ -12,14 +12,7 @@ use Nmspaced\TelemetryWeaver\Tests\Support\ReadsBaggage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * Values that travel with the trace rather than with the span.
- *
- * The distinction these tests are protecting is where an entry stops. An attribute stops
- * at the span it was set on; baggage reaches every service the operation calls, so an
- * entry that outlived its operation — or leaked back into the caller — is a value being
- * sent to other people's systems after the code that asked for it has returned.
- */
+/** Values that travel with the trace rather than with the span. */
 #[CoversClass(OperationPlan::class)]
 #[CoversClass(OtelBaggageReader::class)]
 final class BaggageTest extends PublicTelemetryTestCase
@@ -39,12 +32,7 @@ final class BaggageTest extends PublicTelemetryTestCase
         self::assertSame(['tenant.id' => 'acme'], $seen);
     }
 
-    /**
-     * The point of baggage: it is in the context, so every propagator asked to inject
-     * inside the operation carries it out of the process.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theEntriesReachAnOutgoingCarrier(): void
     {

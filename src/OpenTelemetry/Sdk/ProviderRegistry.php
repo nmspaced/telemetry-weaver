@@ -15,16 +15,10 @@ use OpenTelemetry\SDK\Trace\NoopTracerProvider;
 use OpenTelemetry\SDK\Trace\TracerProviderInterface;
 
 /**
- * @internal The providers this container has actually built — at most one per signal.
+ * @internal
  *
- * The container registers every provider it hands out (see `config/services/sdk.php`); the
- * registry depends on no factory. That direction is the point: finalization walks only providers that exist, so a request that
- * never touched metrics does not construct a MeterProvider and an exporter just to shut them
- * down, and there is no `flusher → factory → flusher` cycle in the container.
- *
- * The state is bounded by the three signal names and lives as long as the container. A
- * second provider for the same signal is refused and reported rather than replacing the
- * first, and nothing is accepted once the pipeline has been sealed.
+ * The providers this container actually built, at most one per signal, so finalization
+ * never constructs a provider just to shut it down.
  */
 final class ProviderRegistry
 {
@@ -43,12 +37,8 @@ final class ProviderRegistry
     ) {}
 
     /**
-     * Adopts a provider for the boundary flush and the final shutdown, and hands it back.
-     *
-     * The container's provider services are these calls, so the provider the bundle built and one
-     * an application configured are registered the same way. A no-op provider is handed back
-     * unregistered: there is nothing to deliver or finish, and a `SignalFlusher` for it would only
-     * add work to every boundary.
+     * Registers a provider for boundary flushes and shutdown and returns it. No-op providers
+     * are returned unregistered.
      */
     public function traces(TracerProviderInterface $provider): TracerProviderInterface
     {

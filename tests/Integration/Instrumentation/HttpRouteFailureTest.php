@@ -14,12 +14,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 final class HttpRouteFailureTest extends HttpTelemetryTestCase
 {
-    /**
-     * The route is resolved twice per request — once at kernel.request, once at
-     * kernel.response — so the two stages are addressed by the call that starts failing.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('failureStages')]
     public function routeFailuresPreserveTheResponseAndReleaseTheRequest(

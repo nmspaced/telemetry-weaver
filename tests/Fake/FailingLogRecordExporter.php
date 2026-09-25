@@ -9,10 +9,7 @@ use OpenTelemetry\SDK\Common\Future\ErrorFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
 use OpenTelemetry\SDK\Logs\LogRecordExporterInterface;
 
-/**
- * The log-record counterpart of `FailingSpanExporter`: fails synchronously or through a
- * rejected Future.
- */
+/** A log exporter that fails either by throwing or through a rejected future. */
 final readonly class FailingLogRecordExporter implements LogRecordExporterInterface
 {
     private function __construct(

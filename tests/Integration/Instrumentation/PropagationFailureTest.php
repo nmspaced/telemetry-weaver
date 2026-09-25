@@ -21,13 +21,7 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Transport\Sender\SenderInterface;
 
 /**
- * Fail-open, closed on the propagation boundary.
- *
- * A propagator is the one part of the pipeline that runs before the application's work
- * rather than around it, so an exception out of it does not degrade telemetry — it
- * replaces the work. The sender never reached its transport and the message was lost;
- * the HTTP server's extraction left `kernel.request` and turned the request into a 500.
- * Both entry points now go through the adapter's own fail-open path.
+ * A failing propagator costs the trace, never the request or the message.
  *
  * @see HttpParentContextTest::aThrowingPropagatorCostsTheTraceAndNotTheRequest for the
  *      incoming half, which needs the HTTP stack to show what it costs.
@@ -42,9 +36,7 @@ final class PropagationFailureTest extends MessengerTelemetryTestCase
 
     private const string TRACEPARENT = '00-' . self::INCOMING_TRACE_ID . '-2222222222222222-01';
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('injectionModes')]
     public function aFailingInjectionStillSendsTheMessageExactlyOnce(string $mode): void
@@ -119,13 +111,7 @@ final class PropagationFailureTest extends MessengerTelemetryTestCase
         self::assertNull(Context::storage()->scope(), 'the send scope must be released');
     }
 
-    /**
-     * The consumer answers a throwing extraction itself rather than letting the setup
-     * backstop swallow the whole operation: the message keeps its span, and that span is
-     * a root instead of a child of whatever the worker was last doing.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aFailingExtractionCostsTheIncomingEdgeAndNotTheConsumerSpan(): void
     {

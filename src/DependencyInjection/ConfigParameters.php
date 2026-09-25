@@ -7,35 +7,17 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ParametersConfigurator;
 
 /**
- * Turns the validated configuration into container parameters, one per leaf, named by its
- * path: `logs.export.level` becomes `open_telemetry.logs.export.level`.
+ * Turns the validated configuration into one container parameter per leaf:
+ * `logs.export.level` becomes `open_telemetry.logs.export.level`.
  *
- * It used to be a hand-written `->set()` per key. Every one of them was that same literal
- * mapping, and the failure mode was always the same: a key passes validation, nothing sets
- * the parameter, and the service reading it gets the container's default instead of what
- * the application wrote. That is the most frequent defect this package has had, and a test
- * can only catch the instances someone remembered to write. Here it cannot be expressed —
- * a leaf is a parameter because it is a leaf.
- *
- * ## Where a subtree stops
- *
- * A list is a value: `excluded_paths`, `excluded_channels`. So is a map whose *keys belong
- * to the application* — resource attributes and OTLP headers are data the user names, and
- * descending into them would mint a parameter per user-chosen key. Everything else is
- * structure the configuration tree fixed, and is descended into.
- *
- * Empty needs no special case: `[]` is a list.
+ * Lists, and maps whose keys the application chooses, are single values.
  *
  * @internal
  */
 final readonly class ConfigParameters
 {
     /**
-     * Maps whose keys the application chooses, so the map itself is the value.
-     *
-     * Only maps need naming — a list stops the descent on its own. Add a key here when the
-     * configuration grows another `useAttributeAsKey()` node; forgetting produces a visible
-     * pile of parameters named after user data, not a silently missing one.
+     * Maps with application-chosen keys, stored as one value.
      *
      * @var list<string>
      */

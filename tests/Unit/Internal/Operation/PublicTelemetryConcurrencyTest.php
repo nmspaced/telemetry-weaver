@@ -12,16 +12,13 @@ use OpenTelemetry\API\Trace\Span as OtelSpan;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Fiber isolation and process-lifetime leak safety: the shared facade must not mix
- * interleaved fiber contexts, and a thousand repeated executions must release every
- * captured closure and every live SDK span. This is where the worker-mode "no memory
- * leaks" principle is exercised directly.
+ * Fiber isolation and process-lifetime leak safety: the shared facade must not mix interleaved
+ * fiber contexts, and a thousand repeated executions must release every captured closure and every
+ * live SDK span.
  */
 final class PublicTelemetryConcurrencyTest extends PublicTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function sharedFacadeDoesNotMixInterleavedFiberContexts(): void
     {
@@ -66,9 +63,7 @@ final class PublicTelemetryConcurrencyTest extends PublicTelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function repeatedExecutionsReleaseCapturedWorkAndLiveSdkSpans(): void
     {
@@ -87,7 +82,6 @@ final class PublicTelemetryConcurrencyTest extends PublicTelemetryTestCase
                     $context->span()->attribute('payload', (string) $payload->value);
                 });
             unset($payload);
-            // An in-memory exporter deliberately accumulates immutable data; it is not an execution leak.
             $this->exporter->getStorage()->exchangeArray([]);
             $abandoned = $telemetry->operation('interrupted')->duration($duration)->start();
             $live[OtelSpan::getCurrent()] = true;

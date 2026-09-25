@@ -12,10 +12,7 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
- * Reads exported spans and propagated stamps out of the Messenger telemetry tests' in-memory
- * exporter/transport, asserting they exist rather than letting a missing one surface as a
- * confusing type error further down. `InMemoryExporter::getSpans()` has no generic docblock, so
- * every lookup here narrows through `instanceof ImmutableSpan` explicitly.
+ * Reads exported Messenger spans and propagated stamps, failing the test when one is missing.
  *
  * @internal
  */

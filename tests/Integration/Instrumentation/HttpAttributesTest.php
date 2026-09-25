@@ -33,13 +33,7 @@ final class HttpAttributesTest extends TestCase
         self::assertArrayNotHasKey('http.request.method_original', $attributes);
     }
 
-    /**
-     * client.address is personal data in most jurisdictions, so it is off unless the
-     * application asks for it. The attribute was unconditional once, which made
-     * `record_client_ip: false` a promise the bundle did not keep.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theClientAddressIsRecordedOnlyWhenAskedFor(): void
     {
@@ -52,13 +46,7 @@ final class HttpAttributesTest extends TestCase
         );
     }
 
-    /**
-     * Parameter names are what makes the attribute worth recording; values
-     * are what leaks. An allow-list of "safe" names would leak the first time
-     * someone adds a parameter nobody classified.
-     *
-     * @return iterable<string, array{string, string}>
-     */
+    /** @return iterable<string, array{string, string}> */
     public static function queries(): iterable
     {
         yield 'single' => ['token=secret', 'token=REDACTED'];
@@ -66,8 +54,6 @@ final class HttpAttributesTest extends TestCase
         yield 'nested names survive' => ['filter[status]=paid', 'filter[status]=REDACTED'];
         yield 'value containing = is fully redacted' => ['q=a=b&p=1', 'q=REDACTED&p=REDACTED'];
         yield 'valueless flag is kept' => ['debug&token=x', 'debug&token=REDACTED'];
-        // A semicolon is part of the value under PHP's own parser, so redaction that
-        // stopped there published the remainder of whatever the value was.
         yield 'a literal semicolon does not end a value' => [
             'token=abc;private-secret',
             'token=REDACTED',
@@ -77,12 +63,7 @@ final class HttpAttributesTest extends TestCase
         yield 'an empty value stays empty' => ['token=&page=2', 'token=REDACTED&page=REDACTED'];
     }
 
-    /**
-     * The redaction has to agree with the parser that reads the same string: whatever
-     * `parse_str()` calls a value must be gone. Anything it calls a separator may stay.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('queries')]
     public function noParsedValueSurvivesRedaction(string $query, string $_expected): void
@@ -120,10 +101,6 @@ final class HttpAttributesTest extends TestCase
         );
     }
 
-    /**
-     * url.path is the whole path portion: an application mounted under a
-     * prefix would otherwise report every request as if it were at the root.
-     */
     /** @throws \Throwable */
     #[Test]
     public function theBaseUrlIsPartOfThePath(): void

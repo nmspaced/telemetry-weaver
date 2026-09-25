@@ -7,23 +7,14 @@ namespace Nmspaced\TelemetryWeaver\Tests\Fake;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\Context\ContextInterface;
 
-/**
- * Captures what a DurationTimer recorded. Boundaries and unit reaching the exporter
- * are covered against a real MeterProvider in MeterTest — here the subject is
- * the elapsed value itself.
- */
+/** Captures the values a `DurationTimer` records. */
 final class RecordingHistogram implements HistogramInterface
 {
     /** @var list<array{float|int, iterable<string, mixed>}> */
     public array $records = [];
 
     /**
-     * The context each recording carried, positionally aligned with `$records`.
-     *
-     * Kept apart from `$records` rather than as a third element so that the assertions
-     * about the value and the attributes stay readable. It is captured at all because the
-     * context is what a trace-based exemplar filter reads: a recording that arrives
-     * without one is correlated with nothing, and dropping it here once hid that.
+     * The context of each recording, aligned with `$records`.
      *
      * @var list<ContextInterface|false|null>
      */

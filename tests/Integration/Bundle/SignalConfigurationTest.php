@@ -23,7 +23,9 @@ final class SignalConfigurationTest extends ContainerTestCase
     #[Test]
     public function exampleAndTestOverrideCompile(): void
     {
-        /** @var array{parameters: array<string, mixed>, open_telemetry: array<string, mixed>, 'when@test': array{open_telemetry: array<string, mixed>}} $example */
+        /**
+         * @var array{parameters: array<string, mixed>, open_telemetry: array<string, mixed>, 'when@test': array{open_telemetry: array<string, mixed>}} $example
+         */
         $example = Yaml::parseFile(\dirname(__DIR__, 3) . '/config/example_config.yaml');
         $parameters = static function (ContainerBuilder $container) use ($example): void {
             foreach ($example['parameters'] as $name => $value) {

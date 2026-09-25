@@ -8,11 +8,7 @@ use OpenTelemetry\SDK\Metrics\Data\Temporality;
 use OpenTelemetry\SDK\Metrics\MetricMetadataInterface;
 use OpenTelemetry\SDK\Metrics\PushMetricExporterInterface;
 
-/**
- * The metric counterpart of {@see FailingLifecycleExporter}. Separate because
- * `MetricExporterInterface::export()` returns a bool and takes no cancellation, so the two
- * cannot be one class.
- */
+/** The metric version of {@see FailingLifecycleExporter}. */
 final class FailingLifecycleMetricExporter implements PushMetricExporterInterface
 {
     public int $exports = 0;

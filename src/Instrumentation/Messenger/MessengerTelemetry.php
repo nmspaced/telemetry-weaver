@@ -91,15 +91,8 @@ final readonly class MessengerTelemetry
     }
 
     /**
-     * A call to a bus: a span, and no messaging measurement at all.
-     *
-     * A dispatch is a Symfony operation, not a messaging client one. It may validate,
-     * open a transaction and run a handler in-process without a broker ever being
-     * involved, so `messaging.client.operation.duration` — which measures talking to a
-     * broker — would mix handler time into send percentiles, and a synchronous bus would
-     * appear to send messages it never sent. The real send is measured by `send()`, per
-     * transport, inside this span. No custom dispatch histogram replaces the standard
-     * one: that would be a new mandatory series nobody asked for.
+     * A bus dispatch: a span only. It may run handlers in-process without a broker, so it is
+     * not a messaging client operation; the real send is measured per transport by `send()`.
      *
      * @template T
      *
@@ -130,8 +123,6 @@ final readonly class MessengerTelemetry
         try {
             return $callback($context->span());
         } catch (\Throwable $throwable) {
-            // ActiveOperation uses this as the default for both signals. An explicit
-            // application fail() still wins, and the original exception is recorded.
             $context->metricAttributes([ErrorAttributes::ERROR_TYPE => MessageErrorType::of($throwable)]);
             throw $throwable;
         }
@@ -147,8 +138,8 @@ final readonly class MessengerTelemetry
      * @param non-empty-string $name
      * @param array<non-empty-string, string> $attributes
      * @param array<non-empty-string, bool|string> $spanAttributes
-     * @param bool $linkActiveSpan keep the span the worker is running inside, when the
-     *                             message's own creation context is taking the parent slot
+     * @param bool $linkActiveSpan link the span the worker runs inside when the message's
+     *                             own context is the parent
      */
     public function begin(
         string $name,

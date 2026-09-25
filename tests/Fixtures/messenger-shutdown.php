@@ -48,8 +48,6 @@ $consumption->run(
     'async',
     /** @throws \Throwable */ static function () use ($telemetry, $exporter, $logger): never {
         $telemetry->operation('nested')->run(static function () use ($exporter, $logger): never {
-            // Registered after the first activation: verify the production cleanup callback,
-            // not a direct call to a test-only reset method.
             \register_shutdown_function(
                 /** @throws \RuntimeException */ static function () use ($exporter, $logger): void {
                     if (

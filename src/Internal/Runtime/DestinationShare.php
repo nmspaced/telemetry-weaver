@@ -7,24 +7,11 @@ namespace Nmspaced\TelemetryWeaver\Internal\Runtime;
 use OpenTelemetry\API\Common\Time\ClockInterface;
 
 /**
- * @internal The part of one flush a destination may spend, across all its signals and batches.
+ * The part of one flush a destination may spend across all its sends. A send that uses its
+ * whole allowance, or fails after 90% of it (a timeout), exhausts the share; a conclusive
+ * timeout also starts a cooldown. Allowances under 5 ms are refused.
  *
- * What a send's outcome costs the destination is decided here:
- *
- *  - A send that used its whole allowance exhausts the share, whether it succeeded or not:
- *    there is no time left for that collector in this flush.
- *  - A send that failed after nearly all of it timed out, and the share is exhausted. "Nearly"
- *    is 90%, because a client gives up a little before the deadline it was handed — curl
- *    reported 492 ms of a 500 ms allowance. The destination also cools down, if the allowance
- *    was long enough for the timeout to be about the collector (see `FlushBudget`).
- *  - An allowance under 5 ms is not granted: clients count timeouts in whole milliseconds
- *    (the gRPC transport truncates to them), so such a send could only fail, and its failure
- *    would look like a timeout. The share is exhausted instead, without a cooldown.
- *  - A send that failed fast — a refused connection, a 4xx for one signal's payload — is cheap
- *    and says nothing about the next signal, so it costs nothing beyond its own time.
- *
- * Not readonly: being exhausted is state, and it must be — it is what refuses the second
- * signal bound for a collector that has already cost this flush its share.
+ * @internal
  */
 final class DestinationShare
 {
@@ -59,7 +46,7 @@ final class DestinationShare
     }
 
     /**
-     * Reported by `SendAllowance`, once per send.
+     * Called by `SendAllowance` once per send.
      *
      * @param int $startedAt monotonic nanoseconds
      * @param int $allowed nanoseconds, as granted by `allowance()`

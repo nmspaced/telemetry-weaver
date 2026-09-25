@@ -16,18 +16,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Ending a span or writing a log record must never reach the network.
- *
- * The SDK's batch processors default to `autoFlush`, which exports from inside
- * `onEnd()` / `onEmit()` as soon as a batch fills *or* the schedule delay has elapsed —
- * under steady traffic that is every few seconds, in the middle of a request, blocking
- * on the collector's timeout. Delivery belongs to the execution boundary; the producer
- * path only enqueues, and a full queue drops.
- *
- * Batch size is exceeded rather than the schedule delay, because the size is the half
- * a frozen clock cannot fake: the processor reads the SDK's default clock.
- */
+/** Ending a span or writing a log record must never reach the network. */
 #[CoversClass(TracerProviderFactory::class)]
 #[CoversClass(LoggerProviderFactory::class)]
 final class ProducerPathExportTest extends TestCase
@@ -97,10 +86,6 @@ final class ProducerPathExportTest extends TestCase
         $provider->shutdown();
     }
 
-    /**
-     * The queue is the bound on memory between boundaries: past it, records are dropped,
-     * not exported early and not accumulated.
-     */
     #[Test]
     public function aFullLogQueueDropsInsteadOfExporting(): void
     {

@@ -12,9 +12,9 @@ use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Statement/query span shape: naming, attributes, statement text, prepare-vs-execute and
- * error recording. Signal on/off switches live in {@see DoctrineTelemetryPolicyTest};
- * transaction boundaries live in {@see DoctrineTelemetryTransactionTest}.
+ * Statement/query span shape: naming, attributes, statement text, prepare-vs-execute and error
+ * recording. Signal on/off switches live in {@see DoctrineTelemetryPolicyTest}; transaction
+ * boundaries live in {@see DoctrineTelemetryTransactionTest}.
  */
 final class DoctrineTelemetryTest extends DoctrineTelemetryTestCase
 {
@@ -67,7 +67,6 @@ final class DoctrineTelemetryTest extends DoctrineTelemetryTestCase
             $connection->executeQuery('SELECT * FROM missing_table');
             self::fail('the driver was expected to reject the statement');
         } catch (DriverException $driverException) {
-            // The DBAL exception is what the application sees; the span is what matters here.
             self::assertStringContainsString('missing_table', $driverException->getMessage());
         }
 
@@ -107,12 +106,7 @@ final class DoctrineTelemetryTest extends DoctrineTelemetryTestCase
         );
     }
 
-    /**
-     * The attributes the conventions say not to parse out of query text are not emitted
-     * at all — not on the span, not on the metric.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function operationAndCollectionAreNeverReadFromTheStatement(): void
     {
@@ -130,12 +124,7 @@ final class DoctrineTelemetryTest extends DoctrineTelemetryTestCase
         }
     }
 
-    /**
-     * A statement the summary cannot describe falls back to the system name, which is
-     * still a stable, bounded span name.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anUndescribableStatementIsNamedAfterTheSystem(): void
     {

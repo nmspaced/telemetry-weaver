@@ -34,12 +34,15 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 
 /**
  * `ConsoleTelemetrySubscriber` behaviour: exit-code/error recording, nested command and
- * excluded-worker command handling, process attribute conventions, and the flush boundary
- * that must see the finished command span.
+ * excluded-worker command handling, process attribute conventions, and the flush boundary that must
+ * see the finished command span.
  */
 final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
 {
-    /** The flush schedule is process state: a boundary in this test must not inherit another test's interval. */
+    /**
+     * The flush schedule is process state: a boundary in this test must not inherit another test's
+     * interval.
+     */
     #[\Override]
     protected function setUp(): void
     {
@@ -54,9 +57,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         parent::tearDown();
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function consoleUsesFinalExitCodeAndRestoresContext(): void
     {
@@ -73,9 +74,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertNull($this->telemetry->activeTrace());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function consoleErrorRecoveryDoesNotMarkASuccessfulCommandAsFailed(): void
     {
@@ -99,9 +98,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertCount(0, $this->span()->getEvents());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function disabledCommandsAndWorkersDoNotStartAConsoleSpan(): void
     {
@@ -117,9 +114,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertSame([], $this->telemetry->spans());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function nestedConsoleCommandsFinishInsideTheirParentAndWorkerCommandsAreExcluded(): void
     {
@@ -148,15 +143,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertNull($this->telemetry->activeTrace());
     }
 
-    /**
-     * The nested command must not flush; the outer one must, once its span is finished.
-     *
-     * A console boundary flushes rather than shuts down: the pipeline of a CLI process is
-     * sealed by `ExportGate` when the PHP execution ends, so that a second top-level
-     * `Application::run()` still has providers to export through.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function consoleFlushesBothProvidersAfterTheCommandSpanFinishes(): void
     {
@@ -206,22 +193,12 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertSame(0, $app->run(new ArrayInput(['command' => 'app:test']), new BufferedOutput()));
     }
 
-    /**
-     * A controller running a console Application on the kernel's dispatcher used to close
-     * the export gate and shut the SDK providers down from inside a live HTTP request. In
-     * a worker keeping its kernel that lost the telemetry of every later request, since
-     * nothing reopens a sealed pipeline; in FPM it lost the rest of the current one.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aCommandRunInsideARequestDoesNotFinalizeTheHttpPipeline(): void
     {
         $meters = $this->createMock(MeterProviderInterface::class);
         $tracers = $this->createMock(TracerProviderInterface::class);
-        // Exactly once, and the assertions below fix when: at the request's own boundary,
-        // not at the command's. A boundary flush would be no better than a shutdown here —
-        // it would move a blocking export onto the path of a request still being served.
         $meters->expects(self::once())->method('shutdown')->willReturn(true);
         $tracers->expects(self::once())->method('shutdown')->willReturn(true);
         $meters->expects(self::never())->method('forceFlush');
@@ -238,9 +215,6 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
             $providers->add($signal);
         }
 
-        // The flusher gets the request profile so that this test leaves no process-exit
-        // flush behind for PHPUnit's own shutdown; the subscriber gets the worker profile,
-        // which is where sealing here used to cost every later request its telemetry.
         $flusher = new TelemetryFlusher($providers, $budget, $failures, SymfonyRuntimeProfile::fromKernel(0, true));
         $dispatcher = new EventDispatcher();
         $dispatcher->addSubscriber(new ConsoleFlushSubscriber($flusher, SymfonyRuntimeProfile::fromKernel(1, true)));
@@ -254,14 +228,11 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertSame(0, $app->run(new ArrayInput(['command' => 'app:test']), new BufferedOutput()));
         self::assertFalse($providers->isClosed(), 'the command sealed a pipeline the request still owns');
 
-        // What the request's own terminate does next still reaches live providers.
         $flusher->atShutdown();
         self::assertTrue($providers->isClosed());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aFailedCommandRecordsItsExitCodeAsTheErrorTypeOnBothSignals(): void
     {
@@ -293,13 +264,7 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
         self::assertSame(3, $this->span(1)->getAttributes()->get('process.exit.code'));
     }
 
-    /**
-     * The CLI conventions require the executable, the pid and the exit code on the span
-     * of a program run. The pid stays out of the histogram: one value per process is one
-     * series per process, and the resource already says which process reported.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aCommandSpanCarriesTheProcessAttributesOfTheCliConventions(): void
     {

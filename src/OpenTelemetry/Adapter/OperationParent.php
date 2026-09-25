@@ -11,13 +11,8 @@ use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextInterface;
 
 /**
- * The context an operation runs in, whether or not it records a span.
- *
- * Both openers use it. {@see SpanOpener} creates the span as a child of this context, and
- * {@see ContextOnlyOpener} activates the context itself. The rules are kept in one place
- * because they are not about spans. They decide which trace a boundary continues and which
- * baggage the work inside it carries, and the answers must not change when a span is
- * switched off.
+ * Resolves the context an operation runs in, for both openers, so the incoming trace and
+ * baggage behave the same whether or not a span is recorded.
  *
  * @internal
  */
@@ -29,10 +24,8 @@ final readonly class OperationParent
     }
 
     /**
-     * No incoming trace continues whatever is running; one that arrived replaces it, valid
-     * or not. An invalid one is the whole point of the distinction: a boundary that carried
-     * nothing starts a new trace, where inheriting the ambient context would attach a fresh
-     * request to the remains of the last one.
+     * An incoming trace, even an invalid one, replaces the ambient context; no incoming trace
+     * continues the ambient one.
      */
     private static function parentOf(TraceRelations $relations, ContextInterface $ambient): ContextInterface
     {
@@ -42,16 +35,11 @@ final readonly class OperationParent
             return $ambient;
         }
 
-        // An explicit boundary without a usable SDK context, including RootTrace after
-        // a propagation failure, must not adopt the ambient span.
         return $incoming instanceof OtelIncomingTrace ? $incoming->context : Context::getRoot();
     }
 
     /**
-     * Baggage goes into the context the operation runs in, so every outgoing call made
-     * inside the operation propagates it. With a span, that context is also where the
-     * span is created, so a sampler that reads baggage sees this operation's entries and
-     * not only the parent's.
+     * Adds the entries to the context the operation runs in, before any span is created.
      *
      * @param array<non-empty-string, string> $entries
      */

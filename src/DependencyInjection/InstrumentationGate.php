@@ -7,29 +7,15 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * The preconditions a compiler pass has to clear before it registers anything.
+ * The preconditions a compiler pass checks before registering anything: the bundle and the
+ * component are on, the optional package will be installed, and the services it needs exist.
  *
- * Every pass asks the same three kinds of question — is the bundle on and does this
- * component produce any signal, will the optional Symfony package still be installed in
- * the `--no-dev` build, and is the service to decorate actually in the container — and
- * each was spelling them out as one negated multi-line condition of its own. Four passes
- * in, the conditions had drifted: one had forgotten the global `traces.enabled`, one
- * repeated the parent-package list, and one asked `class_exists()` where the others
- * asked `willBeAvailable()`. Written as a chain the questions read in the order they are
- * decided, and a pass that forgets one is visibly shorter than the others.
- *
- * The gate is immutable and short-circuits: once closed it answers every further
- * question with itself, so the availability check is not paid for a component whose
- * signals are both off.
- *
- * Availability is `ContainerBuilder::willBeAvailable()` rather than `class_exists()`
- * because the two disagree exactly where it matters — a class can exist right now
- * because a dev dependency pulled it in, and only `willBeAvailable()` answers for the
- * install the container will run under.
+ * Immutable and short-circuiting. Uses `willBeAvailable()`, which answers for the `--no-dev`
+ * install, not the current one.
  */
 final readonly class InstrumentationGate
 {
-    /** @var list<string> the package whose dependency on an optional component is being judged */
+    /** @var list<string> */
     private const array PARENT_PACKAGES = ['nmspaced/telemetry-weaver'];
 
     private function __construct(
@@ -37,13 +23,7 @@ final readonly class InstrumentationGate
         private bool $open,
     ) {}
 
-    /**
-     * Open when the bundle itself is enabled.
-     *
-     * The starting point for every pass, including the parts that are not tied to one
-     * component: a flush subscriber belongs to the bundle being on, not to any
-     * component's signals.
-     */
+    /** Open when the bundle is enabled. */
     public static function bundle(ContainerBuilder $container): self
     {
         return new self($container, SignalSwitch::bundleEnabled($container));
@@ -64,13 +44,7 @@ final readonly class InstrumentationGate
         return new self($this->container, ContainerBuilder::willBeAvailable($package, $marker, self::PARENT_PACKAGES));
     }
 
-    /**
-     * Stays open only if every named service is already defined.
-     *
-     * For passes that decorate something another bundle registers: the service may be
-     * absent because that bundle is not installed, or because its own configuration
-     * switched the feature off.
-     */
+    /** Stays open only if every named service is defined. */
     public function needs(string ...$serviceIds): self
     {
         if (!$this->open) {
@@ -95,9 +69,8 @@ final readonly class InstrumentationGate
     }
 
     /**
-     * Like {@see instruments()}, for a component whose wrapper also propagates context: it
-     * stays open while the component's own switches are on, whatever the global signal
-     * switches say. See {@see SignalSwitch::carriesContext()}.
+     * Stays open while the component's own switches are on, whatever the global signal switches
+     * say. For components that propagate context.
      *
      * @param non-empty-string $component
      */

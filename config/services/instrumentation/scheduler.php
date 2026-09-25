@@ -9,6 +9,5 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Scheduled task runs, through the scheduler events.
     InstrumentationServices::register($services, 'scheduler', DefaultBuckets::ScheduledTask);
 };

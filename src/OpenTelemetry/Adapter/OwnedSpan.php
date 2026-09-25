@@ -15,16 +15,12 @@ use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Context\ContextStorageInterface;
 use OpenTelemetry\Context\ScopeInterface;
 
-// @mago-expect lint:too-many-methods — the SpanOwner port plus the two accessors the opener
-// and its tests need; every method is one line of delegation and splitting them would put an
-// owner's lifecycle in two places.
+// @mago-expect lint:too-many-methods — SpanOwner port plus accessors for the opener
 /**
- * @internal Mutable owner of one span and its optional activation; a finished owner retains neither.
+ * @internal
  *
- * The OpenTelemetry half of {@see SpanOwner}: `SpanInterface`, `ScopeInterface` and
- * `SpanContextInterface` reach exactly this far and no further. `view()` narrows the port's
- * return type to the concrete view, which is what lets the adapter keep the two internal
- * methods the recording path needs without widening the interface for everyone else.
+ * Owns one SDK span and its optional activation; the OpenTelemetry side of `SpanOwner`.
+ * A finished owner releases both.
  */
 final class OwnedSpan implements SpanOwner
 {
@@ -46,8 +42,7 @@ final class OwnedSpan implements SpanOwner
     private bool $finished = false;
 
     /**
-     * How `attach()` activates the operation's context again; null for an owner that cannot
-     * be re-entered. Released with the span, because it holds the context.
+     * Re-activates the context in its original storage; null when the owner cannot be re-entered.
      *
      * @var (\Closure(): ScopeInterface)|null
      */
@@ -56,14 +51,7 @@ final class OwnedSpan implements SpanOwner
     private readonly SpanContextInterface $spanContext;
 
     /**
-     * Not readonly, and released with the span.
-     *
-     * An OpenTelemetry context holds the span it was created for, so an owner that kept
-     * its correlation would keep the SDK span reachable for as long as the owner itself
-     * lived — precisely the retention a long-running worker cannot afford, and the reason
-     * the package hands out views rather than spans everywhere else. Anything that still
-     * needs the correlation has taken its own reference by now: a measurement captures it
-     * when it starts, and `finish()` records before it ends the span.
+     * Released on finish: a context holds its span, and a worker must not retain it.
      */
     private ?TraceCorrelation $correlation;
 
@@ -111,7 +99,7 @@ final class OwnedSpan implements SpanOwner
     }
 
     /**
-     * Owns an unactivated span, including one whose activation failed.
+     * Owns a span that was never activated, or whose activation failed.
      *
      * @param non-empty-string $name
      */
@@ -151,11 +139,7 @@ final class OwnedSpan implements SpanOwner
     }
 
     /**
-     * The trace a measurement taken for this span belongs to.
-     *
-     * Survives `detach()` on purpose: the activation is what makes the span ambient, and
-     * an operation that has stopped being ambient has not stopped being the one being
-     * measured.
+     * The trace measurements for this span belong to. Kept after `detach()`.
      */
     #[\Override]
     public function correlation(): ?TraceCorrelation
@@ -184,8 +168,7 @@ final class OwnedSpan implements SpanOwner
     }
 
     /**
-     * Allows `attach()` to activate the context again, in the storage it was first
-     * activated in.
+     * Lets `attach()` re-activate the context in the storage it was first activated in.
      */
     public function reenterableIn(ContextStorageInterface $storage, ContextInterface $context): self
     {
@@ -197,7 +180,6 @@ final class OwnedSpan implements SpanOwner
     #[\Override]
     public function attach(): void
     {
-        // Finishing releases the re-entry, so a finished owner stops here too.
         if ($this->activation !== null || $this->reentry === null) {
             return;
         }
@@ -252,8 +234,6 @@ final class OwnedSpan implements SpanOwner
 
     public function __destruct()
     {
-        // exit can destroy call-stack locals before shutdown callbacks run. Release
-        // only the scope: destructing abandoned work must not record success or export.
         $this->detach();
     }
 

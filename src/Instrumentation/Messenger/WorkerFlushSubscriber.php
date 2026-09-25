@@ -10,22 +10,10 @@ use Symfony\Component\Messenger\Event\WorkerRunningEvent;
 use Symfony\Component\Messenger\Event\WorkerStoppedEvent;
 
 /**
- * The execution boundary of a consumer, which otherwise has none.
+ * Flushes telemetry for `messenger:consume`, which never reaches `kernel.terminate`.
  *
- * `kernel.terminate` — where HTTP delivers its telemetry — is never dispatched by
- * `messenger:consume`. Without this subscriber a worker's metrics reach the collector
- * only when the process exits, and with the batch span processor its spans do too: the
- * SDK has no timer, so a queued batch waits for `maxExportBatchSize` or for a flush
- * somebody else starts. A worker killed before shutdown loses both.
- *
- * `WorkerRunningEvent` fires after every message *and* on every idle poll, which is far
- * too often to export on: `FlushPolicy` holds it down to the configured interval, and
- * each flush is a blocking export. `WorkerStoppedEvent` flushes unconditionally —
- * there is no next boundary to defer to.
- *
- * Registered whenever Messenger is available, not only when messenger instrumentation
- * is on: an application whose HTTP and database telemetry is enabled still needs its
- * consumers to deliver what they recorded.
+ * `WorkerRunningEvent` flushes at most once per configured interval; `WorkerStoppedEvent`
+ * always flushes. Registered whenever Messenger is installed.
  */
 final readonly class WorkerFlushSubscriber implements EventSubscriberInterface
 {

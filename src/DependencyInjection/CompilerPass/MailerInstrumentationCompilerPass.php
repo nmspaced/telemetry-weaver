@@ -15,17 +15,10 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Mailer\Transport\TransportInterface;
 
 /**
- * One CLIENT span per transport invocation, by decorating the transport aggregate.
+ * One CLIENT span per transport call, by decorating the `mailer.transports` aggregate.
  *
- * `mailer.transports` rather than the individual transports, because the individual
- * transports have no service ids of their own — FrameworkBundle builds them from DSNs
- * inside the aggregate's factory. The aggregate is also the single boundary both ways
- * of sending pass through: a synchronous `Mailer::send()` and Messenger's
- * `MessageHandler` both end up calling it, so the span covers the transport work and
- * not the queueing that may precede it.
- *
- * Which transport actually ran is read from the message, not from the decorated
- * service — the decorated service is always the aggregate.
+ * Individual transports have no service ids; the aggregate is what both `Mailer::send()`
+ * and the Messenger handler call.
  */
 final readonly class MailerInstrumentationCompilerPass implements CompilerPassInterface
 {

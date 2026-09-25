@@ -24,8 +24,8 @@ use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * Globals is process state and its resolution is memoised on first read, so
- * every one of these has to own its process.
+ * Globals is process state and its resolution is memoised on first read, so every one of these has
+ * to own its process.
  */
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -45,15 +45,7 @@ final class GlobalsOwnershipTest extends ContainerTestCase
         self::assertSame($container->get(TextMapPropagatorInterface::class), Globals::propagator());
     }
 
-    /**
-     * The response propagator is the one that was left out, and it is the one where the
-     * split is invisible: the bundle writes response headers with the configured
-     * propagator through its own port, so nothing looks wrong — while every other package
-     * asks `Globals::responsePropagator()` and gets the no-op the reset left behind. One
-     * process, two answers to the same question, which is what this class exists to stop.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function bootHandsGlobalsTheContainersResponsePropagator(): void
     {
@@ -63,13 +55,7 @@ final class GlobalsOwnershipTest extends ContainerTestCase
         self::assertSame($container->get(ResponsePropagatorInterface::class), Globals::responsePropagator());
     }
 
-    /**
-     * Logs are the third signal of the same pipeline. Left out, a Logs API consumer —
-     * an auto-instrumentation's Monolog handler, or application code following the docs —
-     * would get the SDK's no-op, or a second provider with its own resource and exporter.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function bootHandsGlobalsTheContainersLoggerProvider(): void
     {
@@ -78,12 +64,7 @@ final class GlobalsOwnershipTest extends ContainerTestCase
         self::assertSame($container->get('open_telemetry.logger_provider'), Globals::loggerProvider());
     }
 
-    /**
-     * An auto-instrumentation registered before the kernel booted must not win:
-     * the bundle is the owner, and it registers last.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theBundleOverridesAnEarlierInitializer(): void
     {
@@ -96,12 +77,7 @@ final class GlobalsOwnershipTest extends ContainerTestCase
         self::assertSame($container->get(TracerProviderInterface::class), Globals::tracerProvider());
     }
 
-    /**
-     * Booting twice — a worker recycling its kernel — must not leave a second
-     * initializer behind resolving to the same providers.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function repeatedBootKeepsTheSameProviders(): void
     {
@@ -162,14 +138,7 @@ final class GlobalsOwnershipTest extends ContainerTestCase
         return $container;
     }
 
-    /**
-     * The SDK's own diagnostics are process state too, and unclaimed they are not silent —
-     * `LogWriterFactory` falls back to `error_log()`. That puts "the collector refused the
-     * batch" outside Monolog while this bundle's own reports are inside it, so an operator
-     * reading either stream is missing half the story.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function bootRoutesTheSdksOwnDiagnosticsIntoTheApplicationsLogger(): void
     {
@@ -180,13 +149,7 @@ final class GlobalsOwnershipTest extends ContainerTestCase
         self::assertSame($container->get('open_telemetry.diagnostics.logger'), LoggerHolder::get());
     }
 
-    /**
-     * With diagnostics off the holder is still claimed, by the `NullLogger` the container
-     * already substitutes — leaving it unset would send the SDK back to `error_log()`,
-     * which is louder than what the application asked for, not quieter.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function diagnosticsOffSilencesTheSdkRatherThanReleasingIt(): void
     {

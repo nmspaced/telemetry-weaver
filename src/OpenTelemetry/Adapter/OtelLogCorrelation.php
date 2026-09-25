@@ -12,15 +12,9 @@ use OpenTelemetry\API\Trace\SpanContext;
 use OpenTelemetry\Context\Context;
 
 /**
- * Gives an OTLP log record an explicit context built from a snapshot, never the current one.
- *
- * An explicit context is the point. An unset one is resolved by the SDK when the record is
- * emitted, which behind a buffering Monolog handler is after the operation that wrote it has
- * ended. The SDK then reads either no trace or an unrelated one. The root context is also an
- * explicit answer: this record belongs to no trace.
- *
- * Neither the span nor its activation is kept alive: the context wraps a non-recording span
- * built from the ids alone.
+ * Gives an OTLP log record an explicit context built from its trace IDs, never the current
+ * one; behind a buffered handler the current context belongs to another operation. The root
+ * context marks a record written outside any trace.
  *
  * @internal
  */

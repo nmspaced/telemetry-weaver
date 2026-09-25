@@ -7,29 +7,14 @@ namespace Nmspaced\TelemetryWeaver\DependencyInjection;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * Which service a decorator will actually be handed.
+ * Finds which service a decorator will actually wrap.
  *
- * Not the decorated service, whenever something else decorates it too. Symfony resolves
- * a decoration chain by priority — higher is applied earlier and so ends up further in —
- * and a pass that reads the decorated service's own class is reading the wrong end of
- * that chain whenever another decorator lands between the two.
- *
- * The difference is not academic. FrameworkBundle's `debug.serializer` decorates
- * `serializer` at the default priority in dev, and it implements five of the serializer
- * interfaces but neither context-aware one. A decoration check that asked about
- * `serializer` saw a class implementing all seven, approved the wrapping, and the
- * container then fataled on a constructor intersection type at first use — in the error
- * controller, which is where a fatal is least recoverable.
+ * Another decorator may sit in between (for example `debug.serializer`), and its class is
+ * the one that has to satisfy the decorator's constructor.
  */
 final readonly class DecorationChain
 {
-    /**
-     * The id of the service that will sit directly inside a decorator of `$decoratedId`
-     * registered at `$priority`.
-     *
-     * Decorators above that priority are inside it; the nearest of them is the one with
-     * the lowest such priority. With none, the decorated service itself is the neighbour.
-     */
+    /** The id directly inside a decorator of `$decoratedId` registered at `$priority`. */
     public static function innerId(ContainerBuilder $container, string $decoratedId, int $priority): string
     {
         $innerId = $decoratedId;

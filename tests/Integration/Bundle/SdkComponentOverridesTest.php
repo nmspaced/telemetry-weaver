@@ -28,8 +28,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 
 /**
- * An application's own link of the export pipeline, configured by service id. What each test
- * asks is what the bundle still guarantees around the replaced link.
+ * An application's own link of the export pipeline, configured by service id. What each test asks
+ * is what the bundle still guarantees around the replaced link.
  */
 #[CoversClass(SdkComponentsCompilerPass::class)]
 #[CoversClass(SdkComponentIds::class)]
@@ -43,14 +43,7 @@ final class SdkComponentOverridesTest extends ContainerTestCase
         unset($_SERVER[Variables::OTEL_EXPORTER_OTLP_PROTOCOL]);
     }
 
-    /**
-     * The bundle's transport overrides the SDK's retry default; seeing the SDK's 3 in place of the
-     * configured 2 is what proves nothing of the bundle's transport layer sits in the path. The
-     * setting itself is accepted: gRPC signals keep the bundle's transport, and it still applies
-     * there. Which family keeps what is `OtlpTransportsTest`'s question.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anApplicationsTransportFactoryReachesTheOtlpExportersOfItsProtocolFamily(): void
     {

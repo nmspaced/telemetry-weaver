@@ -32,8 +32,6 @@ final class Flushers
             $providers->add($signal);
         }
 
-        // The request profile registers no process-exit flush: a coordinator built for one
-        // test must not leave a final export behind for PHPUnit's own shutdown to run.
         return new TelemetryFlusher($providers, $budget, $failures, SymfonyRuntimeProfile::fromKernel(0, true));
     }
 }

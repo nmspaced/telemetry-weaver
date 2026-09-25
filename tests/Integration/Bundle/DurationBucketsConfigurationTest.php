@@ -63,11 +63,7 @@ final class DurationBucketsConfigurationTest extends ContainerTestCase
         self::assertSame($preset->unit(), $buckets->unit(), "the unit is not the application's to change");
     }
 
-    /**
-     * One component's boundaries are its own; a shared preset is not shared state.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function componentsSharingAPresetAreConfiguredIndependently(): void
     {
@@ -84,12 +80,7 @@ final class DurationBucketsConfigurationTest extends ContainerTestCase
         self::assertSame(DefaultBuckets::Http->boundaries(), $client->boundaries());
     }
 
-    /**
-     * The SDK builds buckets from unordered boundaries as they are and the histogram silently
-     * becomes meaningless, so the configuration has to be the thing that says no.
-     *
-     * @return iterable<string, array{list<float>}>
-     */
+    /** @return iterable<string, array{list<float>}> */
     public static function rejected(): iterable
     {
         yield 'unordered' => [[0.1, 0.05, 1.0]];
@@ -113,11 +104,7 @@ final class DurationBucketsConfigurationTest extends ContainerTestCase
         $this->compile(['instrumentation' => ['doctrine' => ['duration_buckets' => $boundaries]]]);
     }
 
-    /**
-     * The runtime component reports state — memory, uptime — and has no duration to bucket.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theRuntimeComponentHasNoBoundariesToConfigure(): void
     {

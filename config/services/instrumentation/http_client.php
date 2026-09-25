@@ -9,6 +9,5 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Outgoing requests: the decorated Symfony HTTP clients.
     InstrumentationServices::register($services, 'http_client', DefaultBuckets::Http);
 };

@@ -8,24 +8,16 @@ use Monolog\LogRecord;
 use Nmspaced\TelemetryWeaver\Api\TraceContext;
 
 /**
- * The trace a log record was written in, as the record itself carries it.
- *
- * It exists because writing a record and exporting it are two different moments. A
- * processor runs while the record is still inside its operation. A handler receives the
- * record when the stack decides to write it, and behind a buffer that is after the operation
- * has ended. Only the processor can see the trace, so it writes these fields, and the export
- * handler reads them instead of the context that happens to be current.
- *
- * Both directions live here so the field names and their format are defined in one place.
+ * Reads and writes the trace IDs a log record carries in `extra`. A processor writes them
+ * while the record is still inside its operation; the export handler reads them later,
+ * because behind a buffer the current context is no longer the record's.
  *
  * @internal
  */
 final readonly class TraceContextSnapshot
 {
     /**
-     * The `extra` fields, in the format log correlation expects everywhere: ids as lowercase
-     * hex, flags as two hex digits. The export handler also keeps them out of the record's
-     * attributes, because an OTLP record carries all three natively.
+     * The `extra` keys: IDs as lowercase hex, flags as two hex digits.
      *
      * @var list<non-empty-string>
      */
@@ -49,21 +41,13 @@ final readonly class TraceContextSnapshot
         ]);
     }
 
-    /**
-     * The trace the record was written in, or null when it was written outside any.
-     *
-     * An unreadable snapshot also counts as none. The processor only writes these fields
-     * from a valid trace, so anything else was rewritten by another processor, and a
-     * guessed trace id is worse than no trace id.
-     */
+    /** The trace the record was written in; null when absent or unreadable. */
     public static function read(LogRecord $record): ?TraceContext
     {
-        // The common case, a record written outside any trace, is decided without an exception.
         if (!\array_key_exists(self::TRACE_ID, $record->extra)) {
             return null;
         }
 
-        // `TraceContext` is the one place the format is validated.
         try {
             return new TraceContext(
                 self::field($record, self::TRACE_ID),
@@ -75,13 +59,13 @@ final readonly class TraceContextSnapshot
         }
     }
 
-    /** The field as written, or '' when it is missing or not a string; '' is never valid. */
+    /** The field, or '' (never valid) when missing or not a string. */
     private static function field(LogRecord $record, string $key): string
     {
         return \is_string($record->extra[$key] ?? null) ? $record->extra[$key] : '';
     }
 
-    /** The flags byte from its two hex digits, or -1 when unreadable; -1 is never valid. */
+    /** The flags byte, or -1 (never valid) when unreadable. */
     private static function flags(LogRecord $record): int
     {
         $hex = self::field($record, self::TRACE_FLAGS);

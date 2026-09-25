@@ -16,11 +16,8 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * The container compiled as a kernel compiles it: private services removed or inlined.
- *
- * Every other bundle test makes all services public so it can reach them, which is how
- * `boot()` asking for the diagnostics logger by a private id went unnoticed: in an
- * application the SDK kept writing its diagnostics to `error_log()`.
+ * The bundle boots from a container compiled like a kernel compiles it, with private services
+ * removed or inlined.
  */
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]

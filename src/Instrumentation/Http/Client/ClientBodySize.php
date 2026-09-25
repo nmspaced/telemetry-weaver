@@ -7,19 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Client;
 use Symfony\Component\HttpClient\Response\AsyncContext;
 
 /**
- * The two body sizes, read at the moment the response headers arrive.
- *
- * Both come from information the client already has, so reading them neither sends
- * anything nor waits: the request body is whatever the transport reports having
- * uploaded, and the response body is the length the server declared. Nothing is
- * buffered and no response is consumed to produce a number — a streamed download must
- * stay streamed, and the point of ending the operation at the headers is lost if
- * measuring it means reading to the end.
- *
- * Either can be absent and absent is not zero. A chunked or compressed response
- * declares no length, and a transport that does not track the upload reports nothing;
- * recording a 0 in those cases would put a false value in the histogram rather than
- * leave a gap in it.
+ * Request and response body sizes, read when the response headers arrive without buffering
+ * the body. Either may be null; an unknown size is not zero.
  */
 final readonly class ClientBodySize
 {

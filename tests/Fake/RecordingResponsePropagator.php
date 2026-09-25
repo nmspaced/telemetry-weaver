@@ -9,14 +9,7 @@ use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Context\Propagation\PropagationSetterInterface;
 use OpenTelemetry\Context\Propagation\ResponsePropagatorInterface;
 
-/**
- * Stands in for the contrib `traceresponse` propagator, which is not a dependency of this
- * package: the SDK registry ships only `none`, so without a double there is nothing to
- * observe the wiring with.
- *
- * Writes the span id it was given, so a test can tell *which* context reached it rather
- * than only that something did.
- */
+/** A response propagator that writes the span id it receives, standing in for `traceresponse`. */
 // @mago-expect analysis:experimental-usage — mirrors the experimental upstream contract on purpose
 final class RecordingResponsePropagator implements ResponsePropagatorInterface
 {

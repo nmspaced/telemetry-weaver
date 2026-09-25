@@ -14,21 +14,17 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * Whether `operation()->baggage()` reaches a downstream service, across the switches.
- *
- * The global `traces.enabled` and `metrics.enabled` decide which signals are recorded, not
- * whether the application's context leaves the process: with both off, the client is
- * still decorated and still propagates. Switching both of the component's own signals off
- * is the one way to opt the component out, and then nothing is added to its requests.
+ * Whether `operation()->baggage()` reaches a downstream service, across the switches. The global
+ * `traces.enabled` and `metrics.enabled` decide which signals are recorded, not whether the
+ * application's context leaves the process: with both off, the client is still decorated and still
+ * propagates.
  */
 final class HttpClientContextPropagationTest extends ContainerTestCase
 {
     /** @var list<string> the headers of the last request the mock transport received */
     private static array $sent = [];
 
-    /**
-     * @return iterable<string, array{array<string, mixed>, bool}>
-     */
+    /** @return iterable<string, array{array<string, mixed>, bool}> */
     public static function switches(): iterable
     {
         foreach ([true, false] as $traces) {

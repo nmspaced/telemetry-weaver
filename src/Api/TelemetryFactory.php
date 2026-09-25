@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Api;
 
 /**
- * Create named instrumentation scopes once in DI, sharing the bundle's providers and global signal switches.
+ * Creates named instrumentation scopes that share the bundle's providers and switches.
  *
  * @api
  */

@@ -23,22 +23,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * An SDK that misbehaves from inside a span — not at creation, where SpanOpener
- * already answers with an inert span, but afterwards, on a span the caller is
- * holding. The span still has to end, the context still has to come back, and the
- * application must never see any of it.
+ * An SDK that misbehaves from inside a span — not at creation, where SpanOpener already answers
+ * with an inert span, but afterwards, on a span the caller is holding.
  */
 #[CoversClass(SpanOpener::class)]
 #[CoversClass(OwnedSpan::class)]
 #[CoversClass(RequestTrace::class)]
 final class SdkFailureTest extends TelemetryTestCase
 {
-    /**
-     * A context read failure happens in the constructor, which finishes the span on
-     * the spot: nothing is left activated and the span is closed, not leaked.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aContextReadFailureReleasesTheActivationAndEndsTheSpan(): void
     {
@@ -58,12 +51,7 @@ final class SdkFailureTest extends TelemetryTestCase
         self::assertStringContainsString('context read failed', $this->logger->messageAt(0));
     }
 
-    /**
-     * isRecording() is asked before every enrichment. A span that throws there is
-     * useless, but finishing it must still release the scope and end it.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aRecordingCheckFailureIsReportedAndTheSpanStillEnds(): void
     {
@@ -76,12 +64,7 @@ final class SdkFailureTest extends TelemetryTestCase
         self::assertStringContainsString('recording check failed', $this->logger->messageAt(0));
     }
 
-    /**
-     * The HTTP cleanup path runs on the same broken span: the outcome cannot be
-     * applied, but the request must still end up released.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aRecordingCheckFailureDoesNotPreventHttpCleanup(): void
     {

@@ -9,6 +9,5 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // DBAL statements, through the driver middleware.
     InstrumentationServices::register($services, 'doctrine', DefaultBuckets::Database);
 };

@@ -14,11 +14,7 @@ use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * The middleware is registered by a pass rather than by services.php, so what the
- * pass decides is the thing worth compiling: the tag that makes DoctrineBundle pick
- * it up, and the two flags that decide whether it exists at all.
- */
+/** What the Doctrine compiler pass registers, and under which switches. */
 final class DoctrineRegistrationTest extends ContainerTestCase
 {
     /** @throws \Throwable */
@@ -44,12 +40,7 @@ final class DoctrineRegistrationTest extends ContainerTestCase
         self::assertFalse($container->has(DoctrinePolicy::class));
     }
 
-    /**
-     * A disabled signal is a no-op object, not a flag: the other signal keeps its real
-     * one, and no instrumentation class is asked which half is on.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aDisabledSignalOnlyDisablesItsOwnHalf(): void
     {
@@ -78,12 +69,7 @@ final class DoctrineRegistrationTest extends ContainerTestCase
         self::assertInstanceOf(ContextOnlyOpener::class, $container->get('open_telemetry.doctrine.span_opener'));
     }
 
-    /**
-     * `sanitized` is the default. The boolean the key used to take still means what it
-     * meant: `true` the statement as sent, `false` nothing.
-     *
-     * @return iterable<string, array{array<string, mixed>, QueryText}>
-     */
+    /** @return iterable<string, array{array<string, mixed>, QueryText}> */
     public static function queryTextSettings(): iterable
     {
         yield 'default' => [[], QueryText::Sanitized];

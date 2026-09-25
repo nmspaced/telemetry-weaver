@@ -17,15 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/**
- * The opener activates in the storage it was given, not in the process-wide one.
- *
- * Every test here holds two storages at once and never installs either as the global,
- * because that is the only arrangement in which the difference is visible: in the container
- * the injected storage *is* `Context::storage()`, so an opener that activated through the
- * static accessor would pass every ordinary test while contradicting the contract the rest
- * of the adapters — {@see OtelActiveTrace} above all — are built on.
- */
+/** The opener activates in the storage it was given, not in the process-wide one. */
 #[CoversClass(SpanOpener::class)]
 final class SpanOpenerStorageTest extends TestCase
 {
@@ -58,11 +50,6 @@ final class SpanOpenerStorageTest extends TestCase
         }
     }
 
-    /**
-     * The other half of the same statement, and the one that failed before: activating
-     * through `Context::activate()` put the span on the process storage, where nothing in
-     * this package looks for it and everything else in the process does.
-     */
     #[Test]
     public function theProcessStorageIsLeftAlone(): void
     {
@@ -78,10 +65,6 @@ final class SpanOpenerStorageTest extends TestCase
         }
     }
 
-    /**
-     * Parentage is read from the injected storage, so it has to be written there too —
-     * otherwise a nested operation reads an empty storage and starts a second root.
-     */
     #[Test]
     public function aNestedOperationDescendsFromTheOuterOne(): void
     {

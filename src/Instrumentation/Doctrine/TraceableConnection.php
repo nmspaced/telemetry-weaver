@@ -11,14 +11,8 @@ use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
 
 /**
- * Spans the calls that reach the server directly: `query()`, `exec()`, and the three
- * transaction boundaries.
- *
- * `prepare()` is not one of them: preparing a statement is not a round trip worth a
- * span of its own, and the work it describes is measured when the statement executes.
- * It only wraps the statement so that execution can be.
- *
- * Not readonly because `AbstractConnectionMiddleware` is not; nothing here is mutable.
+ * Spans `query()`, `exec()` and transaction boundaries. `prepare()` gets no span; the
+ * statement it returns is traced when executed.
  */
 final class TraceableConnection extends AbstractConnectionMiddleware
 {

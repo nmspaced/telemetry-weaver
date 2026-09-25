@@ -24,18 +24,8 @@ use OpenTelemetry\SDK\Metrics\View\CriteriaViewRegistry;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 
 /**
- * The meter provider, with whatever views the application registered.
- *
- * Views are the specification's mechanism for changing what an instrument produces without
- * changing the code that writes it — a different aggregation, a narrower set of attributes, or
- * a metric dropped entirely. The bundle needed a way to pass them through because
- * `MeterProviderBuilder` has none: it constructs an empty `CriteriaViewRegistry` and offers no
- * way to register into it, so the provider is constructed here instead.
- *
- * `instrumentation.<component>.duration_buckets` covers the common case — the boundaries of an
- * instrument the bundle created — without any of this. Views are for the rest: an instrument
- * the application or a third-party library created, and attribute keys whose cardinality has
- * to be cut at the source.
+ * Builds the meter provider with the application's registered views, which
+ * `MeterProviderBuilder` cannot accept.
  */
 final readonly class MeterProviderFactory
 {

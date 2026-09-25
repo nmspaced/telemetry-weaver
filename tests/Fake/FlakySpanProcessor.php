@@ -10,11 +10,7 @@ use OpenTelemetry\SDK\Trace\ReadableSpanInterface;
 use OpenTelemetry\SDK\Trace\ReadWriteSpanInterface;
 use OpenTelemetry\SDK\Trace\SpanProcessorInterface;
 
-/**
- * Delegates, but fails a chosen span's end(). Failing at the exporter would
- * not do: the SDK's processors absorb that, and the point here is a failure
- * the package's own release path has to survive.
- */
+/** Delegates, but throws from `onEnd()` for a chosen span. */
 final readonly class FlakySpanProcessor implements SpanProcessorInterface
 {
     public function __construct(

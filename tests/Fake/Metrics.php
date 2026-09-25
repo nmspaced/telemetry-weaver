@@ -23,7 +23,7 @@ final readonly class Metrics
     }
 
     /**
-     * What the SDK collects from a cumulative instrument that was created and never recorded.
+     * A cumulative metric created but never recorded.
      *
      * @param non-empty-string $name
      */

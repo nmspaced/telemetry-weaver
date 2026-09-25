@@ -12,7 +12,6 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Cache pools, through the traceable pool decorators.
     InstrumentationServices::register($services, 'cache', DefaultBuckets::Cache);
 
     $services

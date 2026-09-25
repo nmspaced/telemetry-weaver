@@ -7,11 +7,9 @@ namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk;
 use OpenTelemetry\SDK\Common\Export\TransportFactoryInterface;
 
 /**
- * @internal The transport factory an OTLP exporter the bundle builds is handed.
+ * @internal
  *
- * The upstream OTLP exporter factories take one as their only injection point. Which one it is
- * — the bundle's budgeted factory or an application's own — is decided by the container, not
- * by the exporter factories that ask.
+ * Provides the transport factory for OTLP exporters the bundle builds.
  */
 interface OtlpTransports
 {

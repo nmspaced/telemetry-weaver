@@ -40,7 +40,6 @@ final class ProcessMetricsTest extends ContainerTestCase
             self::assertInstanceOf(ProcessMetrics::class, $process);
 
             $process->register();
-            // A kernel reboot calls boot() again; the callbacks must not attach twice.
             $process->register();
 
             $meterProvider->forceFlush();
@@ -103,9 +102,7 @@ final class ProcessMetricsTest extends ContainerTestCase
         $container->register(MeterInterface::class, MeterInterface::class)->setSynthetic(true)->setPublic(true);
     }
 
-    /**
-     * @return array<string, list<HistogramDataPoint|NumberDataPoint>> metric name => data points
-     */
+    /** @return array<string, list<HistogramDataPoint|NumberDataPoint>> metric name => data points */
     private static function pointsByName(InMemoryExporter $exporter): array
     {
         $points = [];
@@ -117,13 +114,7 @@ final class ProcessMetricsTest extends ContainerTestCase
         return $points;
     }
 
-    /**
-     * A one-shot command has no memory curve worth reporting, so nothing must attach the
-     * gauges to it. The events this listens to are what say "this process serves work
-     * repeatedly": an incoming request, and a Messenger worker loop.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theGaugesAttachToServedWorkAndNotToBootOrToAConsoleCommand(): void
     {
@@ -144,14 +135,7 @@ final class ProcessMetricsTest extends ContainerTestCase
         }
     }
 
-    /**
-     * The conventions make an amount of memory an up-down counter and uptime a gauge, and
-     * the difference survives export: a non-monotonic sum can be added across workers, a
-     * gauge cannot. Neither carries attributes — which worker a sample belongs to is the
-     * resource's `service.instance.id`, not a label on two instruments.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function memoryIsANonMonotonicSumUptimeIsAGaugeAndNeitherCarriesAttributes(): void
     {

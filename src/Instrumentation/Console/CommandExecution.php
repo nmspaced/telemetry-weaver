@@ -9,18 +9,10 @@ use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionEntry;
 use OpenTelemetry\SemConv\Incubating\Attributes\ProcessIncubatingAttributes;
 
 /**
- * One command run, classified once at the end.
+ * One command run, whose outcome is decided by the exit code at `ConsoleEvents::TERMINATE`.
  *
- * The exception seen at `ConsoleEvents::ERROR` is held rather than recorded, because a
- * listener further down may handle it and set the exit code to zero. Symfony treats that
- * as a successful run and so does this: the outcome is whatever the exit code says at
- * `ConsoleEvents::TERMINATE`, and a recovered error leaves neither an errored span nor an
- * `error.type` in the histogram.
- *
- * The exit code is `process.exit.code` on the span, and the error type when it is not
- * zero — set through `fail()`, so the span and the histogram cannot disagree. It is a
- * small integer set, so it stays usable as a metric label, and it is what an operator
- * greps for — the exception class is on the span, where cardinality costs nothing.
+ * An error seen at `ConsoleEvents::ERROR` is held, since a listener may recover it with exit
+ * code 0. A non-zero exit code becomes the error type on both the span and the histogram.
  */
 final class CommandExecution implements ExecutionEntry
 {

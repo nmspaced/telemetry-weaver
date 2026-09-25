@@ -12,14 +12,8 @@ use Symfony\Component\Cache\Adapter\TagAwareAdapterInterface;
 use Symfony\Contracts\Cache\NamespacedPoolInterface;
 
 /**
- * Picks the decorator that matches what a pool can do.
- *
- * Four of them exist because a decorator must not narrow its subject: wrapping a
- * tag-aware pool in a plain decorator would silently remove tag invalidation, and the
- * application would only find out when a tag stopped clearing anything.
- *
- * `NamespacedPoolInterface` is checked for existence rather than assumed: it arrived in
- * a later Symfony Cache release than the bundle's floor.
+ * Picks the cache decorator matching what a pool implements, so no capability such as tag
+ * invalidation is lost.
  */
 final readonly class TraceablePoolClass
 {

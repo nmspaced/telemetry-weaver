@@ -56,23 +56,17 @@ final readonly class CacheTelemetry
     }
 
     /**
-     * A batch read whose result may be lazy, measured until the caller has read it.
+     * A batch read measured until the caller has read it; see {@see LazyCacheRead}. An array
+     * result ends the operation immediately.
      *
-     * The call itself runs with the span active, like any other operation, so that anything
-     * the backend traces while fetching is its child. An array result has been read by then
-     * and the operation ends here. For anything else the caller drives the read: see
-     * {@see LazyCacheRead} for how the outcome, the span and the duration follow the
-     * iteration rather than the call. Until then the operation is in `$pending`, where a
-     * worker reset can abandon it.
-     *
-     * @param PendingOperations $pending the pool's own, which its `reset()` abandons
+     * @param PendingOperations $pending the pool's own, abandoned by its `reset()`
      * @param non-empty-string $operation
      * @param array<non-empty-string, bool|float|int|string|list<string>> $spanAttributes
      * @param \Closure(): iterable<string, CacheItem> $read
      *
      * @return iterable<string, CacheItem>
      *
-     * @throws \Throwable whatever the backend throws from the call, untouched
+     * @throws \Throwable whatever the backend throws, untouched
      */
     public function read(
         PendingOperations $pending,

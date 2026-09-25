@@ -5,22 +5,11 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Client;
 
 /**
- * Which remote hosts are left out, per signal.
+ * Hosts excluded from traces and from metrics, independently — above all the collector,
+ * whose exports would otherwise instrument themselves.
  *
- * The collector is the reason this exists: when the OTLP exporter's transport is one of
- * the instrumented clients, every export is itself an outgoing request, and tracing it
- * produces spans that produce exports that produce spans. Excluding the collector's host
- * is what breaks the loop.
- *
- * Exact names and explicit `*.example.org` suffixes only — never a regular expression
- * from configuration. A pattern is matched against the host of every outgoing request in
- * the process, so a pathological pattern would be a denial of service on the application
- * itself rather than on whoever wrote it. `*.example.org` does not match `example.org`:
- * the wildcard stands for a label, so a suffix rule cannot silently swallow the apex.
- *
- * The two lists are independent because the two signals answer different questions. A
- * health probe against an internal service is noise in a trace and load in a metric, and
- * the useful configuration is usually to drop it from one and keep it in the other.
+ * Exact names or `*.example.org` suffixes only, never regular expressions; `*.example.org`
+ * does not match `example.org`.
  */
 final readonly class HostPolicy
 {
@@ -51,9 +40,7 @@ final readonly class HostPolicy
     }
 
     /**
-     * Case and the root's trailing dot are folded once, at construction, rather than on
-     * every request: the lists are process-lifetime configuration and the comparison is
-     * on the hot path of every outgoing call.
+     * Folds case and the trailing dot once, at construction.
      *
      * @param list<string> $hosts
      *

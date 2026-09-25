@@ -33,17 +33,11 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Puts an application's own transport factory, exporter or provider where the bundle's would go.
+ * Wires the application's own transport factories, exporters, providers and trace decisions
+ * into the bundle's pipeline.
  *
- * `config/services/sdk.php` describes the bundle's pipeline; this pass replaces only the links
- * the configuration names. A pass rather than a branch in the extension, because the
- * application's services are not defined yet when the extension loads — and an id that names no
- * service, or a service of the wrong kind, has to fail the compile rather than the first request.
- *
- * What stays around a replaced link is the same whoever built it: an exporter goes through
- * `ResilientExporters` (metrics also through `RequestMetricPolicy`), a provider through
- * `ProviderRegistry`, and a transport factory sits under both. Everything inside the replaced
- * link is the application's.
+ * A compiler pass so that an unknown or wrong-kind service id fails the compile. Replaced
+ * links keep the bundle's wrappers around them.
  */
 final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
 {
@@ -53,7 +47,9 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
         'logs' => LoggerProviderInterface::class,
     ];
 
-    /** @throws InvalidArgumentException when a configured id names no service or a service of the wrong kind */
+    /**
+     * @throws InvalidArgumentException when a configured id names no service or a service of the wrong kind
+     */
     #[\Override]
     public function process(ContainerBuilder $container): void
     {
@@ -92,11 +88,7 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
         ]);
     }
 
-    /**
-     * The views the meter provider is built with.
-     *
-     * @throws InvalidArgumentException
-     */
+    /** @throws InvalidArgumentException */
     private static function metricViews(ContainerBuilder $container): void
     {
         if (!$container->hasDefinition(MeterProviderFactory::class)) {
@@ -112,15 +104,8 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * The sampler, the id generator and the extra span processors of the traces pipeline.
-     *
-     * These go into the bundle's own `TracerProviderFactory` rather than replacing anything
-     * around it: an application that needs a per-route sampler or X-Ray-shaped trace ids used
-     * to have to supply the whole provider, and lost the non-auto-flushing batch processor,
-     * the boundary budget and the export gate along with it.
-     *
-     * The processors are an `IteratorArgument` so that naming one does not build it on every
-     * request that never touches tracing.
+     * The sampler, id generator and extra span processors, passed into the bundle's own
+     * `TracerProviderFactory`. Processors are lazy, so an unused one is never built.
      *
      * @throws InvalidArgumentException
      */
@@ -156,8 +141,7 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * The application's factories sit in front of the bundle's transports, which keep every
-     * protocol family the configuration does not name.
+     * The application's factories go in front of the bundle's transports.
      *
      * @throws InvalidArgumentException
      */
@@ -188,8 +172,7 @@ final readonly class SdkComponentsCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * The consumed exporter id is the interface itself; the configured exporter replaces the
-     * factory behind it, and still arrives wrapped.
+     * Replaces the factory behind an exporter interface; the result is still wrapped.
      *
      * @param class-string $interface
      * @param array{Reference, non-empty-string} $factory

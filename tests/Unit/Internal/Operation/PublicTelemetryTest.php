@@ -20,15 +20,10 @@ use PHPUnit\Framework\Attributes\Test;
  * Core `Telemetry` identity and lifecycle: trace()/operation() borrow rather than transfer
  * ownership, a plan is immutable and resolves its ambient parent only at start, and a
  * detached/abandoned/retained view cannot outlive or corrupt the SDK span it once named.
- * Error and `fail()` semantics live in {@see PublicTelemetryFailureTest}; `SafeMetrics`
- * degradation in {@see SafeMetricsResilienceTest}; fiber/leak safety in
- * {@see PublicTelemetryConcurrencyTest}.
  */
 final class PublicTelemetryTest extends PublicTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function tracePreservesIdentityAndOnlyLendsEnrichment(): void
     {
@@ -45,9 +40,7 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
         self::assertNull($this->contextStorage->scope());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function planIsImmutableAndResolvesAmbientParentOnlyAtStart(): void
     {
@@ -70,9 +63,7 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
         self::assertSame(OtelSpanKind::KIND_CLIENT, $this->exportedSpan()->getKind());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function explicitRootPreservesTheOuterOwner(): void
     {
@@ -124,11 +115,6 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
         self::assertNull($this->contextStorage->scope());
     }
 
-    /**
-     * A `Span` is a borrowed view, and a shared service that keeps one — against the
-     * docblock, but it will happen — must not keep the SDK span of request A alive in a
-     * worker, nor be able to write into request B.
-     */
     #[Test]
     public function aRetainedSpanViewDoesNotKeepTheSdkSpanAliveOrReachTheNextRequest(): void
     {
@@ -158,12 +144,7 @@ final class PublicTelemetryTest extends PublicTelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * A link survives the rest of the fluent description, and an invalid context — what
-     * `Span::getCurrent()` returns outside any span — adds nothing.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function linksAreKeptAcrossTheDescriptionAndInvalidOnesAreIgnored(): void
     {

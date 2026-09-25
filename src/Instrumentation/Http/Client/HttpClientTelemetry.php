@@ -22,20 +22,8 @@ use OpenTelemetry\SemConv\Metrics\HttpMetrics;
 /**
  * What an outgoing request records, and when it counts as failed.
  *
- * Immutable and process-scoped: the instrument is created once, and the ownership of an
- * individual request stays with the client that started it. Nothing here survives a
- * request.
- *
- * Any status at or above 400 is an error, which is where the client and the server
- * conventions deliberately disagree — the server adapter errors only from 500. A 404 is
- * a valid answer to give and a failure to receive: the server did what it was asked, the
- * caller did not get what it asked for. The status doubles as the error type because it
- * is a small bounded set and it is what an operator filters on.
- *
- * Both switches are honoured without a flag reaching this class. A host excluded from
- * traces still gets a measurement, a host excluded from metrics still gets a span, and a
- * host excluded from both produces no operation at all — the caller then knows there is
- * nothing to finish.
+ * Per the client conventions any status >= 400 is an error, with the status as `error.type`.
+ * Host exclusions apply per signal; a host excluded from both gets no operation at all.
  */
 final readonly class HttpClientTelemetry
 {
@@ -48,11 +36,7 @@ final readonly class HttpClientTelemetry
 
     private HistogramInterface $responseBodySize;
 
-    /**
-     * The recorder is the same seam a duration writes through, and it is here for the
-     * same reason: it is the only way to name the trace a measurement belongs to without
-     * an OpenTelemetry context reaching instrumentation.
-     */
+    /** The recorder correlates body sizes with the request's trace. */
     public function __construct(
         private BoundaryTelemetry $telemetry,
         private HostPolicy $policy,
@@ -78,9 +62,7 @@ final readonly class HttpClientTelemetry
     }
 
     /**
-     * @return ScopedOperation|null null when the host is excluded from both signals,
-     *                              so the caller does not have to track an operation
-     *                              that would record nothing
+     * @return ScopedOperation|null null when the host is excluded from both signals
      */
     public function start(OutgoingRequest $request): ?ScopedOperation
     {
@@ -107,10 +89,7 @@ final readonly class HttpClientTelemetry
         return $plan->start();
     }
 
-    /**
-     * The request reached a status. Everything after this — reading the body, a stream
-     * that fails halfway — belongs to the caller and no longer changes this operation.
-     */
+    /** Ends the operation at the response status; reading the body afterwards changes nothing. */
     public function complete(
         ClientCall $call,
         int $status,
@@ -121,9 +100,6 @@ final readonly class HttpClientTelemetry
 
         $outcome = [HttpAttributes::HTTP_RESPONSE_STATUS_CODE => $status];
 
-        // Known only once the response has started, bounded to a handful of values, and a
-        // recommended attribute of both the span and the histogram — so it joins the
-        // outcome rather than the labels frozen at start.
         if ($protocolVersion !== null && $protocolVersion !== '') {
             $outcome[NetworkAttributes::NETWORK_PROTOCOL_VERSION] = $protocolVersion;
         }
@@ -138,24 +114,13 @@ final readonly class HttpClientTelemetry
 
         $operation->metricAttributes($outcome);
 
-        // Read before finish(), which releases it along with the span. This is the trace
-        // the duration is correlated with, and the body sizes have to name the same one:
-        // a lazy response is read whenever the caller gets round to it, so letting the
-        // instrument resolve the exemplar itself attached the body size of this request
-        // to whatever span happened to be active then — in a worker, a later request's.
         $correlation = $operation->correlation();
         $operation->finish();
 
-        // Asked again rather than remembered from start(): the policy is immutable, so
-        // the answer cannot have changed, and one source of truth cannot drift from
-        // itself. A host excluded from metrics gets no duration and no body sizes —
-        // recording two thirds of a joinable triple would be worse than recording none.
         if (!$this->policy->measure($call->request->host)) {
             return;
         }
 
-        // After finish(), under the labels the duration was recorded with: the
-        // conventions expect the three instruments to be joinable on one label set.
         $this->recordBodySizes($call->request->metricAttributes() + $outcome, $bodySize, $correlation);
     }
 

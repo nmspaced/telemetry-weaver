@@ -15,9 +15,8 @@ use Symfony\Component\Messenger\Stamp\RedeliveryStamp;
 use Symfony\Component\Messenger\Stamp\TransportMessageIdStamp;
 
 /**
- * Owns a consumer operation on the middleware call stack. No scope survives a return
- * or an exception from the bus, and no worker event or service reset is needed to end it.
- * Worker listeners and transport acknowledgements run outside this processing span.
+ * Owns a consumer operation on the middleware call stack; it always ends before the bus
+ * returns or throws. Worker listeners and acknowledgements run outside it.
  *
  * @internal
  */
@@ -70,28 +69,8 @@ final readonly class MessengerConsumption
     }
 
     /**
-     * Where the consumer's trace continues from.
-     *
-     * The producer's context becomes the parent, so the path from the request that
-     * dispatched the message to the handler that ran it is one trace. That is what the
-     * messaging conventions describe and what every backend expects; there is no knob,
-     * because a consumer span detached from its producer is not a variant of this, it is
-     * a different signal.
-     *
-     * When the creation context is the parent and the worker is itself running inside
-     * a span — a loop somebody traces — that ambient span is added as a link, which is
-     * what the messaging conventions ask for when they allow this parenting. It is not
-     * linked in the rootless case: without a stamp there is no parent to trade it for,
-     * and nothing says the ambient span is related to a message of unknown origin.
-     *
-     * No stamp at all means the message predates the instrumentation or came from
-     * elsewhere. Then the span is a root, never a child of the worker's ambient context:
-     * that context belongs to the previous message — and an empty carrier is exactly how
-     * {@see Propagation::extract()} is told to say so.
-     *
-     * A propagation that throws is answered the same way rather than by the caller's
-     * backstop: losing the incoming trace costs one edge between two traces, while
-     * losing the operation costs the message its span, its duration and its error type.
+     * The producer's context from the message stamp. No stamp, or a failed extraction,
+     * starts a new root rather than inheriting the worker's ambient context.
      */
     private function propagated(Envelope $envelope): IncomingTrace
     {
@@ -107,9 +86,8 @@ final readonly class MessengerConsumption
     }
 
     /**
-     * Span-only attributes: the transport's message id and whether this delivery is a
-     * retry. Neither belongs in the metric — the id is unbounded, and the retry flag
-     * would double every timeseries.
+     * Span-only attributes: the transport message id and the redelivery flag, both too
+     * high-cardinality for the metric.
      *
      * @param array<non-empty-string, string> $attributes
      *

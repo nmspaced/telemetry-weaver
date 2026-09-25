@@ -19,9 +19,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  */
 final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function exclusionsAreIndependentPerSignal(): void
     {
@@ -37,9 +35,7 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         }
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theFrozenLabelSetCarriesEveryRequiredAttributeAndNothingUnbounded(): void
     {
@@ -69,9 +65,7 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         );
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anUnknownMethodIsNormalizedAndTheDefaultPortIsImplied(): void
     {
@@ -86,9 +80,7 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         self::assertSame('http', HttpTelemetryAssertions::attribute($attributes, 'url.scheme'));
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function bodySizesAreRecordedUnderTheSameLabelsAsTheDuration(): void
     {
@@ -97,7 +89,6 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         ]])));
         $client->request('POST', 'https://api.example.org/orders', ['body' => 'payload'])->getContent();
 
-        // One read: measurements() drains the delta, so every point below comes from this one snapshot.
         $measurements = $this->telemetry->measurements();
         self::assertCount(1, HttpTelemetryAssertions::pointsNamedIn($measurements, 'http.client.request.duration'));
         self::assertCount(1, HttpTelemetryAssertions::pointsNamedIn($measurements, 'http.client.response.body.size'));
@@ -111,9 +102,7 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         );
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aResponseWithoutADeclaredLengthRecordsNoSizeRatherThanZero(): void
     {
@@ -125,12 +114,7 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         self::assertSame([], HttpTelemetryAssertions::pointsNamedIn($measurements, 'http.client.response.body.size'));
     }
 
-    /**
-     * The protocol comes from the status line the transport recorded. It is bounded, so
-     * it is a label as well as a span attribute, as on the server side.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theNegotiatedProtocolIsReadFromTheStatusLine(): void
     {
@@ -149,12 +133,7 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         );
     }
 
-    /**
-     * `HTTP/2.0` and `HTTP/2` are one protocol; two label values for it would split every
-     * series in two depending on which transport wrote the line.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aMinorZeroOnMajorVersionsIsNormalised(): void
     {
@@ -166,12 +145,7 @@ final class TraceableHttpClientMetricsTest extends HttpClientTelemetryTestCase
         self::assertSame('2', $this->span()->getAttributes()->get('network.protocol.version'));
     }
 
-    /**
-     * No status line, no attribute: a guessed `1.1` would be a claim about the wire the
-     * instrumentation never saw.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function withoutAStatusLineNoProtocolIsReported(): void
     {

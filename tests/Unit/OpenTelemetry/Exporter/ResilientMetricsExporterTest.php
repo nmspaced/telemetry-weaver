@@ -51,11 +51,6 @@ final class ResilientMetricsExporterTest extends TestCase
         self::assertSame('collector unreachable', $this->logger->contextAt(0)['exception'] ?? null);
     }
 
-    /**
-     * The SDK collects a cumulative instrument that was never recorded as a metric without data
-     * points, on every export. Prometheus's OTLP receiver answers such a request with a 500 and
-     * appends none of it, so one unused instrument silenced every metric of a worker.
-     */
     #[Test]
     public function metricsWithoutDataPointsAreNotExported(): void
     {
@@ -104,12 +99,6 @@ final class ResilientMetricsExporterTest extends TestCase
         self::assertSame(1, $delegate->flushes, 'the wrapper must not lose the delegate forceFlush');
     }
 
-    /**
-     * A flood of failures must not become its own incident in the log.
-     *
-     * Once the pause elapses, the next failure passes through again and
-     * carries the accumulated count.
-     */
     #[Test]
     public function repeatedFailuresAreRateLimited(): void
     {

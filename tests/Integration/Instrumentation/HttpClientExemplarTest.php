@@ -15,25 +15,14 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 /**
- * Which trace an outgoing request's measurements are correlated with.
- *
- * All three instruments describe one request and the conventions expect them to be
- * joinable, so they have to name the same trace as well as the same labels. The duration
- * did: it captures a correlation when the operation starts. The body sizes did not — they
- * were recorded straight on the instrument, which resolves the exemplar against whatever
- * context is current at that instant.
- *
- * That instant is the caller's, not the request's. A Symfony response is lazy: the client
- * returns as soon as the headers arrive and the body is read whenever the application gets
- * round to it, which in a worker can be inside a completely different unit of work. The
- * body size of a request from one trace was then filed under a span of another.
+ * Which trace an outgoing request's measurements are correlated with. All three instruments
+ * describe one request and the conventions expect them to be joinable, so they have to name the
+ * same trace as well as the same labels.
  */
 #[CoversClass(HttpClientTelemetry::class)]
 final class HttpClientExemplarTest extends HttpClientTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function everyMeasurementOfOneRequestNamesTheTraceItWasMadeIn(): void
     {
@@ -49,7 +38,6 @@ final class HttpClientExemplarTest extends HttpClientTelemetryTestCase
         self::assertSame('body', $response->getContent());
         $second->finish();
 
-        // Drained once: the recorder hands out delta snapshots, so a second read is empty.
         $metrics = $this->telemetry->measurements();
 
         $spans = [];

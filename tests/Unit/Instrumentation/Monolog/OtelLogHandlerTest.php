@@ -14,8 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Mapping a Monolog record into a `ReadableLogRecord`: severity, body, flattened context, the
- * exception carve-out, and the level/channel filters. Re-entrancy and cache-boundedness live in
- * {@see OtelLogHandlerResilienceTest}.
+ * exception carve-out, and the level/channel filters.
  */
 #[CoversClass(OtelLogHandler::class)]
 final class OtelLogHandlerTest extends OtelLogHandlerTestCase
@@ -90,15 +89,6 @@ final class OtelLogHandlerTest extends OtelLogHandlerTestCase
         self::assertSame('at level', $this->record()->getBody());
     }
 
-    /**
-     * The bundle's own diagnostics are never exported, whatever the application configured.
-     *
-     * A report about a failed export, exported, refills the queue that the failure came
-     * from: the next flush fails, reports again, and the loop only ends when the collector
-     * comes back. The handler's re-entrance guard does not cover it — with a batch
-     * processor the emit only queues, and the failure arrives on a later flush — so the
-     * channel is refused outright rather than left to a default somebody could overwrite.
-     */
     #[Test]
     public function theBundlesOwnDiagnosticsChannelIsNeverExported(): void
     {

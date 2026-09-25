@@ -24,15 +24,6 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * Which trace an exported log record belongs to, when emitting it is not the same moment as
  * writing it.
- *
- * The SDK resolves an unset context lazily — `Context::getCurrent()` when the record is
- * read — which equals the active span only while the handler runs inside the operation that
- * logged. `BufferHandler` and `FingersCrossedHandler` break exactly that assumption, and
- * they are ordinary Symfony logging configuration, not an exotic setup. So the record's own
- * snapshot decides instead.
- *
- * All of these use a storage of their own: the trace has to survive being read after its
- * scope is gone, and holding the process storage would hide whether that works.
  */
 #[CoversClass(OtelLogHandler::class)]
 #[CoversClass(TraceContextProcessor::class)]
@@ -59,10 +50,6 @@ final class OtelLogHandlerCorrelationTest extends OtelLogHandlerTestCase
         parent::tearDown();
     }
 
-    /**
-     * The case the correlation used to be lost in: the record is made inside the operation,
-     * held by the buffer, and delivered once the operation has ended.
-     */
     #[Test]
     public function aBufferedRecordKeepsTheTraceItWasCreatedIn(): void
     {
@@ -80,11 +67,6 @@ final class OtelLogHandlerCorrelationTest extends OtelLogHandlerTestCase
         self::assertSame($traceId, $this->exportedTraceId());
     }
 
-    /**
-     * The other direction, and the one a fallback to "read the current context" gets wrong:
-     * a line logged outside any trace, flushed while an unrelated operation happens to be
-     * running, must not be filed under that operation.
-     */
     #[Test]
     public function aRecordMadeOutsideATraceIsNotAdoptedByTheFlush(): void
     {
@@ -103,10 +85,6 @@ final class OtelLogHandlerCorrelationTest extends OtelLogHandlerTestCase
         );
     }
 
-    /**
-     * Records that never left their operation keep working the same way, whether or not the
-     * snapshot is there — this is the ordinary, unbuffered stack.
-     */
     #[Test]
     public function anUnbufferedRecordIsCorrelatedWithTheOperationItWasLoggedIn(): void
     {
@@ -119,19 +97,11 @@ final class OtelLogHandlerCorrelationTest extends OtelLogHandlerTestCase
         self::assertSame($traceId, $this->exportedTraceId());
     }
 
-    /**
-     * With correlation switched off there is no snapshot to read, and the handler leaves the
-     * SDK's own resolution alone rather than declaring every record untraced. That keeps
-     * `logs.correlation: false` meaning what it always meant: the fields other handlers see
-     * are gone, the export is not made worse.
-     */
     #[Test]
     public function withoutTheProcessorTheSdkResolutionIsLeftInPlace(): void
     {
         $logger = new Logger('app', [$this->handler()]);
 
-        // The process storage, because that fallback is `Context::getCurrent()` inside the
-        // SDK: this test is about the SDK's own resolution still being reachable.
         $traceId = $this->inSpan(
             'origin',
             static function () use ($logger): void {
@@ -143,15 +113,9 @@ final class OtelLogHandlerCorrelationTest extends OtelLogHandlerTestCase
         self::assertSame($traceId, $this->exportedTraceId());
     }
 
-    /**
-     * A record whose correlation fields were rewritten by some other processor is not a
-     * trace. Exporting it with none is honest; deriving an id from it is not.
-     */
     #[Test]
     public function anUnreadableSnapshotIsNoTraceRatherThanAGuess(): void
     {
-        // After the snapshot processor, not before it: Monolog applies processors in order,
-        // so this one is what the handler ends up reading.
         $logger = $this->logger($this->handler(correlated: true), static function (LogRecord $record): LogRecord {
             $record->extra['trace_id'] = 'not-a-trace-id';
 
@@ -165,9 +129,7 @@ final class OtelLogHandlerCorrelationTest extends OtelLogHandlerTestCase
         self::assertNull($this->exportedTraceId());
     }
 
-    /**
-     * @param \Closure(LogRecord): LogRecord ...$processors applied after the snapshot
-     */
+    /** @param \Closure(LogRecord): LogRecord ...$processors applied after the snapshot */
     private function logger(HandlerInterface $handler, \Closure ...$processors): Logger
     {
         return new Logger(
@@ -181,9 +143,7 @@ final class OtelLogHandlerCorrelationTest extends OtelLogHandlerTestCase
     }
 
     /**
-     * Runs the callback inside a started, activated span and answers with its trace id. The
-     * scope is closed and the span ended before returning, so anything read afterwards is
-     * read after the operation is over — which is the whole point here.
+     * Runs the callback inside a started, activated span and answers with its trace id.
      *
      * @param non-empty-string $name
      */

@@ -12,15 +12,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Writing the trace back to the caller.
- *
- * The propagator here is a double, because the package does not depend on one: the SDK
- * registry ships `none` and the real `traceresponse` propagator is a separate contrib
- * package. What is under test is therefore the seam — that the bundle asks at a moment
- * when the server span is still current, puts the answer on the response that is actually
- * sent, and survives a propagator that throws.
- */
+/** Writing the trace back to the caller through the response propagator. */
 #[CoversClass(ServerTraceResponseSubscriber::class)]
 #[CoversClass(OtelResponsePropagation::class)]
 final class HttpResponsePropagationTest extends HttpTelemetryTestCase
@@ -51,13 +43,7 @@ final class HttpResponsePropagationTest extends HttpTelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * A sub-request's response is rendered into the page rather than sent, so headers on it
-     * reach nobody — and asking once per sub-request would also overwrite the main
-     * request's header with an internal span.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aSubRequestIsNotAskedFor(): void
     {
@@ -87,11 +73,7 @@ final class HttpResponsePropagationTest extends HttpTelemetryTestCase
         self::assertFalse($response->headers->has('traceresponse'));
     }
 
-    /**
-     * Telemetry does not get to break a response that is otherwise fine.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aThrowingPropagatorLeavesTheResponseIntact(): void
     {

@@ -11,9 +11,7 @@ use OpenTelemetry\SDK\Metrics\MetricExporter\InMemoryExporter;
 use PHPUnit\Framework\Assert;
 
 /**
- * Reads recorded metrics out of the Messenger telemetry tests' in-memory metric exporter,
- * asserting they exist and narrowing `Metric::$data` via {@see MetricPoints} rather than
- * letting a missing metric or the wrong data shape surface as a confusing type error.
+ * Reads recorded Messenger metrics, failing the test when one is missing.
  *
  * @internal
  */

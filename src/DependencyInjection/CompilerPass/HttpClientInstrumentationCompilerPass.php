@@ -21,32 +21,11 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpClient\Response\AsyncResponse;
 
 /**
- * Decorates every logical HTTP client, at the one place in the chain where the request
- * is both fully resolved and not yet retried.
+ * Decorates every HTTP client between scoping and caching.
  *
- * FrameworkBundle builds each client as a stack of decorators with fixed priorities —
- * throttling (5), URI template (10), scoping (15), caching (20), retry (25), the
- * profiler's own traceable client (100) — and in Symfony a *higher* decoration priority
- * is applied earlier, which puts it further *in*. Reading the chain from the outside in,
- * that is throttling, template, scoping, caching, retry, profiler, transport.
- *
- * Sitting at 18 places this decorator between scoping and caching, and both neighbours
- * are the reason for the number:
- *
- *  - inside scoping, so a scoped client's relative URL has already become an absolute
- *    one. Outside it, `$client->request('GET', 'users')` would arrive here with no host
- *    at all, and the span would be missing the attributes the conventions require.
- *  - outside caching and retry, so all the attempts a single logical request makes are
- *    one span with one duration. That is the number an application cares about: what
- *    calling this endpoint cost, not what the third of four attempts cost. A response
- *    served from the cache is inside the boundary too, which is what makes a cache that
- *    stops working visible as latency rather than as silence.
- *
- * The default client is the one exception on `base_uri`. It has no scoping decorator —
- * FrameworkBundle gives it `default_options` on the transport instead — so a relative
- * URL is still relative when it reaches this decorator and the base has to be handed
- * over for the attributes to be resolvable. Scoped clients get null, because for them
- * the question was already answered upstream.
+ * Inside scoping, so relative URLs are already absolute; outside caching and retry, so one
+ * logical request is one span. The default client has no scoping decorator, so its
+ * `base_uri` is passed in explicitly.
  */
 final readonly class HttpClientInstrumentationCompilerPass implements CompilerPassInterface
 {
@@ -56,9 +35,7 @@ final readonly class HttpClientInstrumentationCompilerPass implements CompilerPa
 
     private const string TRANSPORT_ID = 'http_client.transport';
 
-    /**
-     * Between scoping (15) and caching (20); see the class docblock for why both edges.
-     */
+    /** Between scoping (15) and caching (20). */
     private const int DECORATION_PRIORITY = 18;
 
     #[\Override]
@@ -130,9 +107,6 @@ final readonly class HttpClientInstrumentationCompilerPass implements CompilerPa
             ->addTag('kernel.reset', ['method' => 'reset']);
     }
 
-    /**
-     * The `base_uri` FrameworkBundle wrote into the transport's default options, if any.
-     */
     private function defaultBaseUri(ContainerBuilder $container): ?string
     {
         if (!$container->hasDefinition(self::TRANSPORT_ID)) {

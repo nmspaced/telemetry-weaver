@@ -9,11 +9,7 @@ use OpenTelemetry\SDK\Common\Configuration\KnownValues;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 
 /**
- * The OTLP protocol one signal exports with.
- *
- * Repeats what the upstream factories do — `OTEL_EXPORTER_OTLP_<SIGNAL>_PROTOCOL` first, then
- * the generic variable — because they do it privately and only after they have already chosen a
- * transport. Resolving it first is what lets one `OtlpTransports` serve all three signals.
+ * The OTLP protocol one signal exports with, resolved before a transport is chosen.
  */
 final readonly class OtlpProtocol
 {
@@ -35,9 +31,7 @@ final readonly class OtlpProtocol
     }
 
     /**
-     * The part of a protocol a transport factory is chosen by: `grpc`, or `http` for
-     * `http/protobuf`, `http/json` and `http/ndjson` alike — the same cut `Registry::transportFactory()`
-     * makes. Within a family the exporter's content type tells the encodings apart.
+     * The transport family of a protocol: `grpc`, or `http` for every HTTP encoding.
      */
     public static function family(string $protocol): string
     {

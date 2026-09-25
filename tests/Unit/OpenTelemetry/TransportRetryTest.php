@@ -16,11 +16,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(OtlpTransportSettings::class)]
 final class TransportRetryTest extends TestCase
 {
-    /**
-     * OTEL_EXPORTER_OTLP_HEADERS is resolved by the upstream exporter factory and arrives
-     * as $headers, so this is the only seam where configured headers can still reach the
-     * transport. The configured entries win; a null drops one the variable set.
-     */
     #[Test]
     public function theConfiguredHeadersAreMergedOverTheOnesTheCallerPassed(): void
     {
@@ -47,11 +42,6 @@ final class TransportRetryTest extends TestCase
         );
     }
 
-    /**
-     * The SDK's retry loop sleeps in the calling process, so the configured limits have
-     * to win over whatever the caller passed — including the interface defaults the
-     * OTLP exporter factories leave in place by calling create() with five arguments.
-     */
     #[Test]
     public function theConfiguredRetrySettingsReplaceTheOnesTheCallerPassed(): void
     {
@@ -84,11 +74,6 @@ final class TransportRetryTest extends TestCase
         self::assertSame(50, $delegate->argument('retryDelay'));
     }
 
-    /**
-     * Everything other than the two retry arguments has to arrive untouched and in the
-     * right position — the TLS triple in particular, where an off-by-one would silently
-     * send the client certificate as the CA bundle.
-     */
     #[Test]
     public function everyOtherArgumentIsForwardedInItsOwnPosition(): void
     {

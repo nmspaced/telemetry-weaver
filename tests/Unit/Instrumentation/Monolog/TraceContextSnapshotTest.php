@@ -28,12 +28,7 @@ final class TraceContextSnapshotTest extends TestCase
         self::assertEquals($trace, TraceContextSnapshot::read(TraceContextSnapshot::write(self::record(), $trace)));
     }
 
-    /**
-     * Anything the processor would not have written is no trace, never a partial or
-     * guessed one.
-     *
-     * @return iterable<string, array{array<string, mixed>}>
-     */
+    /** @return iterable<string, array{array<string, mixed>}> */
     public static function unreadable(): iterable
     {
         $valid = ['trace_id' => self::TRACE_ID, 'span_id' => self::SPAN_ID, 'trace_flags' => '01'];
@@ -49,9 +44,7 @@ final class TraceContextSnapshotTest extends TestCase
         yield 'signed flags' => [['trace_flags' => '-1'] + $valid];
     }
 
-    /**
-     * @param array<string, mixed> $extra
-     */
+    /** @param array<string, mixed> $extra */
     #[Test]
     #[DataProvider('unreadable')]
     public function anUnreadableSnapshotIsNoTrace(array $extra): void
@@ -59,9 +52,7 @@ final class TraceContextSnapshotTest extends TestCase
         self::assertNull(TraceContextSnapshot::read(self::record($extra)));
     }
 
-    /**
-     * @param array<string, mixed> $extra
-     */
+    /** @param array<string, mixed> $extra */
     private static function record(array $extra = []): LogRecord
     {
         return new LogRecord(new \DateTimeImmutable(), 'app', Level::Info, 'message', extra: $extra);

@@ -20,14 +20,10 @@ use OpenTelemetry\API\Trace\TracerProviderInterface;
 use OpenTelemetry\Context\ContextStorageInterface;
 
 /**
- * @internal Resolves a scope's tracer and meter when the scope is created; there is no scope cache or mutable request state.
+ * @internal
  *
- * Whether a signal is on is decided by the providers the container hands in (`SignalTracerProvider`,
- * `SignalMeterProvider`). The no-op tracer provider becomes a `ContextOnlyOpener` rather than a
- * `SpanOpener` over a no-op tracer, which would activate a context scope for every span. The
- * context-only opener activates one only when the operation changes the context, through a
- * boundary or baggage. That keeps `operation()->baggage()` working with tracing off, because
- * baggage does not depend on spans. The type check runs once per scope, not per span.
+ * Builds a scope from the given providers. A no-op tracer provider gets a `ContextOnlyOpener`,
+ * so baggage and incoming traces still work with tracing off.
  */
 final readonly class ScopedTelemetryFactory implements TelemetryFactory
 {

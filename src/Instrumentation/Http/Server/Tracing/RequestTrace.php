@@ -11,18 +11,11 @@ use OpenTelemetry\SemConv\Attributes\HttpAttributes;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The outcome of a server span is decided once, at the end.
+ * A server span whose outcome is decided once, in `complete()`.
  *
- * An exception is not recorded when it is caught: at kernel.exception nobody knows yet
- * what the request will answer, and Symfony answers most exceptions with a response —
- * a NotFoundHttpException becomes a 404, which is not a failure of the server. So the
- * throwable is held until complete(), where the status is known and the two questions
- * can be answered separately: whether to record the exception event
- * (`record_exception_min_status`) and whether the span is errored (>= 500, per the
- * conventions and not configurable).
- *
- * Holding it is bounded by the execution: the entry is released at the end of the
- * request, either through complete() or through the registry's reset().
+ * An exception is held until the response status is known, because Symfony turns most
+ * exceptions into responses (a 404 is not a server failure). The span errors at >= 500; the
+ * exception event is recorded from `record_exception_min_status`.
  */
 final class RequestTrace implements ExecutionEntry
 {
@@ -59,10 +52,7 @@ final class RequestTrace implements ExecutionEntry
     }
 
     /**
-     * Enrichment from elsewhere in the request — who is logged in, say.
-     *
-     * The operation is not handed out: a caller that could reach it could also end it, and
-     * this span belongs to the request, not to whoever is describing it.
+     * Adds attributes without handing out the operation, which only the request may end.
      *
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
      */
@@ -71,13 +61,7 @@ final class RequestTrace implements ExecutionEntry
         $this->operation->span()->attributes($attributes);
     }
 
-    /**
-     * Remembers the exception; what to do with it is decided at complete().
-     *
-     * The latest one wins. kernel.exception fires again when handling the first
-     * exception throws, and the throwable that escaped last is the one that
-     * determined what the client saw.
-     */
+    /** Remembers the exception for `complete()`; the latest one wins. */
     public function exception(\Throwable $e): void
     {
         $this->error = $e;
@@ -108,11 +92,7 @@ final class RequestTrace implements ExecutionEntry
         }
     }
 
-    /**
-     * A span is ended either way. There is no outcome to apply — nobody saw
-     * the response — but leaving it open would leak the span and keep its
-     * context scope activated for the rest of the process.
-     */
+    /** Ends the span without a response, so it does not leak. */
     #[\Override]
     public function abandon(): void
     {
@@ -142,14 +122,7 @@ final class RequestTrace implements ExecutionEntry
         }
     }
 
-    /**
-     * No response was ever seen. With an exception in hand that is a request that
-     * failed without answering — the span has to say so, and the conventions put the
-     * exception type in error.type when there is no status code to put there.
-     *
-     * Without an exception there is nothing to claim: a request abandoned by reset()
-     * because the process called exit() did not fail, nobody saw it end.
-     */
+    /** Without a response, an exception errors the span with its class as `error.type`. */
     private function applyUnansweredOutcome(): void
     {
         $error = $this->error;

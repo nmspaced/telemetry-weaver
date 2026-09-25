@@ -15,25 +15,13 @@ use Symfony\Component\Mime\Message;
 use Symfony\Component\Mime\RawMessage;
 
 /**
- * One transport invocation, including its failover attempts.
- *
- * There is no semantic convention for sending mail, so the attributes are the bundle's
- * own `mailer.*`. What is deliberately absent matters more than what is there:
- * recipients, body, headers and the transport DSN are never read, because a DSN carries
- * credentials and everything else carries the message. The subject is the one piece of
- * message content that can be recorded, it is opt-in, and it goes on the span only —
- * putting user-generated text into a metric label would make the timeseries unbounded
- * on top of leaking it.
- *
- * The transport is identified by the name the message asked for, not by the class of the
- * decorated service: the decorated service is the aggregate, so its class is the same
- * `Transports` for every send and says nothing. The name has to be read before
- * delegating, because the aggregate consumes the header on its way to the chosen
- * transport.
+ * One mail transport invocation, including failover attempts. Recipients, body, headers and
+ * the DSN are never recorded; the subject is opt-in and span-only. The transport is named by
+ * the message's `X-Transport` header, read before delegating.
  */
 final readonly class MailerTelemetry
 {
-    /** @var non-empty-string the name reported when the message did not choose a transport */
+    /** @var non-empty-string used when the message names no transport */
     private const string DEFAULT_TRANSPORT = 'default';
 
     private const string TRANSPORT_HEADER = 'X-Transport';

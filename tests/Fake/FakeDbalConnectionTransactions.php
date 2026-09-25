@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Fake;
 
 /**
- * The `DriverConnection` transaction-control methods, split out of {@see FakeDbalConnection} to
- * keep that class under the method-count budget. Statement execution lives in
- * {@see FakeDbalConnectionStatements}.
+ * The transaction methods of {@see FakeDbalConnection}.
  *
  * @internal
  *

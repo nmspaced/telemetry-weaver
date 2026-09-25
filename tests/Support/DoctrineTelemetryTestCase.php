@@ -37,11 +37,7 @@ use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A real DBAL stack — DriverManager, Configuration::setMiddlewares(), Connection and
- * the middleware chain — over a fake driver: the PHP this suite runs on has no SQLite
- * extension and no database server, so the driver is the one piece that cannot be real.
- * Everything the instrumentation actually touches still is. Shared by the Doctrine
- * instrumentation test classes so each one only carries the scenarios specific to it.
+ * A real DBAL stack with the instrumentation middleware over a fake driver.
  *
  * @internal
  */
@@ -90,8 +86,7 @@ abstract class DoctrineTelemetryTestCase extends TestCase
     }
 
     /**
-     * @param 'pdo_mysql'|'pdo_pgsql'|'pdo_sqlite'|'pdo_sqlsrv'|'pdo_oci'|'ibm_db2' $driver the DBAL driver name the instrumentation reads
-     *                                                                                      the system, and so the SQL dialect, from
+     * @param 'pdo_mysql'|'pdo_pgsql'|'pdo_sqlite'|'pdo_sqlsrv'|'pdo_oci'|'ibm_db2' $driver the name the instrumentation reads; the fake driver runs either way
      *
      * @throws Exception
      */
@@ -115,9 +110,6 @@ abstract class DoctrineTelemetryTestCase extends TestCase
 
         return DriverManager::getConnection(
             [
-                // Both keys on purpose: DriverManager instantiates driverClass and
-                // ignores driver, while the instrumentation reads driver to derive
-                // db.system.name — so the attributes are those of a real connection.
                 'driver' => $driver,
                 'driverClass' => FakeDbalDriver::class,
                 'dbname' => 'app',

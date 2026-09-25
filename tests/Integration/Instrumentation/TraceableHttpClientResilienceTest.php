@@ -31,14 +31,12 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 /**
  * Span/measurement ownership under reset, cancellation and propagation failure, and
- * process-lifetime safety of the shared client. Core request/response behaviour lives in
- * {@see TraceableHttpClientTest}.
+ * process-lifetime safety of the shared client. Core request/response behaviour lives in {@see
+ * TraceableHttpClientTest}.
  */
 final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function resetAbandonsPendingWorkAndLateResponsesDoNotRecordItAgain(): void
     {
@@ -53,9 +51,7 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
         }
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function completedAndCancelledResponsesDoNotAccumulateInTheSharedClient(): void
     {
@@ -83,9 +79,7 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
         self::assertNull($this->telemetry->activeTrace());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function bodyFailuresAfterHeadersDoNotCreateAnotherCompletion(): void
     {
@@ -118,9 +112,7 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
         self::assertSame(1, HttpTelemetryAssertions::firstHistogramPoint($this->telemetry)->count);
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function propagationFailuresDoNotPreventRequests(): void
     {
@@ -143,9 +135,7 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
         self::assertSame(StatusCode::STATUS_UNSET, $this->span()->getStatus()->getCode());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function propagationReplacesStaleTracestateWithoutDroppingOtherHeaders(): void
     {
@@ -168,9 +158,7 @@ final class TraceableHttpClientResilienceTest extends HttpClientTelemetryTestCas
         self::assertSame(['X-Test: kept'], HttpHeaders::values($headers, 'x-test'));
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function resettingAClientDoesNotAbandonAnIndependentClientsRequest(): void
     {

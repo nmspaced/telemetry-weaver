@@ -12,13 +12,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Scheduler\Event\PreRunEvent;
 
-/**
- * Scheduled task runs, as seen from the Messenger worker that executes them.
- *
- * Nothing to decorate: Symfony Scheduler dispatches its own events around each run, and
- * the subscriber keys per-run state on the `MessageContext` those events carry, which is
- * the same instance for the pre-run and the post-run of one execution.
- */
+/** Registers the subscriber that traces scheduled task runs inside the Messenger worker. */
 final readonly class SchedulerInstrumentationCompilerPass implements CompilerPassInterface
 {
     #[\Override]

@@ -7,8 +7,7 @@ namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk;
 use OpenTelemetry\SDK\Common\Configuration\Configuration;
 
 /**
- * Reads one OTEL_<SIGNAL>_EXPORTER variable, applying the rule the SDK's own factories
- * apply: exactly one exporter, and "none" means no exporter rather than an error.
+ * Reads an `OTEL_<SIGNAL>_EXPORTER` variable: exactly one exporter, and `none` means none.
  */
 final readonly class ExporterName
 {

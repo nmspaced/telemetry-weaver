@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Routing;
 
 /**
- * Route name to path template ("/orders/{id}") mapping. Source differs between prod (dump) and dev (router).
+ * Maps a route name to its path template (`/orders/{id}`): from a dump in production, from
+ * the router in development.
  *
  * @internal
  */
 interface RouteTemplateProvider
 {
     /**
-     * @return string|null null means "route unknown", not an error
+     * @return string|null null when the route is unknown
      */
     public function resolve(string $routeName): ?string;
 }

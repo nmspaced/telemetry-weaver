@@ -11,15 +11,8 @@ use Symfony\Component\Messenger\Stamp\ConsumedByWorkerStamp;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
 
 /**
- * Spans one call to a bus, from the first middleware to the last.
- *
- * Placed at the head of the chain so the span covers everything the dispatch does —
- * validation, the doctrine transaction, the send to a transport — which is what makes
- * it the answer to "what did calling the bus cost". That answer lives on the span only:
- * the dispatch records no messaging metric (see `MessengerTelemetry::dispatch()`).
- *
- * A received message gets a consumer operation instead, including synchronous transports. Its scope is owned by this
- * call, so failures in worker event listeners cannot strand it.
+ * Spans a bus dispatch from the head of the middleware chain, and wraps handling of a
+ * received message in a consumer operation owned by this call.
  */
 final readonly class TraceableMessageBusMiddleware implements MiddlewareInterface
 {

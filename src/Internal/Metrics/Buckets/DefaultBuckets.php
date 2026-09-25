@@ -7,92 +7,34 @@ namespace Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets;
 use Nmspaced\TelemetryWeaver\Api\DurationUnit;
 
 /**
- * The boundaries each instrumented component measures with, unless the application
- * configured its own.
- *
- * Nine classes with two constant methods each said this before. They are data — one case
- * per component, and the reasoning for the ones that are not simply the HTTP set is on the
- * case itself. Being a backed enum is what lets a configuration key name a preset.
- *
- * Every set is in seconds: the duration conventions specify `s` for the operation-duration
- * instruments, and a histogram whose unit varies by component cannot be compared across
- * them.
+ * Default histogram boundaries per instrumented component, in seconds as the duration
+ * conventions require. A backed enum so configuration can name a preset.
  *
  * @internal
  */
 enum DefaultBuckets: string implements OperationBuckets
 {
-    /**
-     * The set the HTTP conventions recommend for `http.server.request.duration` and
-     * `http.client.request.duration`.
-     */
+    /** The HTTP conventions' recommended set. */
     case Http = 'http';
 
-    /**
-     * One statement, one round trip. The same shape serves the cache: both are a local or
-     * near-local service answering in single-digit milliseconds when healthy, and the
-     * question is how far into the tail the slow ones go.
-     */
+    /** One round trip to a nearby service; also used for the cache. */
     case Database = 'database';
 
     case Cache = 'cache';
 
-    /**
-     * The boundaries the messaging conventions recommend for
-     * `messaging.client.operation.duration` and `messaging.process.duration`.
-     *
-     * A separate set rather than a reuse: cache and serializer buckets stop at one second,
-     * and a message handler routinely runs for minutes. Sending, on the other hand, is a
-     * single write to a transport, so the low end has to stay fine enough to tell a local
-     * in-memory transport from a network round trip.
-     */
+    /** The messaging conventions' set: handlers can run for minutes. */
     case Messaging = 'messaging';
 
-    /**
-     * Serialization is CPU work on a structure already in memory, so the interesting
-     * range starts two orders of magnitude below everything else here — a normalizer that
-     * has become quadratic in the size of a graph shows up as a shift between buckets that
-     * a millisecond-floor set would have collapsed into one.
-     */
+    /** In-memory CPU work, so the range starts well below a millisecond. */
     case Serializer = 'serializer';
 
-    /**
-     * Boundaries for one transport invocation of the mailer.
-     *
-     * Not the HTTP set: the two ends of the distribution that matter here are not the ones
-     * an HTTP call has. The bottom is a null or in-memory transport, which returns in
-     * microseconds and would otherwise all land in a single first bucket together with a
-     * fast API transport; the top is an SMTP conversation, which is several round trips plus
-     * the body upload and routinely reaches tens of seconds before a transport's own timeout
-     * cuts it off. Ten seconds — the top of the HTTP set — is where mail delivery starts
-     * being interesting, not where it stops.
-     */
+    /** From an in-memory transport (microseconds) to an SMTP conversation (tens of seconds). */
     case Mail = 'mail';
 
-    /**
-     * Boundaries for one console command run.
-     *
-     * The widest set in the package, because a console command is the least constrained
-     * thing the bundle measures: `cache:pool:prune` finishes in milliseconds and an import
-     * command runs for a quarter of an hour, and both are the same instrument. Ten minutes
-     * is the last boundary rather than an arbitrary larger one because a command that
-     * exceeds it is a worker in everything but name and belongs in `excluded_commands` —
-     * its span would stay open for the life of the process, which is exactly what the
-     * exclusion list exists to prevent.
-     */
+    /** The widest set: a command past ten minutes is a worker and should be excluded. */
     case Command = 'command';
 
-    /**
-     * Boundaries for one run of a scheduled task.
-     *
-     * A scheduled task is whatever the application put behind a cron expression, so the
-     * useful range is wide: a cheap "is there anything to do" poll that returns in
-     * milliseconds, and a nightly aggregation that runs for minutes, are both normal and
-     * both have to stay distinguishable. The top boundary is five minutes because that is
-     * roughly where a task stops being late and starts overlapping the next trigger of a
-     * typical schedule — the point at which the distribution has said everything it can
-     * and what is needed is an alert, not a finer bucket.
-     */
+    /** From a quick poll to a nightly job; five minutes is where a task overlaps its next run. */
     case ScheduledTask = 'scheduled_task';
 
     #[\Override]

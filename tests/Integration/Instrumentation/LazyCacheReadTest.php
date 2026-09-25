@@ -19,8 +19,8 @@ use Symfony\Component\Cache\CacheItem;
 
 /**
  * `getItems()` over a backend that reads while the caller iterates: the read ends with the
- * iteration, records what the iteration did, and keeps the caller's loop body out of both
- * the trace and the duration.
+ * iteration, records what the iteration did, and keeps the caller's loop body out of both the trace
+ * and the duration.
  */
 #[CoversClass(LazyCacheRead::class)]
 final class LazyCacheReadTest extends CacheTelemetryTestCase
@@ -92,13 +92,7 @@ final class LazyCacheReadTest extends CacheTelemetryTestCase
         self::assertNull(Context::storage()->scope());
     }
 
-    /**
-     * A lazy backend that fails while it is being read has failed the read. The span says
-     * so, and the duration is labelled with the error: before, both were closed as
-     * successful as soon as the iterable was handed back.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aBackendFailureDuringIterationFailsTheRead(): void
     {
@@ -139,12 +133,7 @@ final class LazyCacheReadTest extends CacheTelemetryTestCase
         self::assertNull(Context::storage()->scope());
     }
 
-    /**
-     * The duration is the backend's time. What the caller does with an item before asking
-     * for the next one is its own work, however long it takes.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theDurationExcludesTheCallersLoopBody(): void
     {
@@ -178,12 +167,7 @@ final class LazyCacheReadTest extends CacheTelemetryTestCase
         self::assertSame(['cache.getItems'], $this->exportedNames());
     }
 
-    /**
-     * Breaking out of the loop is indistinguishable, from inside the generator, from its
-     * destruction at `exit`. Neither saw the read finish, so both abandon it.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function breakingOutOfTheLoopAbandonsTheRead(): void
     {
@@ -196,12 +180,7 @@ final class LazyCacheReadTest extends CacheTelemetryTestCase
         self::assertSame(['durations' => 0, 'lookups' => 1], $this->recorded(), 'the item read is still counted');
     }
 
-    /**
-     * An array has been read by the time the call returns, so the operation ends there and
-     * nothing is left pending.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anArrayResultEndsWithTheCall(): void
     {
@@ -216,12 +195,7 @@ final class LazyCacheReadTest extends CacheTelemetryTestCase
         self::assertSame(['durations' => 1, 'lookups' => 1], $this->recorded());
     }
 
-    /**
-     * Work the backend does while producing items, such as the query a database-backed
-     * pool runs lazily, belongs under the read. Work the caller does with an item does not.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function backendWorkIsAChildOfTheReadAndTheLoopBodyIsNot(): void
     {

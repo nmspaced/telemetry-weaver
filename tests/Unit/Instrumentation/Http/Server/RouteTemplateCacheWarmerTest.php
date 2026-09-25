@@ -14,10 +14,8 @@ use PHPUnit\Framework\TestCase;
 use Random\RandomException;
 
 /**
- * The dump this writes is what every server span's `http.route` is read from in production —
- * the router itself is never touched on the request path. Nothing exercised it before, which
- * is the worst place for that to be true: a warmer that silently wrote nothing would leave
- * every route unnamed and every span called `GET`.
+ * The dump this writes is what every server span's `http.route` is read from in production — the
+ * router itself is never touched on the request path.
  */
 #[CoversClass(RouteTemplateCacheWarmer::class)]
 #[CoversClass(RouteTemplateDump::class)]
@@ -45,11 +43,6 @@ final class RouteTemplateCacheWarmerTest extends TestCase
         \rmdir($this->dir);
     }
 
-    /**
-     * Not optional: the dump is not an optimisation the application can skip. Without it the
-     * provider factory falls back to the router, which is exactly the per-request work the
-     * dump exists to avoid.
-     */
     #[Test]
     public function theWarmerIsNotOptional(): void
     {
@@ -68,11 +61,6 @@ final class RouteTemplateCacheWarmerTest extends TestCase
         self::assertNull($provider->resolve('absent'));
     }
 
-    /**
-     * A build directory is written to instead of the cache directory when one is given: in a
-     * worker the cache directory is per-request and the build directory is the immutable one
-     * the running process reads from.
-     */
     #[Test]
     public function theBuildDirectoryWinsOverTheCacheDirectory(): void
     {
@@ -86,16 +74,6 @@ final class RouteTemplateCacheWarmerTest extends TestCase
         \rmdir($cacheDir);
     }
 
-    /**
-     * The dump is sorted by route name, and that is not cosmetic: the file is opcached for the
-     * life of a deploy, and a collection that enumerated in a different order would rewrite it
-     * — and invalidate the cache — without a single route having changed.
-     *
-     * (`buildRouteTemplates()` also drops a path that does not start with `/`. That guard is
-     * not exercised here because `Route::setPath()` prefixes one unconditionally, so within
-     * Symfony's own contract it cannot fire; it stands against a Route subclass, which the
-     * component permits.)
-     */
     #[Test]
     public function theDumpIsOrderedByRouteName(): void
     {
@@ -116,10 +94,6 @@ final class RouteTemplateCacheWarmerTest extends TestCase
         self::assertNull(PhpFileRouteTemplateProvider::in($this->dir)->resolve('anything'));
     }
 
-    /**
-     * Without a router there is nothing to dump, and the warmer is registered regardless of
-     * whether symfony/routing is installed.
-     */
     #[Test]
     public function withoutARouterNothingIsWritten(): void
     {
@@ -127,10 +101,6 @@ final class RouteTemplateCacheWarmerTest extends TestCase
         self::assertFileDoesNotExist(RouteTemplateDump::pathIn($this->dir));
     }
 
-    /**
-     * A warmup failure must not break a deploy: `cache:warmup` runs as part of one, and a
-     * router that throws is the application's problem, not a reason to stop shipping.
-     */
     #[Test]
     public function aThrowingRouterDoesNotBreakTheWarmup(): void
     {
@@ -140,9 +110,7 @@ final class RouteTemplateCacheWarmerTest extends TestCase
         self::assertFileDoesNotExist(RouteTemplateDump::pathIn($this->dir));
     }
 
-    /**
-     * @param array<string, string> $routes
-     */
+    /** @param array<string, string> $routes */
     private function warm(array $routes): void
     {
         new RouteTemplateCacheWarmer(new StubRouter($routes))->warmUp($this->dir);

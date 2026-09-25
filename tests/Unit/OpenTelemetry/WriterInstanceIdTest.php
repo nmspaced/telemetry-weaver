@@ -35,7 +35,6 @@ final class WriterInstanceIdTest extends TestCase
             WriterInstanceId::derive(['host.name' => 'web-1', 'process.pid' => 1]),
             WriterInstanceId::derive(['host.name' => 'web-1', 'process.pid' => 2]),
             WriterInstanceId::derive(['host.name' => 'web-2', 'process.pid' => 1]),
-            // Two containers on one node share host.id and often the pid; the container tells them apart.
             WriterInstanceId::derive(['host.id' => 'm', 'container.id' => 'a', 'process.pid' => 7]),
             WriterInstanceId::derive(['host.id' => 'm', 'container.id' => 'b', 'process.pid' => 7]),
         ];

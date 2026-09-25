@@ -33,7 +33,6 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         $first = $this->scopes->of($request);
         $boundary = $this->contextStorage->scope();
 
-        // handle() dispatches kernel.request again for the same Request.
         $response = $this->kernel->handle($request);
 
         self::assertSame($first, $this->scopes->of($request));
@@ -47,13 +46,7 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         self::assertNull($this->contextStorage->scope());
     }
 
-    /**
-     * The two halves come apart on purpose: the front controller sends the
-     * response before terminate, so the span has to outlive the kernel while
-     * its context does not.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theMainSpanOutlivesFinishRequestButNotTerminate(): void
     {
@@ -72,13 +65,7 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * Streaming happens between send() and terminate, while the main span is
-     * open but not active. Correlating work done in there is not part of this
-     * iteration, and this test pins that down rather than leaving it implied.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aStreamedBodyIsSentWhileTheSpanIsOpenButNotActive(): void
     {
@@ -99,17 +86,10 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         self::assertCount(1, $this->exported());
     }
 
-    /**
-     * A listener that throws cuts the chain before our own handler. The span
-     * is released by the runtime's service reset, and the application's
-     * exception is what leaves the kernel.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aListenerThatBreaksTerminateDoesNotStrandTheSpan(): void
     {
-        // Only the first terminate breaks; the worker still handles its next request.
         /** @var \RuntimeException|null $pending */
         $pending = new \RuntimeException('terminate listener failed');
         $this->dispatcher->addListener(
@@ -150,13 +130,7 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         );
     }
 
-    /**
-     * A listener that breaks finish_request leaves the span with no response
-     * observed at all. Reset releases its resources without inventing an
-     * HTTP outcome or adding recovery attributes.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function resetDoesNotInventAnOutcomeOrRecoveryAttributes(): void
     {
@@ -167,13 +141,9 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
             1024,
         );
 
-        // The request is held across reset() on purpose: the registry keys weakly, so
-        // a caller that has already dropped it has nothing left to release.
         $request = $this->request(static fn(): Response => new Response());
 
         try {
-            // catch: false is the path where Symfony rethrows instead of
-            // building an error response, so kernel.response never fires.
             $this->kernel->handle($request, HttpKernelInterface::MAIN_REQUEST, catch: false);
             self::fail('the listener exception must reach the caller');
         } catch (\RuntimeException $runtimeException) {
@@ -188,11 +158,7 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         self::assertSame(StatusCode::STATUS_UNSET, $span->getStatus()->getCode());
     }
 
-    /**
-     * Event subscribers leave reset to the runtime, including on excluded paths.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anExcludedRequestDoesNotResetThePreviousOperation(): void
     {
@@ -212,17 +178,7 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         self::assertSame(204, $this->exportedSpan()->getAttributes()->get('http.response.status_code'));
     }
 
-    /**
-     * The registry never owns the request. A request nobody else holds is collected
-     * with its entry, because kernel.terminate is not guaranteed — exit(), a fatal or
-     * an aborted StreamedResponse all skip it — and a strong reference from a
-     * process-lifetime service would turn every such request into a permanent leak.
-     *
-     * The price is that reset() can only release what the caller still holds, which is
-     * why $kernel->reset() has to run while the request is in hand.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anUnfinishedRequestIsNotKeptAliveByTheRegistry(): void
     {
@@ -241,12 +197,7 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         self::assertSame([], $this->exported(), 'a request nobody saw finish records nothing');
     }
 
-    /**
-     * Held across reset(), the same request ends up released: the span is ended so it
-     * cannot leak, and the outcome that was observed is applied.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anUnfinishedRequestStillHeldIsReleasedByReset(): void
     {
@@ -263,10 +214,6 @@ final class HttpCleanupTest extends HttpTelemetryTestCase
         self::assertSame(202, $this->exportedSpan()->getAttributes()->get('http.response.status_code'));
     }
 
-    /**
-     * Overwriting the record would abandon a span nobody holds a reference to
-     * any more, which is exactly the silent loss the store prevents.
-     */
     #[Test]
     public function reopeningARequestKeepsTheFirstOperation(): void
     {

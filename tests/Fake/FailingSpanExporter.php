@@ -9,12 +9,7 @@ use OpenTelemetry\SDK\Common\Future\ErrorFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
 use OpenTelemetry\SDK\Trace\SpanExporterInterface;
 
-/**
- * Span exporter that fails in one of two forms.
- *
- * Synchronous: an exception straight out of export() — a transport failing
- * DNS resolution. Deferred: a rejected Future — everything else.
- */
+/** A span exporter that fails either by throwing or through a rejected future. */
 final readonly class FailingSpanExporter implements SpanExporterInterface
 {
     private function __construct(

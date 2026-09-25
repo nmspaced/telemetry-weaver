@@ -43,9 +43,7 @@ final readonly class MetricExporterFactory
     }
 
     /**
-     * An application's own exporter (`sdk.metrics.exporter`) under the pipeline's rules: a request
-     * pipeline still needs the opt-in, and still exports with the request temporality. Outside one the exporter keeps its own temporality — the OTLP preference
-     * variable belongs to the OTLP exporter the bundle builds.
+     * Applies the pipeline's rules to an application-provided exporter (`sdk.metrics.exporter`).
      */
     public function adopt(MetricExporterInterface $exporter): ?MetricExporterInterface
     {
@@ -57,10 +55,7 @@ final readonly class MetricExporterFactory
     }
 
     /**
-     * The OTLP preference is applied by `MetricTemporality`, not by the SDK exporter: the
-     * installed factory turns `delta` into DELTA for UpDownCounters and gauges too, and
-     * `lowmemory` into the synchronous streams' DELTA. Other exporters keep their own choice
-     * outside a request pipeline; the variable is OTLP's.
+     * Temporality for the named exporter; the OTLP preference applies only to OTLP.
      *
      * @param non-empty-string $name
      *

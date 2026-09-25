@@ -171,12 +171,7 @@ final class TraceableCachePoolTest extends TelemetryTestCase
         self::assertTrue($pool->clear());
     }
 
-    /**
-     * A pool that answers false is working: Symfony returns false for a write it could
-     * not perform, and the span says only what happened. Only a throw errors the span.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aFalseWriteResultIsPreservedAndIsNotAnError(): void
     {
@@ -299,8 +294,6 @@ final class TraceableCachePoolTest extends TelemetryTestCase
             $this->exportedSpan()->getAttributes()->toArray(),
         );
 
-        // The tags stay on the span: they are unbounded, and a duration split by tag
-        // would be a timeseries per invalidation.
         $metric = $this->metric('cache.operation.duration');
         self::assertInstanceOf(Histogram::class, $metric->data);
         foreach ($metric->data->dataPoints as $point) {

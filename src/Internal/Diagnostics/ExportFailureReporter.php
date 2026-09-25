@@ -9,15 +9,8 @@ use OpenTelemetry\API\Common\Time\ClockInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * The log line behind every `Resilient*Exporter` catch and every boundary flush.
- *
- * It runs *inside* those catches, so it is the last place an exception could get out of
- * the export path: a logger that throws here — a full disk, a closed stream, a handler
- * that itself exports over the network that just failed — would carry that exception
- * past the one wrapper whose job is to stop it, into a batch processor, a
- * `kernel.terminate` listener, or a worker loop. Everything, the limiter and the clock
- * included, is therefore behind a single catch, exactly as in
- * `InstrumentationFailureReporter`.
+ * Logs export failures, rate-limited. It runs inside the exporters' catch blocks, so
+ * nothing it does, logging included, may throw.
  */
 final readonly class ExportFailureReporter
 {
@@ -64,9 +57,7 @@ final readonly class ExportFailureReporter
         }
     }
 
-    /**
-     * Total failures, including the ones that were not logged.
-     */
+    /** Total failures, including those not logged. */
     public function total(): int
     {
         return $this->limiter->total();

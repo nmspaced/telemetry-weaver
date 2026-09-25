@@ -10,13 +10,7 @@ use OpenTelemetry\SDK\Common\Future\FutureInterface;
 use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use OpenTelemetry\SDK\Trace\SpanExporterInterface;
 
-/**
- * Keeps counters instead of spans.
- *
- * A long worker run would otherwise accumulate thousands of SpanData objects
- * in the exporter, and that growth would look exactly like the lifecycle leak
- * the run is meant to rule out.
- */
+/** Counts exported spans instead of keeping them, so long runs do not look like a leak. */
 final class CountingSpanExporter implements SpanExporterInterface
 {
     public int $exported = 0;

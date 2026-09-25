@@ -12,21 +12,14 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
- * `messaging.system` resolution: a transport the locator knows about names its broker, on the
- * span and both metrics; an unknown one falls back to the framework's own name rather than
- * guessing. Span structure and metrics otherwise live in {@see MessengerTelemetryTest} and
- * {@see MessengerTelemetryMetricsTest}.
+ * `messaging.system` resolution: a transport the locator knows about names its broker, on the span
+ * and both metrics; an unknown one falls back to the framework's own name rather than guessing.
+ * Span structure and metrics otherwise live in {@see MessengerTelemetryTest} and {@see
+ * MessengerTelemetryMetricsTest}.
  */
 final class MessengerTelemetrySystemTest extends MessengerTelemetryTestCase
 {
-    /**
-     * `messaging.system` names the broker when the transport says which one it is. The
-     * resolver looks only at the transport object — no DSN, no connection — and here is
-     * told that the in-memory transport is RabbitMQ, which is what proves the send, the
-     * process span and both metrics all take the value from it.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aKnownTransportReportsItsBrokerAsTheMessagingSystem(): void
     {
@@ -63,12 +56,7 @@ final class MessengerTelemetrySystemTest extends MessengerTelemetryTestCase
         );
     }
 
-    /**
-     * An unknown transport, or one the receiver locator cannot produce, keeps the
-     * framework fallback rather than a guess from its name.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anUnknownTransportFallsBackToTheFramework(): void
     {

@@ -16,20 +16,8 @@ use Symfony\Component\HttpFoundation\Exception\SuspiciousOperationException;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Semconv attributes known at kernel.request.
- *
- * Header capture is opt-in; query values are always redacted.
- *
- * The query string used to be dropped outright as "may carry tokens". That
- * was a deviation from the HTTP server conventions, where url.query is
- * Conditionally Required whenever a query is present, and it cost the
- * structure — which endpoint was called with which parameter names — for a
- * privacy gain that redaction provides just as well. Names are kept, every
- * value is replaced; see QueryStringRedactor.
- *
- * An instance rather than a static call because of client.address: an IP address
- * is personal data in most jurisdictions, so `record_client_ip` has to be able
- * to keep it off the span, and a static method has nowhere to read that from.
+ * Server span attributes known at `kernel.request`. Query values are always redacted;
+ * `client.address` is recorded only with `record_client_ip`.
  */
 final readonly class ServerSpanAttributes
 {
@@ -89,7 +77,7 @@ final readonly class ServerSpanAttributes
     }
 
     /**
-     * A suspicious Host must not fail the request — a span without server.address beats a 500.
+     * Null for a suspicious Host, which must not fail the request.
      */
     private function host(Request $request): ?string
     {

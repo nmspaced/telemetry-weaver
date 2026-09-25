@@ -5,33 +5,11 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Internal\Runtime;
 
 /**
- * @internal The one terminal "no more export" flag of a pipeline, and the pipeline's only PHP shutdown hook.
+ * A pipeline's irreversible "no more export" switch and its only PHP shutdown hook. At
+ * shutdown, request pipelines are closed without exporting; long-lived ones registered via
+ * `finishOnExit()` get one final budgeted flush unless the process died of a fatal error.
  *
- * Every exporter wrapper and every budgeted transport of one container asks the same gate
- * before it calls out. That is what makes finalization a single decision: once the gate is
- * closed, a batch processor draining late, a user callback calling `shutdown()` again, or a
- * delayed transport send all stop at the bundle's boundary instead of reaching a collector
- * after the budget is gone. Closing needs no I/O and cannot be undone.
- *
- * PHP shutdown is handled here rather than through the SDK's `ShutdownHandler`, which would
- * export once per provider with no shared deadline. What happens at shutdown depends on who
- * is waiting:
- *
- *  - A request pipeline (FPM, a kernel-resetting worker) that reaches PHP shutdown still open
- *    missed its `kernel.terminate`: `exit()`, a fatal, an aborted stream. FPM runs shutdown
- *    functions before it releases the child, so exporting here would hold the child on the
- *    collector. The gate is closed and the telemetry is discarded.
- *  - A long-lived pipeline (an HTTP worker keeping its kernel, a console process) reaches PHP
- *    shutdown after its last request, when the runner's loop returns. There is no Symfony event
- *    for that, and without a final flush every worker recycle — `max_requests`, a deploy, a
- *    reload — drops up to one schedule interval of spans and metrics. The flusher registered
- *    through `finishOnExit()` runs a final, budgeted `atShutdown()`, unless the process is
- *    dying of a fatal error: its memory or state cannot be trusted to run exporter code.
- *
- * The registry of open gates is process state on purpose, and bounded: it is weakly keyed, a
- * closed gate removes itself, and the flusher is held through a `\WeakReference`, so a
- * replaced container (worker mode 2 clones the kernel after each request) is not kept alive
- * by a callback that runs only when the process ends.
+ * @internal
  */
 final class ExportGate
 {
@@ -99,7 +77,6 @@ final class ExportGate
 
     private static function atProcessExit(): void
     {
-        // Copied first: finishing closes the gate, which removes it from the map being walked.
         $gates = [];
         foreach (self::$live ?? [] as $gate => $_) {
             $gates[] = $gate;

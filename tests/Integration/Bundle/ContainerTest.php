@@ -26,12 +26,7 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(MeterProviderFactory::class)]
 final class ContainerTest extends ContainerTestCase
 {
-    /**
-     * A real compile is the only thing that catches a cycle, a missing
-     * parameter, or an argument wired to the wrong service.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theGraphCompilesWithoutACycle(): void
     {
@@ -42,12 +37,7 @@ final class ContainerTest extends ContainerTestCase
         self::assertInstanceOf(MeterInterface::class, $container->get(MeterInterface::class));
     }
 
-    /**
-     * Registration happens in the container, not in the provider factories, so this is the test
-     * that says every provider the pipeline builds is one the boundary flush and shutdown reach.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function everyProviderTheContainerHandsOutIsRegisteredForFlushing(): void
     {
@@ -68,9 +58,7 @@ final class ContainerTest extends ContainerTestCase
         );
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theMeterIsBuiltFromTheAssembledProvider(): void
     {
@@ -90,13 +78,7 @@ final class ContainerTest extends ContainerTestCase
         self::assertFalse($container->has(SpanOpener::class));
     }
 
-    /**
-     * Tracing used to reach the meter through a diagnostics counter, which
-     * made metrics a hard dependency of the span lifecycle. The reporter
-     * writes to a logger and nothing else.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function tracingDoesNotDependOnTheMetricsStack(): void
     {
@@ -125,11 +107,7 @@ final class ContainerTest extends ContainerTestCase
         $this->compile()->get(MeterProviderInterface::class);
     }
 
-    /**
-     * The flush must survive http.enabled: false — delivering metrics is not part of tracing incoming requests.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theFlushSubscriberIsRegisteredEvenWithoutHttpTracing(): void
     {

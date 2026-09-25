@@ -48,9 +48,6 @@ final class TimerTest extends TestCase
         self::assertSame([[1.5, []]], $this->histogram->records);
     }
 
-    /**
-     * The same elapsed nanoseconds must land on a different scale — this is what keeps an APCu call out of a millisecond bucket.
-     */
     #[Test]
     public function theSameElapsedTimeConvertsToTheUnitItWasGiven(): void
     {
@@ -62,10 +59,6 @@ final class TimerTest extends TestCase
         self::assertSame([[1_500.0, []]], $this->histogram->records);
     }
 
-    /**
-     * Paused time is not measured, and pausing or resuming twice changes nothing: the
-     * lazy reads that use this call both from more than one path.
-     */
     #[Test]
     public function pausedTimeIsLeftOut(): void
     {
@@ -108,9 +101,6 @@ final class TimerTest extends TestCase
         self::assertSame([[0.0, ['db.system' => 'mysql']]], $this->histogram->records);
     }
 
-    /**
-     * Telemetry must not break the caller, so a repeated stop() cannot throw — but recording the same interval twice would skew the distribution worse than dropping it.
-     */
     #[Test]
     public function stoppingTwiceRecordsOnce(): void
     {

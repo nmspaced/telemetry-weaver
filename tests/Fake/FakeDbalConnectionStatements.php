@@ -8,9 +8,7 @@ use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
 
 /**
- * The `DriverConnection` methods that run SQL, split out of {@see FakeDbalConnection} to keep
- * that class under the method-count budget. Transaction control lives in
- * {@see FakeDbalConnectionTransactions}.
+ * The statement methods of {@see FakeDbalConnection}.
  *
  * @internal
  *

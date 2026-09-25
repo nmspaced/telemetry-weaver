@@ -7,10 +7,9 @@ namespace Nmspaced\TelemetryWeaver\Internal\Runtime;
 use OpenTelemetry\API\Common\Time\ClockInterface;
 
 /**
- * @internal Permission for one send: how long it may take, and where its outcome is reported.
+ * Permission for one send: how long it may take; its outcome is reported once.
  *
- * Not readonly: the outcome is reported once, and a future's success path, its failure path
- * and a synchronous throw around it may all try.
+ * @internal
  */
 final class SendAllowance
 {

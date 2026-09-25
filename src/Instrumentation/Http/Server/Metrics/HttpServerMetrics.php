@@ -21,21 +21,8 @@ use OpenTelemetry\SemConv\Metrics\HttpMetrics;
 /**
  * The instruments for incoming HTTP requests.
  *
- * All three are unconditional: a MeterInterface always returns an instrument,
- * a no-op one when the meter itself is no-op. Making the fields nullable only
- * pushed an impossible state onto every caller.
- *
- * This is the one instrumentation that measures an interval without owning an operation,
- * and the reason is deliberate: request metrics are collected by a subscriber of their own
- * so that they survive tracing being switched off. There is therefore no span to take a
- * correlation from, and the source is asked for whatever the tracing subscriber — which
- * runs first — has already made current.
- *
- * It is asked exactly once per request, by the measurement, and all three instruments are
- * written with what it answered. Reading it again when the body sizes are recorded would
- * read a different moment: those are recorded at terminate, after `finish_request` has
- * released the server span's activation, so the instrument would have resolved the
- * exemplar against whatever context the worker held by then.
+ * Request metrics work without tracing, so there is no owned span: the correlation is read
+ * once per request from the ambient context and reused for all three instruments.
  */
 final readonly class HttpServerMetrics
 {

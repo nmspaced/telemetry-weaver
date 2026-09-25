@@ -36,21 +36,14 @@ interface Span
     public function recordException(\Throwable $error): void;
 
     /**
-     * Mark an unsuccessful outcome without manufacturing an exception event.
+     * Marks the span as failed without recording an exception.
+     *
      * @param non-empty-string $type
      */
     public function fail(string $type): void;
 
     /**
-     * The ids this span is known by, as the lowercase hex the W3C trace context uses.
-     *
-     * Values, not a handle: there is nothing here to write through, and holding them past
-     * the operation is safe because they name a trace that has already happened. They exist
-     * for the two things an application does with a trace id — show it on an error page so a
-     * report can be matched to a trace, and hand it to a system that correlates by id.
-     *
-     * Both are null together, whenever the operation has no valid span: tracing is off, the
-     * component is off, or the span was suppressed.
+     * The trace id as lowercase hex, or null when the operation has no valid span.
      *
      * @return non-empty-string|null
      */

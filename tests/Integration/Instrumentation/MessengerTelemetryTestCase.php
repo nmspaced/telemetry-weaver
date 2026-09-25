@@ -41,12 +41,8 @@ use Symfony\Component\Messenger\Transport\Sender\SendersLocator;
 use Symfony\Component\Messenger\Worker;
 
 /**
- * A real bus with a real middleware chain and a real Worker over an in-memory transport.
- * Calling the subscribers by hand would prove nothing about the order Messenger fires its
- * events in, which is the whole of the consumer instrumentation. Shared by the Messenger
- * telemetry test classes so each one only carries the scenarios specific to it; span/metric
- * lookups live in {@see \Nmspaced\TelemetryWeaver\Tests\Support\MessengerSpanAssertions} and
- * {@see \Nmspaced\TelemetryWeaver\Tests\Support\MessengerMetricAssertions}.
+ * A real bus, middleware chain and Worker over an in-memory transport, so tests see the order in
+ * which Messenger fires its events.
  *
  * @internal
  */

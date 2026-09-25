@@ -18,13 +18,11 @@ use Symfony\Contracts\Cache\CallbackInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
-// @mago-expect lint:too-many-methods — the decorator must implement the complete cache interfaces
+// @mago-expect lint:too-many-methods — implements the full cache interfaces
 readonly class TraceableCachePool implements AdapterInterface, CacheInterface, PruneableInterface, ResettableInterface
 {
     /**
-     * @param PendingOperations $pending batch reads not yet iterated to the end. A pool
-     *                                   derived through `withSubNamespace()` shares its
-     *                                   parent's, because only the parent is reset
+     * @param PendingOperations $pending unfinished batch reads; shared with sub-namespace pools
      */
     public function __construct(
         protected AdapterInterface $delegate,
@@ -58,10 +56,7 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
     }
 
     /**
-     * Stays as lazy as the pool it decorates. The operation ends when the caller has read
-     * the items, not when this method returns, because that is when a lazy backend reads.
-     * Hits are counted as items are produced, and time spent in the caller's loop is
-     * measured by neither the span's children nor the duration.
+     * Stays lazy; the operation ends when the caller has read the items.
      *
      * @param array<array-key, string> $keys
      *
@@ -247,7 +242,6 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
     #[\Override]
     public function reset(): void
     {
-        // The worker boundary: a batch still unread belongs to a request that is over.
         $this->pending->abandonAll();
 
         if (!$this->delegate instanceof ResetInterface) {

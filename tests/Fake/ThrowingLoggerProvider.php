@@ -7,13 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Fake;
 use OpenTelemetry\API\Logs\LoggerInterface;
 use OpenTelemetry\API\Logs\LoggerProviderInterface;
 
-/**
- * A logger provider that cannot produce a logger, which is what a broken export path
- * looks like from inside the handler.
- *
- * `$before` runs on the way to the failure, so a test can make the failure itself log —
- * the shape that turns a missing re-entrance guard into an infinite loop.
- */
+/** A logger provider that throws; `$before` runs first, so a test can make the failure log. */
 final class ThrowingLoggerProvider implements LoggerProviderInterface
 {
     public int $attempts = 0;

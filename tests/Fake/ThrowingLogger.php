@@ -6,10 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Fake;
 
 use Psr\Log\AbstractLogger;
 
-/**
- * Logger whose every call throws — a full disk, a closed stream, a handler that
- * itself exports over a network that is down.
- */
+/** A logger whose every call throws. */
 final class ThrowingLogger extends AbstractLogger
 {
     public int $calls = 0;

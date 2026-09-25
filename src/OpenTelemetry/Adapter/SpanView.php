@@ -11,14 +11,12 @@ use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 
 /**
- * @internal Mutable only so an owner can revoke access and release its SDK span on completion.
+ * @internal
  *
- * Every view is borrowed: it is handed out by an owner (`OwnedSpan`) that holds the span
- * strongly and calls `release()` when it ends. After that, writes through a view someone
- * kept are no-ops and the ids are gone — a view stored in a shared service cannot reach
- * the next request's span, because it can no longer reach any span at all.
+ * A borrowed view of a span. Once the owner releases it, writes are ignored and the ids
+ * are gone, so a view kept past its request cannot reach another span.
  */
-// @mago-expect lint:too-many-methods — implements the borrowed Span API plus internal ownership revocation and outcome tracking
+// @mago-expect lint:too-many-methods — Span API plus revocation and outcome tracking
 final class SpanView implements Span
 {
     /**
@@ -130,8 +128,7 @@ final class SpanView implements Span
     }
 
     /**
-     * Invalid ids are reported as absence rather than as the all-zero id the API returns:
-     * a caller asking for a trace id wants something to look up, and `0000…` is not that.
+     * Reports an invalid id as null rather than the all-zero value.
      *
      * @param \Closure(SpanInterface): string $read
      *

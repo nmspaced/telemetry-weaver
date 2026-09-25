@@ -10,18 +10,8 @@ use Symfony\Component\HttpClient\Response\AsyncContext;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
- * Everything a decorated client needs in order to record a request.
- *
- * One collaborator instead of four. The split is between two kinds of thing: what is
- * recorded about a request, which is process-scoped and identical for every client in
- * the application, and who owns an individual request, which belongs to the one client
- * that started it. This is the first kind, and holding it together is what keeps
- * `TraceableHttpClient` about the second — that class already has Symfony's async
- * response state machine to get right, and it should not also be a list of four
- * telemetry services it forwards to.
- *
- * It also makes the decoration cheap to wire: a pass registers this once and hands the
- * same reference to every tagged client.
+ * The process-scoped services a decorated client uses to record a request, shared by every
+ * tagged client.
  */
 final readonly class ClientInstrumentation
 {
@@ -38,9 +28,8 @@ final readonly class ClientInstrumentation
      * @param string|null $baseUri what a relative URL resolves against, when the
      *                             decorated client has not resolved one already
      *
-     * @return ClientCall|null null when there is nothing to record: the URL has no
-     *                         determinable host, or the host is excluded from both
-     *                         signals
+     * @return ClientCall|null null when the URL has no host or the host is excluded from
+     *                         both signals
      */
     public function start(string $method, string $url, ?string $baseUri): ?ClientCall
     {

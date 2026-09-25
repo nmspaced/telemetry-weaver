@@ -16,9 +16,9 @@ use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
  * Span structure across dispatch, send and process: kind, parenting, trace continuation,
- * multi-transport fan-out, ambient-span links and redelivery. Metrics live in
- * {@see MessengerTelemetryMetricsTest}; `messaging.system` resolution lives in
- * {@see MessengerTelemetrySystemTest}.
+ * multi-transport fan-out, ambient-span links and redelivery. Metrics live in {@see
+ * MessengerTelemetryMetricsTest}; `messaging.system` resolution lives in {@see
+ * MessengerTelemetrySystemTest}.
  */
 final class MessengerTelemetryTest extends MessengerTelemetryTestCase
 {
@@ -96,8 +96,6 @@ final class MessengerTelemetryTest extends MessengerTelemetryTestCase
 
         $bus->dispatch(new SampleMessage('otel'));
 
-        // Not a messaging operation: a dispatch may validate, open a transaction and run a
-        // handler in-process without a broker ever being involved.
         self::assertSame(
             [
                 'symfony.messenger.bus' => 'messenger.bus.commands',
@@ -127,13 +125,7 @@ final class MessengerTelemetryTest extends MessengerTelemetryTestCase
         self::assertArrayHasKey('error.type', $process->getAttributes()->toArray());
     }
 
-    /**
-     * The point of wrapping senders instead of listening to the send events: those fire
-     * once around the whole loop, so a message routed to two transports could only ever
-     * get one span carrying one of the two destinations.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aMessageRoutedToTwoTransportsGetsASpanPerTransport(): void
     {
@@ -156,8 +148,6 @@ final class MessengerTelemetryTest extends MessengerTelemetryTestCase
         self::assertSame('other', $other->getAttributes()->get('messaging.destination.name'));
         self::assertNotSame($async->getContext()->getSpanId(), $other->getContext()->getSpanId());
 
-        // Each transport carries the context of its own send, so each consumer lands
-        // under the span that actually produced its copy.
         self::assertNotSame(
             MessengerSpanAssertions::stampOf($this->transport),
             MessengerSpanAssertions::stampOf($second),
@@ -165,13 +155,7 @@ final class MessengerTelemetryTest extends MessengerTelemetryTestCase
         );
     }
 
-    /**
-     * The messaging conventions allow the creation context as the parent of a single
-     * message's process span, and require the ambient context to be kept as a link when
-     * that choice is made — a worker loop someone traces must not lose its messages.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aConsumerInsideAnAmbientSpanKeepsItAsALink(): void
     {
@@ -201,12 +185,7 @@ final class MessengerTelemetryTest extends MessengerTelemetryTestCase
         self::assertSame($loop->getContext()->getSpanId(), $link->getSpanContext()->getSpanId());
     }
 
-    /**
-     * A retry is another delivery: its own process span, under the send that delivered
-     * it, marked as a redelivery on the span and nowhere in the labels.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aRedeliveryIsItsOwnDeliveryMarkedOnTheSpanOnly(): void
     {

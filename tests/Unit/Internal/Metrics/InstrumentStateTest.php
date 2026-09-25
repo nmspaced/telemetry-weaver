@@ -16,24 +16,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Exception;
 
-/**
- * `isEnabled()` on the fail-open instrument wrappers.
- *
- * It is the one instrument method that answers a question rather than records one, which is
- * why it needs its own file: everything else in {@see MetricInstrumentsTest} is about what a
- * name becomes on the wire. Callers are told to check it before building attributes, so it
- * sits on the hot path of anyone who took that advice — and a wrapper that let an exception
- * out of it would turn "is anyone listening?" into a failed request.
- */
+/** `isEnabled()` on the fail-open instrument wrappers. */
 #[CoversClass(SafeCounter::class)]
 #[CoversClass(SafeGauge::class)]
 #[CoversClass(SafeUpDownCounter::class)]
 final class InstrumentStateTest extends PublicTelemetryTestCase
 {
     /**
-     * False on failure, never true: a caller that gets true builds attributes and then records
-     * into an instrument that has already proven it throws.
-     *
      * @throws NoPreviousThrowableException
      * @throws Exception
      */
@@ -58,9 +47,6 @@ final class InstrumentStateTest extends PublicTelemetryTestCase
         self::assertSame(3, $this->reporter->total());
     }
 
-    /**
-     * And the working case, so the wrapper is not answering false because it never asks.
-     */
     #[Test]
     public function aWorkingInstrumentAnswersIsEnabledFromItsDelegate(): void
     {

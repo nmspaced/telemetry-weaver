@@ -18,10 +18,6 @@ final readonly class HttpTelemetryPriority
 
     public const int TRACE_TERMINATE = -2048;
 
-    /**
-     * After the server span's outcome has been recorded on kernel.response, and still well
-     * before kernel.finish_request releases its activation — which is what the response
-     * propagator reads.
-     */
+    /** After the span outcome is recorded and while the server span is still current. */
     public const int TRACE_RESPONSE = -2049;
 }

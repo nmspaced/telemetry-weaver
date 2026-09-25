@@ -10,9 +10,7 @@ use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Component\Mime\RawMessage;
 
 /**
- * Decorates `mailer.transports`, so a synchronous send and Messenger's mail handler
- * cross the same boundary and produce the same span. Queueing a message is not sending
- * it: the span covers the transport, and a queued mail gets its span in the consumer.
+ * Decorates `mailer.transports`, so direct sends and Messenger's mail handler get the same span.
  */
 final readonly class TraceableMailTransport implements TransportInterface
 {

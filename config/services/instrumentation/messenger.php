@@ -17,7 +17,6 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Messenger dispatch, send and consume.
     InstrumentationServices::register($services, 'messenger', DefaultBuckets::Messaging);
 
     $services
@@ -25,8 +24,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$telemetry', service('open_telemetry.messenger.telemetry'))
         ->arg('$buckets', service('open_telemetry.messenger.buckets'));
 
-    // The receiver locator only exists with FrameworkBundle's Messenger; without it every
-    // receiver keeps the framework fallback.
     $services->set(MessagingSystem::class)->arg('$receivers', service('messenger.receiver_locator')->nullOnInvalid());
 
     $services

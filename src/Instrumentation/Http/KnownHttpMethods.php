@@ -5,16 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Http;
 
 /**
- * The method allow-list from OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS.
- *
- * A service so the environment is read once per process rather than on every
- * request: the list cannot change while the process runs, and the read sat on
- * the hot path.
- *
- * Read here rather than injected as a container parameter on purpose. A
- * parameter is resolved when the container is compiled and the compiled
- * container is cached, so the value would be frozen from build time instead
- * of run time.
+ * The method allow-list from `OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS`, read once per process
+ * at runtime (a container parameter would freeze the build-time value).
  */
 final readonly class KnownHttpMethods
 {
@@ -32,12 +24,7 @@ final readonly class KnownHttpMethods
         'QUERY',
     ];
 
-    /**
-     * Flipped: contains() is called twice per request and a hash lookup beats
-     * a linear scan over a list that is only ever asked about membership.
-     *
-     * @var non-empty-array<non-empty-string, true>
-     */
+    /** @var non-empty-array<non-empty-string, true> */
     private array $methods;
 
     public function __construct()
@@ -58,7 +45,6 @@ final readonly class KnownHttpMethods
             return $configured;
         }
 
-        // Symfony Dotenv does not enable putenv by default.
         /** @var mixed $fallback */
         $fallback = $_SERVER['OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS'] ?? null;
 
@@ -66,10 +52,7 @@ final readonly class KnownHttpMethods
     }
 
     /**
-     * An empty or blank setting falls back to the defaults rather than
-     * producing an empty list. "Unset it by blanking it" is how the variable
-     * gets written in practice, and an empty list would silently rename every
-     * span to HTTP and report every method as _OTHER.
+     * A blank setting means the defaults, not an empty list.
      *
      * @return non-empty-list<non-empty-string>|null
      */

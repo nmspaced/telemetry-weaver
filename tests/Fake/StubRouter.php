@@ -10,12 +10,7 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
 
-/**
- * A router that answers with a fixed collection, or refuses to.
- *
- * `RouterInterface` has five methods and the bundle reads one of them; a mock would spell
- * out the other four anyway, and PHPUnit rightly complains about a mock with no expectations.
- */
+/** A router that returns a fixed route collection, or throws. */
 final readonly class StubRouter implements RouterInterface
 {
     private RouteCollection $collection;

@@ -5,12 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter;
 
 /**
- * A last resort for exit/fatal shutdown, where PHP skips finally blocks.
- *
- * One callback per process, with weak keys only for currently activated owners:
- * neither the callback nor the registry keeps an operation or its providers alive.
- * Normal detach removes the key immediately. This never ends spans or exports data;
- * an interrupted operation has no measured outcome and shutdown must not start I/O.
+ * Detaches scopes still active at `exit` or a fatal error, where `finally` blocks are skipped.
+ * Holds owners weakly and never ends spans or exports.
  *
  * @internal
  */
@@ -41,8 +37,6 @@ final class ShutdownScopeCleanup
             $owners[] = $owner;
         }
 
-        // Snapshot before mutation, innermost first. Never unwind scopes belonging
-        // to somebody else by walking the global context storage.
         foreach (\array_reverse($owners) as $owner) {
             $owner->detach();
         }

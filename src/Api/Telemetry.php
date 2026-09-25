@@ -13,9 +13,7 @@ interface Telemetry
      * @template T
      *
      * @param non-empty-string $name
-     *
      * @param \Closure(Span): T $work
-     *
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
      *
      * @return T

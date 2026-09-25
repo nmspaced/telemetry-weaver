@@ -14,9 +14,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `logs.correlation` is a promise about what a log line carries, and this is the only thing
- * that keeps it. The field names are part of that promise: a backend that joins traces to
- * logs is configured against them, so renaming one is a breaking change dressed as a refactor.
+ * `logs.correlation` is a promise about what a log line carries, and this is the only thing that
+ * keeps it.
  */
 #[CoversClass(TraceContextProcessor::class)]
 final class TraceContextProcessorTest extends TestCase
@@ -36,10 +35,6 @@ final class TraceContextProcessorTest extends TestCase
         self::assertSame('b7ad6b7169203331', $extra['span_id'] ?? null);
     }
 
-    /**
-     * Two hex digits, as the W3C header spells them — `1` and `01` are the same number and
-     * only one of them joins up with a `traceparent` a backend already stored.
-     */
     #[Test]
     public function theFlagsAreTwoHexDigits(): void
     {
@@ -50,10 +45,6 @@ final class TraceContextProcessorTest extends TestCase
         self::assertSame('00', $notSampled($this->record())->extra['trace_flags'] ?? null);
     }
 
-    /**
-     * A line written outside any trace is not half-correlated: absent ids and empty ids both
-     * cost a query on the backend, and an empty one also looks like a real value.
-     */
     #[Test]
     public function aRecordOutsideATraceIsUntouched(): void
     {
@@ -65,10 +56,6 @@ final class TraceContextProcessorTest extends TestCase
         self::assertSame(['app.order' => 7], $result->extra);
     }
 
-    /**
-     * Monolog processors compose, and one that dropped what an earlier one added would make
-     * the order they were registered in load-bearing.
-     */
     #[Test]
     public function whatAnEarlierProcessorAddedSurvives(): void
     {
@@ -80,9 +67,7 @@ final class TraceContextProcessorTest extends TestCase
         self::assertArrayHasKey('trace_id', $extra);
     }
 
-    /**
-     * @param int<0, 255> $traceFlags
-     */
+    /** @param int<0, 255> $traceFlags */
     private function tracing(int $traceFlags = 1): ActiveTrace
     {
         return $this->reading(new TraceContext(\str_repeat('a', 32), \str_repeat('b', 16), $traceFlags));
@@ -103,9 +88,7 @@ final class TraceContextProcessorTest extends TestCase
         };
     }
 
-    /**
-     * @param array<string, mixed> $extra
-     */
+    /** @param array<string, mixed> $extra */
     private function record(array $extra = []): LogRecord
     {
         return new LogRecord(new \DateTimeImmutable(), 'app', Level::Info, 'message', [], $extra);

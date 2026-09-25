@@ -38,11 +38,7 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\HttpKernel\KernelEvents;
 
-/**
- * One container's worth of services handling many requests in a row, which is
- * what a FrankenPHP worker does. This is not a substitute for a real worker
- * smoke test — it shares a process and services, not a runtime.
- */
+/** One set of services handling many requests in a row, as a FrankenPHP worker does. */
 #[CoversClass(RequestTraceRegistry::class)]
 #[CoversClass(HttpServerTracingSubscriber::class)]
 final class HttpWorkerLifecycleTest extends TestCase
@@ -116,12 +112,7 @@ final class HttpWorkerLifecycleTest extends TestCase
         Context::setStorage($this->previousStorage);
     }
 
-    /**
-     * A thousand requests through one set of services: nothing accumulates,
-     * and no request inherits the previous one's trace.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aLongRunOfRequestsLeavesNothingBehind(): void
     {
@@ -141,8 +132,6 @@ final class HttpWorkerLifecycleTest extends TestCase
 
             $response = $this->kernel->handle($request);
 
-            // Every fourth request never reaches terminate, standing in for a
-            // response that failed to send.
             if ($kind !== 3) {
                 $this->kernel->terminate($request, $response);
             }
@@ -151,11 +140,9 @@ final class HttpWorkerLifecycleTest extends TestCase
                 ++$instrumented;
             }
 
-            // The runtime resets shared services between worker iterations.
             $this->scopes->reset();
         }
 
-        // The last request may still be pending if it was a kind-3 one.
         $this->scopes->reset();
 
         self::assertSame($instrumented, $this->exporter->exported);
@@ -168,12 +155,7 @@ final class HttpWorkerLifecycleTest extends TestCase
         self::assertSame([], $this->logger->records, 'a clean run reports nothing');
     }
 
-    /**
-     * Nothing in the package may outlive the request once it is finished —
-     * neither the Request nor the operation record.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aFinishedRequestIsFullyReleased(): void
     {
@@ -196,17 +178,7 @@ final class HttpWorkerLifecycleTest extends TestCase
         self::assertSame(1, $this->exporter->exported);
     }
 
-    /**
-     * A reset that hits a failure on one operation must still get to the ones
-     * behind it, and must say so rather than failing quietly.
-     *
-     * The requests are held for the length of the test on purpose. The store
-     * keys them weakly, so it is the caller — in production the worker loop,
-     * which is holding the request it is processing when it resets — that
-     * decides how long an unfinished entry stays reachable.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function oneFailingOperationDoesNotStrandTheRest(): void
     {

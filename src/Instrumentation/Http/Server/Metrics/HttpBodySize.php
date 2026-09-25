@@ -8,17 +8,10 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Body sizes for the HTTP server size histograms.
+ * Body sizes for the HTTP server histograms, without reading streamed bodies.
  *
- * Content-Length is the only source consulted for a request: reading the body
- * to measure it would consume a stream the application still has to read.
- * For a response the header is preferred for the same reason, and the buffered
- * content is measured only when there is a real string to measure — a streamed
- * or file-backed response answers getContent() with false, and forcing one to
- * materialise would be a telemetry feature that changes what the app sends.
- *
- * An unknown size is null, never 0: a zero recorded into a histogram is a
- * measurement, and "we could not tell" is not one.
+ * Requests use `Content-Length` only; responses prefer it and fall back to buffered content.
+ * An unknown size is null, not 0.
  */
 final readonly class HttpBodySize
 {

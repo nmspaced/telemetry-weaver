@@ -29,13 +29,9 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 
 /**
  * The decisions inside the bundle's own providers — sampling, trace ids, extra span processors,
- * metric views — as opposed to replacing a link of the pipeline wholesale, which is
- * {@see SdkComponentOverridesTest}.
- *
- * What each test has to show is that the decision takes effect *and* that everything the
- * bundle builds around it is still there. Replacing the whole provider was the only way to
- * reach these before, and it gave up the non-auto-flushing batch processor, the boundary budget
- * and the export gate along with them.
+ * metric views — as opposed to replacing a link of the pipeline wholesale, which is {@see
+ * SdkComponentOverridesTest}. What each test has to show is that the decision takes effect *and*
+ * that everything the bundle builds around it is still there.
  */
 #[CoversClass(SdkComponentsCompilerPass::class)]
 #[CoversClass(TraceDecisions::class)]
@@ -44,13 +40,7 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 #[CoversClass(SdkComponentRules::class)]
 final class SdkPipelineDecisionsTest extends ContainerTestCase
 {
-    /**
-     * The three trace decisions no OTEL_* variable can express. They go into the bundle's own
-     * provider, so what has to be shown is that they take effect *and* that the batch
-     * processor built around them is still the one exporting.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anApplicationsSamplerIdGeneratorAndProcessorsGoIntoTheBundlesProvider(): void
     {
@@ -110,13 +100,7 @@ final class SdkPipelineDecisionsTest extends ContainerTestCase
         self::assertStringStartsWith('abcdef01', $traceId);
     }
 
-    /**
-     * A view is how an attribute whose cardinality is unbounded gets cut at the source. The
-     * assertion is on the exported data point, not on the container: a view that is registered
-     * but never consulted looks identical from the outside.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aConfiguredViewReachesTheMeterProvider(): void
     {

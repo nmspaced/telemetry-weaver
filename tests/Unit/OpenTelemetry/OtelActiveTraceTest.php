@@ -18,11 +18,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/**
- * The adapter reads the storage it was given, never the process-wide one. Every test here
- * passes its own, which is also the point being made: a worker that rebuilt its container,
- * or a test that swapped in a fiber-bound storage, must not be answered from somewhere else.
- */
+/** The adapter reads the storage it was given, never the process-wide one. */
 #[CoversClass(OtelActiveTrace::class)]
 final class OtelActiveTraceTest extends TestCase
 {
@@ -52,9 +48,6 @@ final class OtelActiveTraceTest extends TestCase
         self::assertTrue($current->sampled());
     }
 
-    /**
-     * Unsampled contexts remain usable for correlation.
-     */
     #[Test]
     public function anUnsampledTraceIsNamedAndSaysSo(): void
     {
@@ -70,11 +63,6 @@ final class OtelActiveTraceTest extends TestCase
         self::assertFalse($current->sampled());
     }
 
-    /**
-     * The all-zero context the API returns for "no span" is not something a caller can look
-     * up, and handing it over as though it were would put `00000…` into log lines and SQL
-     * comments across the estate.
-     */
     #[Test]
     public function anInvalidContextIsAbsenceRatherThanZeroes(): void
     {

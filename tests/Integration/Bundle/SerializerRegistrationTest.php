@@ -35,15 +35,7 @@ final class SerializerRegistrationTest extends ContainerTestCase
         self::assertInstanceOf(TraceableSerializer::class, $container->get('serializer'));
     }
 
-    /**
-     * FrameworkBundle decorates `serializer` with the profiler's own traceable serializer
-     * at the default priority in dev. That class implements five of the serializer
-     * interfaces but neither context-aware one, so a decorator placed outside it is handed
-     * an object narrower than its constructor accepts — which surfaced as a TypeError in
-     * a booted application, not as a failed compile.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theProfilersOwnDecoratorDoesNotBreakTheWrapping(): void
     {
@@ -62,24 +54,15 @@ final class SerializerRegistrationTest extends ContainerTestCase
 
         $serializer = $container->get('serializer');
 
-        // The profiler stays outermost and ours sits between it and the real serializer,
-        // so constructing the graph at all is most of what this proves.
         self::assertInstanceOf(ProfilerSerializer::class, $serializer);
         self::assertInstanceOf(SerializerInterface::class, $serializer);
-        // Instantiating the chain is itself the assertion: outside the profiler decorator
-        // this constructor would be handed an object its intersection type rejects.
         self::assertTrue($container->hasDefinition('serializer.open_telemetry'));
         self::assertSame('{"value":1}', $serializer->serialize(new class {
             public int $value = 1;
         }, 'json'));
     }
 
-    /**
-     * A decorator that would land between this one and the serializer, and cannot be
-     * forwarded to, means no decoration at all — never a container that fatals on first use.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anIncompleteDecoratorInsideThisOneMeansNoDecorationRatherThanAFatal(): void
     {

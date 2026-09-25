@@ -12,9 +12,6 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RouteTemplateDump::class)]
 final class RouteTemplateTest extends TestCase
 {
-    /**
-     * Only a flat literal array<string, string> is kept immutable in SHM by opcache.
-     */
     #[Test]
     public function dumpIsAFlatArrayLiteral(): void
     {

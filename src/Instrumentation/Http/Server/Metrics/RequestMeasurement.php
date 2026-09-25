@@ -14,11 +14,8 @@ use OpenTelemetry\SemConv\Attributes\NetworkAttributes;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * One request's worth of HTTP server metrics.
- *
- * Duration and both body sizes share one attribute set, as the semantic
- * conventions require: the three describe the same request and have to be
- * joinable on the same labels.
+ * One request's HTTP server metrics. Duration and both body sizes share one attribute set,
+ * as the conventions require.
  */
 final class RequestMeasurement implements ExecutionEntry
 {
@@ -32,13 +29,7 @@ final class RequestMeasurement implements ExecutionEntry
 
     private readonly Measurement $duration;
 
-    /**
-     * Captured once, at the start of the request, and used by all three instruments.
-     *
-     * Released as soon as the measurement ends: a correlation holds the context, which
-     * holds the span, so a request that kept one would keep an SDK span reachable for as
-     * long as the entry lived — and an abandoned entry would keep it for longer than that.
-     */
+    /** Captured at the start and released at the end, since it keeps the SDK span reachable. */
     private ?TraceCorrelation $correlation;
 
     /**
@@ -90,8 +81,7 @@ final class RequestMeasurement implements ExecutionEntry
     }
 
     /**
-     * The labels the three instruments are recorded under. Final only once
-     * finish() has folded in the outcome.
+     * The labels for all three instruments; final only after `complete()`.
      *
      * @return array<non-empty-string, int|string>
      */
@@ -100,14 +90,7 @@ final class RequestMeasurement implements ExecutionEntry
         return $this->attributes;
     }
 
-    /**
-     * Folds in the outcome, freezes the attributes, then records all three
-     * instruments under them.
-     *
-     * The freeze is what lets the body-size histograms reuse the attributes
-     * the duration was recorded with: the semantic conventions expect the
-     * three to be joinable on the same labels.
-     */
+    /** Folds in the outcome, then records all three instruments with the same labels. */
     #[\Override]
     public function complete(): void
     {
@@ -123,10 +106,7 @@ final class RequestMeasurement implements ExecutionEntry
         $this->recordBodySizes($correlation);
     }
 
-    /**
-     * Nothing is recorded. The request never reached an end, so its duration
-     * is not a measurement of anything and would only distort the histogram.
-     */
+    /** Records nothing: an unfinished request has no meaningful duration. */
     #[\Override]
     public function abandon(): void
     {
@@ -140,10 +120,7 @@ final class RequestMeasurement implements ExecutionEntry
         return $this->status === null && $this->exceptionType !== null;
     }
 
-    /**
-     * Only sizes that were actually observed. A body nobody declared the
-     * length of is not a zero-byte body.
-     */
+    /** Records only observed sizes; an undeclared length is not zero. */
     private function recordBodySizes(?TraceCorrelation $correlation): void
     {
         if ($this->requestBodySize !== null) {

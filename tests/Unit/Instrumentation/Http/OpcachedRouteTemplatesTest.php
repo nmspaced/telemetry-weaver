@@ -58,9 +58,7 @@ final class OpcachedRouteTemplatesTest extends TestCase
         self::assertNull(PhpFileRouteTemplateProvider::in($this->dir)->resolve('app_orders_show'));
     }
 
-    /**
-     * @param string $contents dump content that must not be usable
-     */
+    /** @param string $contents dump content that must not be usable */
     #[Test]
     #[DataProvider('unusableDumps')]
     public function unusableDumpResolvesToNull(string $contents): void
@@ -78,9 +76,6 @@ final class OpcachedRouteTemplatesTest extends TestCase
         yield 'template not a string' => ["<?php\n\nreturn ['app_orders_show' => 42];\n"];
     }
 
-    /**
-     * Regression against require_once, which would return true on the second call.
-     */
     #[Test]
     public function repeatedResolvesReturnTheSameTemplate(): void
     {

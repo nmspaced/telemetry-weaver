@@ -15,10 +15,10 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Setting a span up is the one part of `kernel.request` that runs before the application,
- * so it is guarded the same way the metric side guards its own setup: a telemetry
- * replacement that throws leaves the request untraced instead of unanswered, and leaves
- * nothing half-registered for the next event to find.
+ * Setting a span up is the one part of `kernel.request` that runs before the application, so it is
+ * guarded the same way the metric side guards its own setup: a telemetry replacement that throws
+ * leaves the request untraced instead of unanswered, and leaves nothing half-registered for the
+ * next event to find.
  */
 #[CoversClass(RequestTraceRegistry::class)]
 final class RequestTraceSetupFailureTest extends TestCase

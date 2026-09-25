@@ -11,9 +11,9 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Serializer\Exception\NotEncodableValueException;
 
 /**
- * Span shape for each serializer operation: attributes, error recording, and which
- * operations open spans at all. Metric/duration and messenger-decoding scenarios live in
- * {@see TraceableSerializerMetricsTest}.
+ * Span shape for each serializer operation: attributes, error recording, and which operations open
+ * spans at all. Metric/duration and messenger-decoding scenarios live in {@see
+ * TraceableSerializerMetricsTest}.
  */
 final class TraceableSerializerTest extends TraceableSerializerTestCase
 {

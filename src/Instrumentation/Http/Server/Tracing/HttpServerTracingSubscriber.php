@@ -61,8 +61,6 @@ final readonly class HttpServerTracingSubscriber implements EventSubscriberInter
             $method,
             attributes: $this->serverSpanAttributes->from($request, $method),
             kind: $isMain ? SpanKind::Server : SpanKind::Internal,
-            // A sub-request is not a boundary: no incoming trace means it continues the
-            // main request's span rather than starting beside it.
             parent: $isMain ? $this->parentContext->fromHeaders($request) : null,
         );
     }

@@ -119,8 +119,6 @@ return new class {
             ->end()
             ->stringNode('version')
             ->info('Instrumentation scope version; null means unspecified.')
-            // Explicit null is unset rather than validated: cannotBeEmpty()
-            // rejects it, which made the documented `version: null` invalid.
             ->beforeNormalization()
             ->ifNull()
             ->thenUnset()
@@ -173,11 +171,8 @@ return new class {
             ->integerNode('flush_interval_ms')
             ->min(1)
             ->info(
-                'Minimum interval between metric flushes at an execution boundary. null follows OTEL_METRIC_EXPORT_INTERVAL, which is what the SDK exports on anyway. Traces and logs are not affected: they are drained on OTEL_BSP_SCHEDULE_DELAY and OTEL_BLRP_SCHEDULE_DELAY.',
+                'Minimum interval between metric flushes at an execution boundary; null follows OTEL_METRIC_EXPORT_INTERVAL. Traces and logs are not affected.',
             )
-            // An explicit null has to be unset rather than validated: an integer
-            // node rejects it, and writing the default out is how a reference
-            // file documents that the default means "ask the SDK".
             ->beforeNormalization()
             ->ifNull()
             ->thenUnset()
@@ -190,16 +185,8 @@ return new class {
     }
 
     /**
-     * One node per component instead of two. The old tree described every component
-     * twice — once under `traces`, once under `metrics` — and the two halves had to be
-     * kept in step by hand, which is where most of the configuration defects came from.
-     *
-     * Each component takes `traces` and `metrics` as booleans. Where a signal needs its
-     * own options, the same key accepts the long form `{enabled: bool, ...}`; the short
-     * form is normalised into it. That is what keeps the common case one line while
-     * leaving room for the one case that genuinely differs per signal: excluding
-     * /health from traces but keeping it in metrics, because a health check is noise in
-     * a trace and load in a metric.
+     * One node per component with `traces` and `metrics` switches; a switch takes the long
+     * form `{enabled: bool, ...}` when it needs options of its own.
      *
      * @throws \RuntimeException
      */
@@ -243,11 +230,7 @@ return new class {
         return $node;
     }
 
-    /**
-     * Log export needs symfony/monolog-bundle: the handler is inserted into Monolog's
-     * own stack, which is the only place a Symfony application's log records all pass
-     * through.
-     */
+    /** Requires symfony/monolog-bundle: the handler is inserted into Monolog's own stack. */
     private function logExport(): ArrayNodeDefinition
     {
         $node = $this->enabledNode(

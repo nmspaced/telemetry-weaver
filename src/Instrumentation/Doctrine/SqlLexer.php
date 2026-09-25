@@ -7,46 +7,20 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
 use OpenTelemetry\SemConv\Incubating\Attributes\DbIncubatingAttributes;
 
 /**
- * Removes a statement's data and keeps its code, or refuses the statement.
+ * Replaces literals with `?` and comments with a space, or refuses the statement (null).
  *
- * It reads only a small subset of SQL, and every system reads that subset the same way:
- *
- *  - `'...'` literals with quote doubling and no backslash;
- *  - quoted identifiers: `` `...` ``, `"..."` with no backslash, and `[...]` with no quote
- *    inside;
- *  - `--` comments followed by whitespace or the end of the line;
- *  - `/* *&#47;` comments with no `/*` inside.
- *
- * Each literal becomes `?` and each comment a space. Quoted identifiers stay as written,
- * except where `"..."` may be a string (see {@see self::DOUBLE_QUOTED_STRINGS}).
- *
- * The result is lexed once per statement and serves both {@see SqlSummary} and
- * {@see SqlQueryText}.
- *
- * Anything else that could start a literal or a comment refuses the whole statement. That
- * covers a backslash in a quoted run, `#`, `$$` and `$tag$`, Oracle's `q'`, nested
- * comments, `--` without whitespace, and anything unterminated. Each of those means
- * different things to different systems, or to the same system under different session
- * settings, and describing a statement from a wrong guess is how a literal reaches a span
- * name. A refused statement costs only a less specific span name. The SQL that the ORM and
- * DBAL generate stays inside the subset: values are bound as parameters, and there are no
- * comments.
- *
- * One pass of one constant pattern, possessive throughout, so it cannot backtrack. PCRE's
- * own cache compiles it once per process.
+ * It reads only syntax every database interprets the same way: `'...'` literals without
+ * backslashes, quoted names, `-- ` and non-nested `/* *&#47;` comments. Anything else that could
+ * start a literal or comment (`#`, `$$`, `q'`, a backslash, nested comments) refuses the whole
+ * statement rather than guessing.
  *
  * @internal
  */
 final readonly class SqlLexer
 {
     /**
-     * Earlier alternatives win at the same offset, so `unsafe` only matches what the safe
-     * forms before it could not read.
-     *
-     * `#` is refused wherever it stands. MySQL starts a comment at it with or without
-     * whitespace in front (`SELECT 1#...`), and no position makes it safe to read as code.
-     * `$tag$` and `q'` are refused unless a letter, `_` or `$` in front makes them part of a
-     * name. A digit does not: `1$$...$$` and `1q'...'` are a number followed by a string.
+     * Safe runs first; `unsafe` matches what they could not read. `#` is always unsafe;
+     * `$tag$` and `q'` are unsafe unless they are part of a name.
      */
     private const string RUNS = <<<'REGEX'
         ~(?<literal>'(?:[^'\\]++|'')*+')
@@ -57,16 +31,11 @@ final readonly class SqlLexer
         ~xi
         REGEX;
 
-    /**
-     * Written in place of a run that is refused, and looked for afterwards. A statement that
-     * already contains one is refused before anything is replaced, so it is unambiguous.
-     */
+    /** Marks a refused run; a statement that already contains it is refused up front. */
     private const string REFUSED = "\0";
 
     /**
-     * Systems where `"..."` may be a string literal rather than a quoted identifier: MySQL
-     * and MariaDB unless the session runs with `ANSI_QUOTES`, and any system the connection
-     * does not identify. Such a run is replaced like any other literal.
+     * Systems where `"..."` may be a string literal, so it is replaced like one.
      *
      * @var list<non-empty-string>
      */

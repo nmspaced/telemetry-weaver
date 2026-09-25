@@ -7,12 +7,9 @@ namespace Nmspaced\TelemetryWeaver\Internal\Runtime;
 use OpenTelemetry\API\Common\Time\ClockInterface;
 
 /**
- * @internal Collectors that timed out recently, remembered across flushes of one container.
+ * Collectors that timed out recently, remembered across flushes of one container.
  *
- * Not readonly: this is the one piece of flush state meant to outlive a flush — without it a
- * hung collector would cost every scheduled boundary its share again. Keyed by destination,
- * so bounded by the transports the container built. Under FPM the container, and with it this
- * memory, lives for one request; there the per-flush exhaustion is what protects.
+ * @internal
  */
 final class DestinationCooldowns
 {

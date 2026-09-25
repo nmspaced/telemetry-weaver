@@ -10,10 +10,7 @@ use OpenTelemetry\SDK\Trace\ReadableSpanInterface;
 use OpenTelemetry\SDK\Trace\ReadWriteSpanInterface;
 use OpenTelemetry\SDK\Trace\SpanProcessorInterface;
 
-/**
- * Notes every span it sees and stamps one attribute on start, so a test can tell both that the
- * processor was reached and that it was reached before the span was queued for export.
- */
+/** Records every span and stamps an attribute on start. */
 final class RecordingSpanProcessor implements SpanProcessorInterface
 {
     /** @var list<string> */

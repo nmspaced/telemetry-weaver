@@ -13,9 +13,7 @@ use OpenTelemetry\SDK\Metrics\Data\Sum;
 use PHPUnit\Framework\Assert;
 
 /**
- * `Metric::$data` is `DataInterface`, which does not declare `dataPoints` — every concrete
- * data shape (`Histogram`, `Sum`, `Gauge`) does, under a different point type. Centralizing the
- * narrowing here keeps it out of every test that reads a recorded metric.
+ * Narrows `Metric::$data` to its data points, whatever the metric type.
  *
  * @internal
  */

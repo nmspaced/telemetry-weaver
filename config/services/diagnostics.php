@@ -14,17 +14,12 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Both reporters share one logger, and `diagnostics.enabled` decides which object it is.
     $services
         ->set('open_telemetry.diagnostics.logger', LoggerInterface::class)
         ->factory(DiagnosticsLogger::create(...))
         ->arg('$logger', service('logger'))
         ->arg('$enabled', param('open_telemetry.diagnostics.enabled'))
-        // MonologBundle rewrites the `logger` argument above to this channel's logger.
-        // Inert without MonologBundle, which is the only case where there is no channel
-        // to rewrite it to.
         ->tag('monolog.logger', ['channel' => DiagnosticsLogger::CHANNEL])
-        // The bundle's boot() hands it to the SDK, and get() only reaches public ids.
         ->public();
 
     $services

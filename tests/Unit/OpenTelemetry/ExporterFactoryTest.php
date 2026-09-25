@@ -52,9 +52,7 @@ final class ExporterFactoryTest extends TestCase
         $this->previousEnvironment = [];
     }
 
-    /**
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     #[Test]
     public function noneMeansNoExporterRatherThanAnError(): void
     {
@@ -63,9 +61,7 @@ final class ExporterFactoryTest extends TestCase
         self::assertNull(new SpanExporterFactory(self::resilient(), self::transports())->create());
     }
 
-    /**
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     #[Test]
     public function moreThanOneExporterIsRejected(): void
     {
@@ -81,13 +77,11 @@ final class ExporterFactoryTest extends TestCase
     }
 
     /**
-     * A non-OTLP exporter has no transport to configure, so it keeps going through the
-     * Registry — but it is still wrapped: a dead exporter must not reach the caller,
-     * whichever way it was built.
+     * A non-OTLP exporter has no transport to configure, so it keeps going through the Registry
+     * — but it is still wrapped: a dead exporter must not reach the caller, whichever way it was
+     * built.
      */
-    /**
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     #[Test]
     public function aNonOtlpExporterComesFromTheRegistryAndIsStillWrapped(): void
     {
@@ -125,12 +119,7 @@ final class ExporterFactoryTest extends TestCase
         );
     }
 
-    /**
-     * The seam an application's transport arrives through: the OTLP exporter is built on the
-     * factory the container handed over, and the bundle's retry override is not in the path.
-     *
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     #[Test]
     public function theOtlpExporterIsBuiltOnTheTransportsItWasGiven(): void
     {
@@ -147,9 +136,7 @@ final class ExporterFactoryTest extends TestCase
         self::assertSame(3, $factory->argument('maxRetries'), 'the SDK default, not the bundle override');
     }
 
-    /**
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     #[Test]
     public function logsFollowTheSameRule(): void
     {

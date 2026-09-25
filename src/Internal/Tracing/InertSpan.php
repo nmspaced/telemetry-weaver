@@ -7,24 +7,10 @@ namespace Nmspaced\TelemetryWeaver\Internal\Tracing;
 use Nmspaced\TelemetryWeaver\Api\Span;
 use OpenTelemetry\SemConv\Attributes\ErrorAttributes;
 
-// @mago-expect lint:too-many-methods — it implements two interfaces at once on purpose; see below
+// @mago-expect lint:too-many-methods — owner and view in one object
 /**
- * The span of an operation that records none: tracing switched off, or a span suppressed.
- *
- * Owner and view in one object, because there is nothing to revoke — with no span behind it,
- * a view kept past the operation can no more reach the next request's data than it could
- * reach this one's. Separating them would be ceremony around a no-op.
- *
- * It holds no OpenTelemetry object at all. That matters twice over: an application that
- * switched the bundle off pays for no SDK type it will never use, and `Internal\Tracing` gets
- * to stay free of `OpenTelemetry\API\Trace` so the perimeter rule can be stated without an
- * exception.
- *
- * Two things it is not inert about. The correlation is kept, because a suppressed operation
- * still runs inside whatever trace its caller opened and its duration still belongs there.
- * And `error.type` is remembered, because the duration metric of a suppressed operation is
- * the only signal it produces, and an unlabelled failure in it is indistinguishable from a
- * success.
+ * The span of an operation that records none. Owner and view in one object, with no
+ * OpenTelemetry types; it still keeps the correlation and `error.type` for the duration metric.
  *
  * @internal
  */
@@ -59,10 +45,7 @@ final class InertSpan implements Span, SpanOwner
         return $this->errorType;
     }
 
-    /**
-     * An absent key leaves what was remembered alone — the same rule the recording view
-     * follows, so a description built in two calls behaves identically either way.
-     */
+    /** An absent key keeps the remembered type, as the recording view does. */
     #[\Override]
     public function rememberErrorType(array $attributes): void
     {
@@ -81,22 +64,13 @@ final class InertSpan implements Span, SpanOwner
     }
 
     #[\Override]
-    public function attach(): void
-    {
-        // Nothing was activated, so there is nothing to activate again.
-    }
+    public function attach(): void {}
 
     #[\Override]
-    public function detach(): void
-    {
-        // Nothing was activated.
-    }
+    public function detach(): void {}
 
     #[\Override]
-    public function finish(): void
-    {
-        // Nothing was started.
-    }
+    public function finish(): void {}
 
     #[\Override]
     public function attribute(string $name, string|int|float|bool|array|null $value): void
@@ -111,22 +85,13 @@ final class InertSpan implements Span, SpanOwner
     }
 
     #[\Override]
-    public function rename(string $name): void
-    {
-        // No span to rename.
-    }
+    public function rename(string $name): void {}
 
     #[\Override]
-    public function event(string $name, array $attributes = []): void
-    {
-        // No span to annotate.
-    }
+    public function event(string $name, array $attributes = []): void {}
 
     #[\Override]
-    public function recordException(\Throwable $error): void
-    {
-        // No span to record on; the duration metric carries the outcome instead.
-    }
+    public function recordException(\Throwable $error): void {}
 
     #[\Override]
     public function fail(string $type): void

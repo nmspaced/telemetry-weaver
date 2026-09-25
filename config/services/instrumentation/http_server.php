@@ -33,7 +33,6 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Incoming requests: the HTTP server subscribers.
     InstrumentationServices::register($services, 'http_server', DefaultBuckets::Http);
 
     $services
@@ -48,10 +47,6 @@ return static function (ContainerConfigurator $container): void {
         service(RouteTemplateProvider::class),
     );
 
-    // One policy per signal, because the exclusion list is per signal: /health is noise
-    // in a trace and load in a metric, and the configuration tree says so with
-    // `traces.excluded_paths` / `metrics.excluded_paths`. A single shared policy was how
-    // both lists came to be ignored.
     foreach (['traces', 'metrics'] as $signal) {
         $services
             ->set(\sprintf('open_telemetry.http_server.%s.request_policy', $signal), RequestPolicy::class)

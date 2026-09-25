@@ -9,13 +9,8 @@ use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 
 /**
- * Starts a measurement from the opaque handle an application was given.
- *
- * The narrowing lives here rather than at each call site because there is exactly one way
- * to obtain a `Duration` — `Metrics::duration()` — and everything it returns is startable.
- * A handle that is not can only be one somebody implemented themselves against a marker
- * interface, and the answer to that is a measurement that records nothing, not a crash in
- * the middle of their request.
+ * Starts a measurement from an application's `Duration` handle; a foreign handle records
+ * nothing instead of failing.
  *
  * @internal
  */

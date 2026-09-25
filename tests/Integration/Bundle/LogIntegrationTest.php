@@ -29,12 +29,7 @@ final class LogIntegrationTest extends ContainerTestCase
         self::assertFalse($container->hasDefinition(OtelLogHandler::class));
     }
 
-    /**
-     * The switch used to write a parameter nobody read, so turning correlation off left
-     * the processor tagged and running.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function switchingCorrelationOffRemovesTheProcessorRatherThanLeavingItTagged(): void
     {
@@ -56,20 +51,12 @@ final class LogIntegrationTest extends ContainerTestCase
         $handler = $container->get(OtelLogHandler::class);
         self::assertInstanceOf(OtelLogHandler::class, $handler);
 
-        // Asked of the built handler rather than of its definition: named arguments are
-        // resolved to positions at compile time, so the definition no longer says.
         self::assertFalse($handler->isHandling(self::record(Level::Warning, 'app')), 'below the configured level');
         self::assertTrue($handler->isHandling(self::record(Level::Error, 'app')));
         self::assertFalse($handler->isHandling(self::record(Level::Error, 'event')), 'excluded channel');
     }
 
-    /**
-     * With OTEL_LOGS_EXPORTER=none the provider has nowhere to send, and it has to be a
-     * no-op rather than a real provider: a real one would accept records into a batch
-     * queue that nothing ever drains.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anExporterlessConfigurationGetsANoopProviderAndAFlusherThatStillResolves(): void
     {

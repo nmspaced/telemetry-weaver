@@ -9,30 +9,13 @@ use OpenTelemetry\SDK\Common\Export\TransportFactoryInterface;
 use OpenTelemetry\SDK\Common\Export\TransportInterface;
 
 /**
- * Forces the retry settings of every transport the SDK builds.
- *
- * The OTLP exporter factories call `create()` with five of its ten arguments, so
- * `$retryDelay = 100` and `$maxRetries = 3` are whatever the interface defaults say
- * and cannot be reached from configuration. A retry sleeps in the calling process, and
- * `Resilient*Exporter` cannot help with that: it catches throws and rejected futures,
- * not a synchronous sleep.
- *
- * So the two retry arguments are *overridden*, not defaulted, with the values of
- * `OtlpTransportSettings`; every other argument — including all three TLS paths — is
- * forwarded untouched. Headers ride along: the settings merge the configured ones over
- * OTEL_EXPORTER_OTLP_HEADERS.
- *
- * Every transport comes back inside a `BudgetedTransport` bound to the pipeline's
- * `ExportGate`. Outside a flush boundary it forwards untouched; inside one it caps each
- * send to its destination's share of the budget (see `FlushBudget`), and after
- * finalization it refuses to send at all. The bundle builds no unbudgeted variant; an
- * application that configures `sdk.otlp.transport_factories` replaces this class for the
- * protocol families it names and gives the budget up with it (see `CustomOtlpTransports`).
+ * Wraps the SDK transport factory: forces the configured retry settings and returns every
+ * transport inside a `BudgetedTransport`, so sends respect the flush budget.
  */
 final readonly class TransportFactory implements TransportFactoryInterface
 {
     /**
-     * @param TransportFactoryInterface|\Closure(): TransportFactoryInterface $delegate factory supplier avoids cached HTTP clients with stale timeouts
+     * @param TransportFactoryInterface|\Closure(): TransportFactoryInterface $delegate a supplier avoids cached clients with stale timeouts
      */
     public function __construct(
         private TransportFactoryInterface|\Closure $delegate,
@@ -43,7 +26,7 @@ final readonly class TransportFactory implements TransportFactoryInterface
     /**
      * {@inheritDoc}
      */
-    // @mago-expect lint:excessive-parameter-list — the signature is TransportFactoryInterface's
+    // @mago-expect lint:excessive-parameter-list — TransportFactoryInterface signature
     #[\Override]
     public function create(
         string $endpoint,
@@ -83,8 +66,6 @@ final readonly class TransportFactory implements TransportFactoryInterface
             $cert,
             $key,
         ): TransportInterface {
-            // PsrTransportFactory caches its client after create(). Obtain a fresh
-            // factory so the remaining timeout actually reaches a new HTTP client.
             $factory = $this->factory();
 
             return $factory->create(
@@ -103,9 +84,7 @@ final readonly class TransportFactory implements TransportFactoryInterface
     }
 
     /**
-     * The collector a transport talks to, as the flush budget keys it: scheme, host and port.
-     * `/v1/traces` and `/v1/metrics` on one collector are one destination — they fail together.
-     * Credentials in the URL are left out; the key appears in diagnostics.
+     * The budget key for an endpoint: scheme, host and port, without credentials.
      */
     private static function destination(string $endpoint): string
     {

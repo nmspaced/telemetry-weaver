@@ -32,12 +32,7 @@ final class HttpLifecycleTest extends HttpTelemetryTestCase
         yield 'server error' => [500, StatusCode::STATUS_ERROR, '500'];
     }
 
-    /**
-     * semconv is explicit that 4xx must not mark a SERVER span as an error:
-     * a rejected request is the caller's failure, not the server's.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('responses')]
     public function theResponseCodeDecidesTheStatus(int $code, string $status, ?string $error): void
@@ -66,12 +61,7 @@ final class HttpLifecycleTest extends HttpTelemetryTestCase
         self::assertSame('/orders/{id}', $span->getAttributes()->get('http.route'));
     }
 
-    /**
-     * semconv keeps unrouted requests on the bare method: the URL carries
-     * identifiers, and a span name per URL is unbounded cardinality.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anUnroutedRequestKeepsTheBareMethod(): void
     {
@@ -82,12 +72,7 @@ final class HttpLifecycleTest extends HttpTelemetryTestCase
         self::assertNull($span->getAttributes()->get('http.route'));
     }
 
-    /**
-     * A listener that answers on kernel.request stops propagation before the
-     * router runs, so the route only becomes visible on the response.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aShortCircuitedRequestStillGetsItsRoute(): void
     {
@@ -108,14 +93,7 @@ final class HttpLifecycleTest extends HttpTelemetryTestCase
         self::assertSame(302, $span->getAttributes()->get('http.response.status_code'));
     }
 
-    /**
-     * Symfony turned the exception into a 404, and a 404 is the application working.
-     * The span carries the status and nothing else: below `record_exception_min_status`
-     * the exception is not even recorded as an event, because at kernel.exception
-     * nobody knew yet what the request would answer.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anExceptionTurnedIntoAClientErrorLeavesTheSpanClean(): void
     {
@@ -158,12 +136,7 @@ final class HttpLifecycleTest extends HttpTelemetryTestCase
         self::assertSame('exception', $this->firstEventName($span));
     }
 
-    /**
-     * An OTel error cannot be taken back, so the verdict waits for the last
-     * response anyone hands us.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aLateReplacementOfA500DoesNotLeaveTheErrorStuck(): void
     {

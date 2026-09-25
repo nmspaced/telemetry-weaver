@@ -8,12 +8,7 @@ use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 
 /**
- * Writes one measurement to one histogram, with the trace it belongs to.
- *
- * The seam exists so that the timer never holds an OpenTelemetry context. Passing the
- * correlation straight to `HistogramInterface::record()` would work and would be shorter,
- * but it would put the one type whose static accessors read ambient state back into the
- * metric layer, where the next author would find it already imported.
+ * Writes one measurement with its trace, keeping OpenTelemetry context out of the timer.
  *
  * @internal
  */

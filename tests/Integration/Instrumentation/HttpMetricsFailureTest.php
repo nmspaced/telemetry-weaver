@@ -39,21 +39,13 @@ final class HttpMetricsFailureTest extends HttpMetricsTestCase
                 ),
             );
         $this->subscribe($this->meterWithDurationHistogram($histogram));
-        // Record after the trace subscriber to verify that an explicit context
-        // survives detach AND span end; default production order records first.
         $this->dispatcher->removeSubscriber($this->subscriber);
         $this->dispatcher->addListener(KernelEvents::REQUEST, $this->subscriber->onRequest(...), 2047);
         $this->dispatcher->addListener(KernelEvents::TERMINATE, $this->subscriber->onTerminate(...), -2049);
         $this->handle($this->request(static fn(): Response => new Response()));
     }
 
-    /**
-     * The response is already the application's by the time the duration is recorded,
-     * so a histogram that throws costs the measurement and nothing else — and the
-     * measurement is still released.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aBrokenHistogramDoesNotPreventCleanupOrResponseDelivery(): void
     {
@@ -92,9 +84,7 @@ final class HttpMetricsFailureTest extends HttpMetricsTestCase
     }
 
     /**
-     * The duration histogram by name. Three are created — the duration and the two
-     * body sizes — and only the first one is the subject here; the others answer with
-     * a stub so the measurement can complete.
+     * The duration histogram by name.
      *
      * @throws \Throwable
      */

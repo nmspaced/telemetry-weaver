@@ -10,20 +10,10 @@ use Symfony\Component\DependencyInjection\Extension\ConfigurationExtensionInterf
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
 
 /**
- * Whether the configuration asks for log export, answered before the extension has run.
+ * Whether the configuration enables log export, answered at prepend time.
  *
- * Needed because prepending happens before loading, and the one thing that has to be
- * decided at prepend time — whether to add a handler entry to MonologBundle's stack —
- * depends on a value that only exists after the tree is processed.
- *
- * The tree is therefore processed a second time here. That is the price of the ordering;
- * the alternative is reading the raw, unmerged extension configs and reimplementing the
- * merge, which is how a prepend comes to disagree with the extension it belongs to.
- *
- * A configuration that cannot be processed answers "no" rather than throwing. The same
- * tree is processed again moments later by the extension, and that is where a
- * configuration error belongs — reported against the configuration the user wrote, not
- * against a prepend they never asked for.
+ * Processes the tree once more because prepend runs before the extension. An invalid
+ * configuration answers no; the extension reports the error.
  */
 final readonly class ConfiguredLogExport
 {

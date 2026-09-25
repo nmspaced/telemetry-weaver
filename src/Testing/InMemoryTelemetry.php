@@ -7,7 +7,6 @@ namespace Nmspaced\TelemetryWeaver\Testing;
 use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
 use Nmspaced\TelemetryWeaver\Api\Metrics;
 use Nmspaced\TelemetryWeaver\Api\Operation;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Api\TraceContext;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
@@ -33,22 +32,15 @@ use OpenTelemetry\SDK\Trace\TracerProviderInterface;
 use Psr\Log\NullLogger;
 
 /**
- * Test-only recorder using the production operation engine. Never registers Globals or replaces context storage.
+ * An in-memory recorder for tests, running the production operation engine.
  *
- * Finish all operations before reset/shutdown. Measurements are delta snapshots drained by measurements();
- * reset drains the outstanding delta as well, so existing instruments remain usable without old samples.
- * Exported data intentionally accumulates until read/reset: this helper must not be a production service.
- *
- * It stands in for the facade on both sides of the package: an application drives it through
- * the public {@see Telemetry} contract, and the bundle's own instrumentation — which needs
- * the wider boundary constructor — can be driven through the same recorder in a test rather
- * than against a second, differently-behaving double.
+ * Data accumulates until read or reset; never use it as a production service. Finish all
+ * operations before `reset()` or `shutdown()`.
  */
-// @mago-expect lint:too-many-methods — it mirrors the telemetry facade plus the recorder's own readers; splitting either half would make a test double harder to find than to use
+// @mago-expect lint:too-many-methods — facade plus recorder readers
 final readonly class InMemoryTelemetry implements BoundaryTelemetry
 {
-    // @mago-expect lint:excessive-parameter-list — the recorder owns one pipeline per signal
-    // plus the read side of each; the constructor is private and has a single call site.
+    // @mago-expect lint:excessive-parameter-list — one pipeline per signal; single call site
     private function __construct(
         private BoundaryTelemetry $delegate,
         private SpanExporter $spanExporter,
@@ -92,7 +84,7 @@ final readonly class InMemoryTelemetry implements BoundaryTelemetry
     }
 
     /**
-     * @internal for the bundle's own instrumentation tests; an application has no use for it
+     * @internal for the bundle's own instrumentation tests
      */
     #[\Override]
     public function boundary(string $name): BoundaryOperation
@@ -107,10 +99,7 @@ final readonly class InMemoryTelemetry implements BoundaryTelemetry
     }
 
     /**
-     * The trace running right now, or null when nothing is.
-     *
-     * Uses the same reader as {@see ActiveTrace}. After a top-level operation finishes,
-     * null confirms that it left no active span behind; nested operations restore their parent.
+     * The trace running right now, or null. Null after a unit of work means nothing leaked.
      */
     public function activeTrace(): ?TraceContext
     {

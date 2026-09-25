@@ -23,27 +23,18 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 /**
- * The services every instrumented component owns: its span opener, its meter, the metrics
- * facade over that meter, the telemetry facade over both, and — for the components that
- * measure durations — the histogram boundaries they measure with.
+ * Registers the services every instrumented component owns: span opener, meter, metrics and
+ * telemetry facades, and histogram boundaries.
  *
- * They exist per component rather than once, because both switches — the signal's and the
- * component's — are resolved here, so that nothing below has to ask whether it is enabled.
- * That made the block identical in ten files apart from one word, and an argument added to
- * `DefaultTelemetry` a ten-file edit in which one file could be forgotten. It is one edit now.
- *
- * The shape is unchanged; what each component file still says for itself is the part that
- * differs — its decorators, subscribers and policies.
+ * Both switches are resolved here, so nothing below needs to know whether a signal is on.
  *
  * @internal
  */
 final readonly class InstrumentationServices
 {
     /**
-     * @param non-empty-string $component the configuration key, which is also the service id infix
-     * @param DefaultBuckets|null $buckets the component's boundary preset, which its
-     *                                     `duration_buckets` key replaces; null for a component
-     *                                     that records no duration histogram
+     * @param non-empty-string $component the configuration key, also the service id infix
+     * @param DefaultBuckets|null $buckets the boundary preset; null when no duration is recorded
      */
     public static function register(
         ServicesConfigurator $services,

@@ -11,26 +11,11 @@ use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\Context\ContextStorageInterface;
 
 /**
- * The opener of an operation that records no span but still runs in its own context.
+ * Opens operations that record no span but still run in their own context: with tracing
+ * off, or when `only_with_parent` suppresses the span.
  *
- * It is used when tracing is switched off, for the whole application or for one signal,
- * and for work that `only_with_parent` suppresses. Switching off tracing removes spans. It
- * does not remove context. Baggage is independent of tracing under W3C, and an incoming
- * `traceparent` still has to reach the services downstream. Nested operations whose own
- * spans are on still need the right parent. So an operation that records no span still:
- *
- *  - continues the trace its boundary received, or starts a clean root rather than
- *    inheriting a stale one;
- *  - carries the baggage it was given, for its callback and for everything it propagates;
- *  - restores the previous context when it finishes, like any other operation.
- *
- * The context is activated only when it differs from the ambient one. An operation with no
- * boundary and no baggage costs no scope, which is what the plain no-op used to guarantee.
- *
- * The owner it returns wraps the invalid span, not the parent's span context. A caller
- * that asks this operation for its trace or span id gets nothing, because this operation
- * has no span. The upstream ids are still in the active context, where log correlation
- * and propagation read them.
+ * The operation still continues the incoming trace, carries its baggage and restores the
+ * previous context. A context is activated only when it differs from the ambient one.
  *
  * @internal
  */

@@ -24,13 +24,8 @@ interface Metrics
     public function counter(string $name, ?string $unit = null, ?string $description = null): CounterInterface;
 
     /**
-     * A quantity that goes both ways: work in flight, connections open, items queued.
-     *
-     * Not a counter with negative amounts — the two are exported differently. A counter is
-     * a monotonic sum, so a backend may compute a rate from it; this is a non-monotonic
-     * one, where the current value is the point and a rate is meaningless. Pair every
-     * `add(1)` with an `add(-1)` on the path that undoes the work, `finally` included, or
-     * the series drifts up and never comes back.
+     * A non-monotonic sum, such as work in flight. Pair every `add(1)` with an `add(-1)`,
+     * including in `finally`.
      *
      * @param non-empty-string $name
      */
@@ -46,16 +41,8 @@ interface Metrics
     public function histogram(string $name, ?string $unit = null, ?string $description = null): HistogramInterface;
 
     /**
-     * The current value of something, recorded at a moment the application chooses.
-     *
-     * The synchronous counterpart of `observableGauge()`, and the choice between them is
-     * about when the value exists rather than what it means. Use this when a value arrives
-     * as an event — a queue depth a broker just told you, a temperature a device reported.
-     * Use the observable one when the value can be read at any time and there is no natural
-     * moment to record it.
-     *
-     * Exported as a last value, so it is not summed across workers or attribute sets. If
-     * the number is an amount that should add up, it is an up-down counter, not a gauge.
+     * The current value, recorded when the application has it. Exported as a last value, not
+     * summed across workers.
      *
      * @param non-empty-string $name
      */
@@ -73,17 +60,8 @@ interface Metrics
     ): Duration;
 
     /**
-     * An instrument that is read rather than written: the callback runs when metrics are
-     * collected, not when the value changes.
-     *
-     * For state that exists continuously and has no natural moment to record it — memory
-     * in use, a queue's depth, how long the process has been up. The callback must be
-     * cheap, must not touch per-request state, and must not depend on anything that only
-     * exists during a request: it is invoked at export time, on whatever execution
-     * happens to be crossing a flush boundary.
-     *
-     * Keep the returned handle for as long as the measurements should be reported.
-     * Releasing it detaches the callback, which is the only way to stop it.
+     * Read when metrics are collected. The callback must be cheap and must not use request
+     * state; releasing the returned handle detaches it.
      *
      * @param non-empty-string $name
      * @param \Closure(ObserverInterface): void $observe
@@ -96,15 +74,7 @@ interface Metrics
     ): ObservableCallbackInterface;
 
     /**
-     * The read-at-collection counterpart of `counter()`: a total that only grows and can be
-     * read at any time — bytes a process has written since it started, work it has
-     * completed.
-     *
-     * Reports the cumulative total, not the change since the last collection. The SDK
-     * computes deltas from it where the temporality calls for them, so a callback that
-     * returns an increment produces a series that climbs far too fast.
-     *
-     * Everything said of `observableGauge()` about the callback and the handle holds here.
+     * A cumulative total read at collection time. Report the total, not the increment.
      *
      * @param non-empty-string $name
      * @param \Closure(ObserverInterface): void $observe
@@ -117,16 +87,7 @@ interface Metrics
     ): ObservableCallbackInterface;
 
     /**
-     * The same read-at-collection instrument, for a quantity that is an amount rather than
-     * a sample: memory held, connections open, items queued.
-     *
-     * The two are not interchangeable even though both report the current value. An
-     * up-down counter is exported as a non-monotonic sum, so a backend may add it across
-     * attributes and instances — the memory of every worker is a meaningful total — while
-     * a gauge is exported as a last value that has no sum. The semantic conventions pick
-     * the type per metric; follow them rather than whichever reads more naturally.
-     *
-     * Everything said of `observableGauge()` about the callback and the handle holds here.
+     * A current amount read at collection time, exported as a summable non-monotonic sum.
      *
      * @param non-empty-string $name
      * @param \Closure(ObserverInterface): void $observe

@@ -9,19 +9,10 @@ use OpenTelemetry\SemConv\Incubating\Attributes\HostIncubatingAttributes;
 use OpenTelemetry\SemConv\Incubating\Attributes\ProcessIncubatingAttributes;
 
 /**
- * @internal A stable `service.instance.id` for one FPM child.
+ * @internal
  *
- * With request metrics every FPM child writes its own delta stream. `process.pid` and the host
- * tell children apart, but the Prometheus mapping ignores them: it keys series by `job` and
- * `instance`, taken from `service.name` and `service.instance.id`. Without an instance id the
- * cumulative series a collector rebuilds per child collapse into one and overwrite each other.
- *
- * The SDK's random id does not help: its static dies with the request, so every request would be
- * a new instance. A name-based UUID v5, as the semantic conventions recommend, is the same on
- * every request of a child and differs between children.
- *
- * Every identifying attribute present goes into the name, because containers often share
- * `host.id`. Without a pid, or without a host or container, nothing is derived.
+ * A stable `service.instance.id` for one FPM child: a UUID v5 of its host and pid, so each
+ * child's delta metrics stay a separate series. Null when those attributes are missing.
  */
 final readonly class WriterInstanceId
 {

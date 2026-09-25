@@ -11,13 +11,7 @@ use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * `diagnostics.*` used to be validated, written to parameters, and then read by nothing:
- * both reporters were built with their constructor defaults whatever the file said.
- *
- * `enabled` is not a flag on the reporters: it picks the logger they are given, a
- * `NullLogger` when off — which is why it is proven here, through the container.
- */
+/** The `diagnostics.*` settings reach the reporters that use them. */
 #[CoversNothing]
 final class DiagnosticsConfigurationTest extends ContainerTestCase
 {

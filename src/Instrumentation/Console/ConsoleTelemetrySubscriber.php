@@ -19,27 +19,11 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * One operation per command run.
+ * One `console {command}` operation per command run, keyed by its input so nested runs of the
+ * same command stay apart.
  *
- * Keyed on the `InputInterface` the events carry rather than on the command, because the
- * same command can be running twice at once — a command that calls another through
- * `Application::doRun()`, or itself recursively — and the command object is shared
- * between those invocations while the input is not.
- *
- * Only the command name identifies the run. Arguments, options, the raw input string
- * and the environment are all deliberately absent — `process.command_args` included,
- * which the CLI conventions leave opt-in: they are where a password, a token or a
- * customer identifier ends up on the command line, and the name alone is what makes the
- * span findable.
- *
- * The span carries what the CLI conventions require of a program run:
- * `process.executable.name`, `process.pid`, and `process.exit.code` once it is known.
- * The executable is the PHP binary, because that is what the operating system runs;
- * the command is what the span name and `console.command.name` are for. The name keeps
- * its `console {command}` form, the low-cardinality variant the conventions allow for
- * instrumentation that knows which command ran. None of the process attributes reach
- * the histogram: a pid label is one series per process, and telling processes apart is
- * the resource's job.
+ * Arguments and options are never recorded, since they may carry secrets. Process attributes
+ * go on the span only, not the histogram.
  */
 final readonly class ConsoleTelemetrySubscriber implements EventSubscriberInterface, ResetInterface
 {

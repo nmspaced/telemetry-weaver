@@ -70,10 +70,6 @@ final class BudgetedTransportTest extends TestCase
         $transport->send('after shutdown')->await();
     }
 
-    /**
-     * Traces and logs to one hung collector, metrics to another. The hung one costs its share
-     * once; the logs bound for it are refused without waiting, and metrics still send.
-     */
     #[Test]
     public function aHungCollectorCostsItsShareOnceAndOtherCollectorsStillSend(): void
     {
@@ -82,7 +78,6 @@ final class BudgetedTransportTest extends TestCase
         $collectors = new StallingTransportFactory($clock, ['alloy-a' => 10.0]);
         $factory = new TransportFactory($collectors, ExportGate::forBudget($budget));
         $traces = $factory->create('http://alloy-a:4318/v1/traces', 'application/json');
-        // Same collector: scheme and host are case-insensitive, credentials are not part of it.
         $logs = $factory->create('HTTP://user:secret@Alloy-A:4318/v1/logs', 'application/json');
         $metrics = $factory->create('http://collector-b:4318/v1/metrics', 'application/json');
 

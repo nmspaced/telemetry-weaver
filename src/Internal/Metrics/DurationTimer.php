@@ -9,20 +9,8 @@ use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelation;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 
 /**
- * One measurement of one interval.
- *
- * Not readonly: whether the interval is already closed is state, and it has
- * to survive past construction — without it a caller that closes twice would
- * record the same interval twice and skew the distribution.
- *
- * The clock is monotonic nanoseconds; the unit comes from the same
- * OperationBuckets that supplied the boundaries, so the two cannot diverge.
- *
- * The correlation is handed in rather than read from the execution. It used to be the
- * ambient context at construction, which happened to be right only because the operation
- * activated its span first — an ordering nothing stated and nothing checked. Now whoever
- * starts the measurement says which trace it belongs to, and an interval that outlives its
- * span's activation still records against the span that was actually being measured.
+ * One measured interval on a monotonic clock, recorded at most once. The trace it belongs
+ * to is given at start, not read from the ambient context when it is recorded.
  *
  * @internal
  */
@@ -48,11 +36,7 @@ final class DurationTimer
         $this->correlation = $correlation;
     }
 
-    /**
-     * Named because building one is not a neutral act: the interval begins here, on the
-     * clock this runtime carries. The correlation is the trace the eventual measurement
-     * belongs to, captured now rather than read from the execution when it is recorded.
-     */
+    /** Starts the interval now. */
     public static function started(
         HistogramInterface $histogram,
         DurationUnit $unit,
@@ -63,7 +47,7 @@ final class DurationTimer
     }
 
     /**
-     * Silently ignores a repeated call: telemetry has no right to break the caller.
+     * Records the interval; later calls do nothing.
      *
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
      */
@@ -115,7 +99,7 @@ final class DurationTimer
         $this->correlation = null;
     }
 
-    /** A monotonic clock cannot go backwards, but a test double can; never negative. */
+    /** Never negative, even with a test clock that goes backwards. */
     private function sinceResumed(): int
     {
         return $this->runningSince === null ? 0 : \max(0, $this->runtime->clock->now() - $this->runningSince);

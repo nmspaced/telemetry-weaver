@@ -7,17 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
 use OpenTelemetry\SemConv\Incubating\Attributes\DbIncubatingAttributes;
 
 /**
- * Maps a DBAL driver name onto a `db.system.name` value.
- *
- * The stable `DbAttributes` class only carries the four systems whose values have
- * stabilised (`mysql`, `mariadb`, `postgresql`, `microsoft.sql_server`); `sqlite`,
- * `oracle.db`, `ibm.db2` and the `other_sql` fallback exist only in the incubating
- * class, which is where they are taken from. The attribute *key* is stable in both
- * cases — only some of its values are not.
- *
- * MySQL and MariaDB are indistinguishable from connection parameters: telling them
- * apart needs the server version, which means a round trip to the database, and
- * telemetry does not get to add queries. Both report `mysql`.
+ * Maps a DBAL driver name to a `db.system.name` value. MariaDB reports `mysql`: telling them
+ * apart would need a query to the server.
  */
 final readonly class DatabaseSystem
 {

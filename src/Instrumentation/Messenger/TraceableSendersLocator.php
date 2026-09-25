@@ -11,14 +11,8 @@ use Symfony\Component\Messenger\Transport\Sender\SenderInterface;
 use Symfony\Component\Messenger\Transport\Sender\SendersLocatorInterface;
 
 /**
- * Wraps every sender the locator hands out.
- *
- * The locator is the decoration point rather than the transport service itself because
- * its contract is one method returning `SenderInterface`, which is also one method. A
- * `messenger.transport.<name>` service is simultaneously a sender, a receiver and,
- * depending on the transport, message-count aware, listable, setupable and keepalive
- * capable; wrapping it would mean forwarding all of that correctly or narrowing what
- * callers can do — the trap `SerializerInstrumentationCompilerPass` refuses to walk into.
+ * Wraps every sender the locator hands out. The locator is decorated instead of the transport
+ * services, which implement many more interfaces than a sender.
  */
 final readonly class TraceableSendersLocator implements SendersLocatorInterface
 {

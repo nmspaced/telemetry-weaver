@@ -5,17 +5,8 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk;
 
 /**
- * The OTLP transport settings that have no OTEL_* variable behind them, carried as one value.
- *
- * Retrying is not asynchronous: `PsrTransport::send()` sleeps in the calling process between
- * attempts (`time_nanosleep`), so a collector that is down costs up to `maxRetries + 1` export
- * timeouts plus the backoff — tens of seconds inside a request. That is why nothing is retried
- * unless configured.
- *
- * Headers are merged over OTEL_EXPORTER_OTLP_HEADERS. The upstream exporter factory resolves
- * that variable and hands it to the transport factory as `$headers`, and there is no other seam
- * between it and the wire, so `sdk.exporter_otlp_headers` is applied there: the configured
- * entries win, which is what makes a header settable per environment in a config file.
+ * OTLP transport settings that have no `OTEL_*` variable. Retries are off by default because
+ * the SDK retries by sleeping in the calling process.
  */
 final readonly class OtlpTransportSettings
 {
@@ -31,9 +22,7 @@ final readonly class OtlpTransportSettings
     ) {}
 
     /**
-     * A null value removes a header the variable set — that is how a config file switches
-     * one off without having to rewrite the whole variable. Everything else is stringified,
-     * because the tree accepts any scalar and a header value is text on the wire.
+     * Merges configured headers over `OTEL_EXPORTER_OTLP_HEADERS`; a null value removes one.
      *
      * @param array<string, array<array-key, string>|string> $headers
      *

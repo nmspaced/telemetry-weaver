@@ -86,8 +86,6 @@ final class CachePoolRegistrationTest extends ContainerTestCase
         $container = $this->buildPools();
         foreach (['pool.a', 'pool.b', 'pool.untouched'] as $id) {
             self::assertInstanceOf(TraceableNamespacedCachePool::class, $container->get($id));
-            // The decorator is what the worker resets, and that reset is what abandons a
-            // batch read left unread at the end of a request.
             self::assertSame([['method' => 'reset']], $container->findDefinition($id)->getTag('kernel.reset'));
         }
 

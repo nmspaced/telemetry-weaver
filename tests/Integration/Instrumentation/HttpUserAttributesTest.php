@@ -15,11 +15,7 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\User\InMemoryUser;
 
-/**
- * The firewall authenticates during `kernel.request`, after the server span has already been
- * opened. What this has to show is that the attributes still land on that span — and on the
- * main request's span only.
- */
+/** User attributes set during `kernel.request` still land on the server span. */
 #[CoversClass(UserAttributesSubscriber::class)]
 #[CoversClass(UserAttributes::class)]
 final class HttpUserAttributesTest extends HttpTelemetryTestCase
@@ -61,14 +57,7 @@ final class HttpUserAttributesTest extends HttpTelemetryTestCase
         self::assertNull($attributes->get('user.roles'));
     }
 
-    /**
-     * Identity belongs to the request, and a sub-request is not one: it runs inside the main
-     * request with a span of its own, and whoever is authenticated by then is the same person.
-     * Writing the keys again would put a second identity into one trace the moment a forwarded
-     * request switched user — which is what this arranges.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function onlyTheServerSpanCarriesTheIdentity(): void
     {
@@ -85,20 +74,12 @@ final class HttpUserAttributesTest extends HttpTelemetryTestCase
             },
         ));
 
-        // The sub-request's span ends first, so it is exported first.
         self::assertCount(2, $this->exported());
         self::assertNull($this->exportedSpan(0)->getAttributes()->get('user.id'), 'the sub-request span carries none');
         self::assertSame('alice', $this->exportedSpan(1)->getAttributes()->get('user.id'));
     }
 
-    /**
-     * Reading the token is not free: Symfony's tracking storage turns one read behind a lazy
-     * firewall into `Cache-Control: private, must-revalidate` on the response. The bundle asks
-     * for the untracked storage, and on top of that reads nothing at all for a request it is
-     * not tracing — an excluded path, or tracing switched off.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anUntracedRequestReadsNoToken(): void
     {
@@ -118,9 +99,7 @@ final class HttpUserAttributesTest extends HttpTelemetryTestCase
         self::assertSame(0, $spy->reads, 'and therefore nothing to read the token for');
     }
 
-    /**
-     * @param list<string> $roles
-     */
+    /** @param list<string> $roles */
     private function authenticate(string $identifier, array $roles): void
     {
         $this->tokens->setToken(new UsernamePasswordToken(new InMemoryUser($identifier, null, $roles), 'main', $roles));

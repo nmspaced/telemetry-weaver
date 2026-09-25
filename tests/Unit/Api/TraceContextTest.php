@@ -16,10 +16,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The value object hands out a wire format, which makes it the one place in this package
- * where a specification is written out by hand rather than delegated. So the tests that
- * matter are the ones that keep it honest about that: the format is pinned to what the
- * SDK's own W3C propagator produces, not to a string someone typed twice.
+ * The value object hands out a wire format, which makes it the one place in this package where a
+ * specification is written out by hand rather than delegated.
  */
 #[CoversClass(TraceContext::class)]
 final class TraceContextTest extends TestCase
@@ -36,14 +34,7 @@ final class TraceContextTest extends TestCase
         }
     }
 
-    /**
-     * The whole reason this is formatted here rather than asked of a propagator is that a
-     * propagator answers to `OTEL_PROPAGATORS` and may not write `traceparent` at all. That
-     * argument is only worth anything while the two agree character for character, so the
-     * propagator is what the expectation is read from.
-     *
-     * @param int<0, 255> $flags
-     */
+    /** @param int<0, 255> $flags */
     #[Test]
     #[DataProvider('flags')]
     public function theTraceparentMatchesWhatThePropagatorWrites(int $flags): void
@@ -61,9 +52,6 @@ final class TraceContextTest extends TestCase
         self::assertSame($carrier[TraceContextPropagator::TRACEPARENT] ?? null, $context->traceparent());
     }
 
-    /**
-     * The random flag and reserved bits must not affect the sampled bit.
-     */
     #[Test]
     public function samplingIsBitZeroAndNothingElse(): void
     {
@@ -73,10 +61,6 @@ final class TraceContextTest extends TestCase
         self::assertFalse(new TraceContext(self::TRACE_ID, self::SPAN_ID, 0x02)->sampled());
     }
 
-    /**
-     * The field is two characters wide across the whole range of the byte, which is the
-     * half of it a single sampled/not-sampled example never reaches.
-     */
     #[Test]
     public function theFlagsAreAlwaysTwoLowercaseHexDigits(): void
     {
@@ -86,10 +70,6 @@ final class TraceContextTest extends TestCase
         self::assertSame('ff', new TraceContext(self::TRACE_ID, self::SPAN_ID, 255)->traceFlagsHex());
     }
 
-    /**
-     * The ids are carried, not reformatted. Anything else would make the value object a
-     * second opinion about what the trace is called.
-     */
     #[Test]
     public function theIdsAreTheOnesItWasGiven(): void
     {

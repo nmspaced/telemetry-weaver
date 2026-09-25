@@ -19,12 +19,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(DurationUnit::class)]
 final class TimerBucketsTest extends TestCase
 {
-    /**
-     * Every case, found by reflection rather than listed: a preset added without a test is
-     * the way an unordered boundary set would get in.
-     *
-     * @return iterable<string, array{DefaultBuckets}>
-     */
+    /** @return iterable<string, array{DefaultBuckets}> */
     public static function buckets(): iterable
     {
         foreach (DefaultBuckets::cases() as $case) {
@@ -32,9 +27,6 @@ final class TimerBucketsTest extends TestCase
         }
     }
 
-    /**
-     * The SDK doesn't reject unordered boundaries — it builds buckets from them as-is, and the histogram silently becomes meaningless.
-     */
     #[Test]
     #[DataProvider('buckets')]
     public function boundariesAreStrictlyIncreasing(OperationBuckets $buckets): void
@@ -55,10 +47,6 @@ final class TimerBucketsTest extends TestCase
         self::assertGreaterThan(0, $buckets->boundaries()[0]);
     }
 
-    /**
-     * The duration conventions specify `s` for the operation-duration instruments, and a
-     * histogram whose unit varies by component cannot be compared across them.
-     */
     #[Test]
     #[DataProvider('buckets')]
     public function everyPresetMeasuresInSeconds(DefaultBuckets $buckets): void
@@ -66,10 +54,6 @@ final class TimerBucketsTest extends TestCase
         self::assertSame(DurationUnit::Seconds, $buckets->unit());
     }
 
-    /**
-     * The presets the component defaults name, and the shape each promises. A set that
-     * quietly changed range would change every dashboard built on it.
-     */
     #[Test]
     public function theDocumentedPresetsKeepTheirRange(): void
     {
@@ -107,9 +91,6 @@ final class TimerBucketsTest extends TestCase
         new CustomOperationBuckets(DurationUnit::Milliseconds, [1, 10, 5]);
     }
 
-    /**
-     * An empty boundary set is rejected in the constructor; the non-empty-list annotation is a caller promise, not a runtime check.
-     */
     #[Test]
     public function customBucketsRejectEmptyBoundaries(): void
     {

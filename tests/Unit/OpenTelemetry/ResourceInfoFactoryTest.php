@@ -30,14 +30,9 @@ final class ResourceInfoFactoryTest extends TestCase
 
         self::assertIsString($first);
         self::assertNotSame('', $first);
-        // A kernel reboot builds a new resource; the worker it describes has not changed.
         self::assertSame($first, $second);
     }
 
-    /**
-     * Under FPM the detector's static does not outlive the request, so the id would be a
-     * new instance per request. Without request metrics the SDK default resource is left as it is.
-     */
     #[Test]
     public function aRequestResourceDoesNotInventAServiceInstanceId(): void
     {
@@ -47,10 +42,6 @@ final class ResourceInfoFactoryTest extends TestCase
         self::assertSame(Version::VERSION_1_44_0->url(), $resource->getSchemaUrl());
     }
 
-    /**
-     * Opting into request metrics makes every FPM child a writer of its own delta stream, and
-     * the Prometheus mapping tells writers apart by `service.instance.id` alone.
-     */
     #[Test]
     public function requestMetricsGiveAnFpmChildAnIdStableAcrossItsRequests(): void
     {
@@ -79,7 +70,6 @@ final class ResourceInfoFactoryTest extends TestCase
         self::assertSame('pool-a', $resource->getAttributes()->get(ServiceIncubatingAttributes::SERVICE_INSTANCE_ID));
     }
 
-    /** A kernel-resetting worker keeps the detector's id: its PHP execution outlives the request. */
     #[Test]
     public function aResetKernelWorkerKeepsItsDetectedIdWithRequestMetrics(): void
     {
@@ -101,11 +91,6 @@ final class ResourceInfoFactoryTest extends TestCase
         return SymfonyRuntimeProfile::fromKernel(1, true);
     }
 
-    /**
-     * The detectors declare an older schema, and `ResourceInfo::merge()` drops the URL to
-     * null when two sides disagree — so the baseline has to survive merging with them,
-     * configured attributes included.
-     */
     #[Test]
     public function theResourceIsPublishedUnderTheSemanticConventionsBaseline(): void
     {
@@ -117,15 +102,10 @@ final class ResourceInfoFactoryTest extends TestCase
     }
 
     /**
-     * Stamping the detectors' attributes with a newer schema is a claim that they are
-     * still what that release calls them. Every key must exist in the release's registry
-     * and must not be deprecated there; an SDK upgrade that adds an attribute the
-     * baseline renamed, or a baseline bump that deprecates one, fails here instead of
-     * silently publishing a wrong schema.
+     * Stamping the detectors' attributes with a newer schema is a claim that they are still what
+     * that release calls them.
      */
-    /**
-     * @throws \ReflectionException
-     */
+    /** @throws \ReflectionException */
     #[Test]
     public function everyDetectedAttributeIsCurrentInTheBaseline(): void
     {
@@ -148,14 +128,7 @@ final class ResourceInfoFactoryTest extends TestCase
     }
 
     /**
-     * Every attribute the installed conventions package defines, and whether it is
-     * deprecated.
-     *
-     * Only the `Attributes` and `Incubating\Attributes` namespaces: the package generates
-     * them without attributes that were removed or renamed (`http.method`, `db.system`
-     * survive only in the legacy `TraceAttributes` / `ResourceAttributes` classes), so
-     * presence here is the main check. The few that are kept but deprecated carry an
-     * `@deprecated` tag; a key counts as deprecated only if every declaration says so.
+     * Every attribute the installed conventions package defines, and whether it is deprecated.
      *
      * @return array<string, bool>
      *

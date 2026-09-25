@@ -25,11 +25,6 @@ final class RateLimiterTest extends TestCase
         self::assertFalse($limiter->allow());
     }
 
-    /**
-     * Regression: the interval used to be added to ClockInterface::now()'s
-     * nanoseconds as if it were seconds, so a 60.0 pause lasted 60
-     * nanoseconds and no suppression ever happened.
-     */
     #[Test]
     public function intervalIsMeasuredInSecondsNotNanoseconds(): void
     {

@@ -26,14 +26,12 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/** What reaches the exporter when the bundle's selector is in place — collected by a real reader. */
+/**
+ * What reaches the exporter when the bundle's selector is in place — collected by a real reader.
+ */
 #[CoversClass(MetricTemporality::class)]
 final class DeltaPreferenceExportTest extends TestCase
 {
-    /**
-     * The end-to-end shape of the defect: with a delta preference, state must still be exported
-     * as an absolute value, and nothing may be dropped at the reader.
-     */
     #[Test]
     public function underADeltaPreferenceStateStaysAbsoluteAndNoInstrumentDisappears(): void
     {
@@ -111,7 +109,6 @@ final class DeltaPreferenceExportTest extends TestCase
 
         self::assertSame([1], $counts);
         self::assertInstanceOf(Gauge::class, self::data($second, 'uptime'));
-        // A cumulative gauge keeps reporting its last value; it is state, not an event.
         $temperature = self::data($second, 'temperature');
         self::assertInstanceOf(Gauge::class, $temperature);
         self::assertSame([21], self::values($temperature->dataPoints));

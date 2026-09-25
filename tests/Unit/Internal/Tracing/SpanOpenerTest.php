@@ -16,16 +16,12 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * What opening a span does to the context stack: who the parent is, and whose
- * stack an operation unwinds when it ends.
+ * What opening a span does to the context stack: who the parent is, and whose stack an operation
+ * unwinds when it ends.
  */
 #[CoversClass(SpanOpener::class)]
 final class SpanOpenerTest extends TelemetryTestCase
 {
-    /**
-     * A telemetry setup failure is not an application failure: the caller gets an
-     * OwnedSpan it can use exactly like a real one, which happens to collect nothing.
-     */
     #[Test]
     public function aFailedSpanCreationYieldsAnInertSpanAndIsReported(): void
     {
@@ -61,10 +57,6 @@ final class SpanOpenerTest extends TelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * An explicit parent is the whole point of the option: a consumer span must not
-     * inherit the worker's ambient context, which belongs to the previous message.
-     */
     #[Test]
     public function anExplicitRootParentIgnoresTheAmbientSpan(): void
     {
@@ -83,11 +75,7 @@ final class SpanOpenerTest extends TelemetryTestCase
         self::assertNotSame($outerSpan->getContext()->getTraceId(), $detachedSpan->getContext()->getTraceId());
     }
 
-    /**
-     * Two fibers each own their operation; neither may unwind the other's context.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function independentFibersDoNotDisturbEachOther(): void
     {
@@ -105,8 +93,8 @@ final class SpanOpenerTest extends TelemetryTestCase
     }
 
     /**
-     * A fiber that opens one span, suspends inside it, and checks on resume that its
-     * own stack came back — not somebody else's.
+     * A fiber that opens one span, suspends inside it, and checks on resume that its own stack
+     * came back — not somebody else's.
      *
      * @param non-empty-string $name
      *
@@ -129,18 +117,7 @@ final class SpanOpenerTest extends TelemetryTestCase
         );
     }
 
-    /**
-     * The rule the whole boundary redesign turns on, and the one most likely to be undone
-     * by accident.
-     *
-     * Three states, not two. No incoming trace means "continue whatever is running", which
-     * is what a local operation and a sub-request want. An incoming trace means "this came
-     * from somewhere else" — and when it turns out to carry nothing, the answer is a *new*
-     * trace, never the ambient one. Collapsing the last two is how a worker ends up
-     * attaching a fresh message to the remains of the previous one.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anIncomingTraceThatCarriedNothingStartsANewTraceInsteadOfInheriting(): void
     {

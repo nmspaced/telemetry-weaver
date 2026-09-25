@@ -18,8 +18,7 @@ use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A real `LoggerProvider` exporting into memory, wired behind an `OtelLogHandler`. Shared by
- * the handler test classes so each one only carries the scenarios specific to it.
+ * An `OtelLogHandler` over a real `LoggerProvider` that exports into memory.
  *
  * @internal
  */
@@ -49,8 +48,7 @@ abstract class OtelLogHandlerTestCase extends TestCase
     /**
      * @param non-empty-string $level
      * @param list<string> $excludedChannels
-     * @param bool $correlated whether the logger's stack carries {@see TraceContextProcessor},
-     *                         which is what the handler reads a record's trace from
+     * @param bool $correlated whether the stack has {@see TraceContextProcessor}
      */
     protected function handler(
         string $level = 'debug',

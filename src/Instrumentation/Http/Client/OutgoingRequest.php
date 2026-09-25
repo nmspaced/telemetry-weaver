@@ -10,18 +10,10 @@ use OpenTelemetry\SemConv\Attributes\ServerAttributes;
 use OpenTelemetry\SemConv\Attributes\UrlAttributes;
 
 /**
- * The part of an outgoing request that is known before it is sent.
+ * The parts of an outgoing request known before it is sent: method, scheme, host and port.
  *
- * Only what the required attributes need: `server.address`, `server.port` and
- * `url.scheme` have to be on both the span and the histogram, and they have to be there
- * from the start, because the histogram's label set is frozen when the measurement
- * begins. The URL itself is not resolved here — it is read back from the response once
- * the client has resolved it, which is the only spelling that is certain to match what
- * actually went on the wire.
- *
- * Parsing is for telemetry only. Symfony remains responsible for validating the URL and
- * for deciding what to send; a URL this class cannot make sense of yields null, and the
- * request proceeds uninstrumented rather than failing.
+ * They form the histogram's label set, which is frozen when the measurement starts. A URL
+ * that cannot be parsed yields null and the request goes out uninstrumented.
  */
 final readonly class OutgoingRequest
 {
@@ -46,16 +38,11 @@ final readonly class OutgoingRequest
 
         $base = self::parse($baseUri ?? '') ?? [];
 
-        // A URL that carries its own authority keeps all of it and borrows at most the
-        // scheme, which is what the scheme-relative "//host/path" form needs. Taking the
-        // base's port too would put one host's port on another host's request.
         $authority = ($target['host'] ?? null) === null ? $base : $target;
 
         $scheme = self::lower($target['scheme'] ?? $base['scheme'] ?? '');
         $host = self::lower($authority['host'] ?? '');
 
-        // The default port doubles as the scheme check: only the two schemes the HTTP
-        // conventions describe have one, and anything else is not an HTTP request.
         $defaultPort = self::defaultPort($scheme);
 
         if ($host === '' || $defaultPort === null) {
@@ -66,18 +53,8 @@ final readonly class OutgoingRequest
     }
 
     /**
-     * The frozen label set: the method normalized to a known name or `_OTHER`, and the
-     * URL's authority.
-     *
-     * Bounded by the application's own call sites, not by this class. The conventions
-     * require `server.address` and `server.port`, and they are as bounded as the set of
-     * hosts the application calls — for a fixed set of services, a handful of series; for
-     * a webhook dispatcher, a crawler or a multi-tenant client, one per host it has ever
-     * called. A cumulative aggregation keeps every one of them for the life of the
-     * process, and neither the boundary flush nor the queue limits bound that. An
-     * application in that shape needs an SDK view that drops or maps the destination, or
-     * delta temporality, and the guarantee this comment used to claim was never this
-     * class's to give.
+     * The metric label set. Its cardinality grows with the number of hosts the application
+     * calls; clients that call arbitrary hosts need an SDK view or delta temporality.
      *
      * @return array<non-empty-string, string|int>
      */
@@ -92,8 +69,7 @@ final readonly class OutgoingRequest
     }
 
     /**
-     * The same, plus what only a span can afford: the method as the caller spelled it,
-     * which is unbounded and so has no business being a metric label.
+     * The metric labels plus the original method spelling, which is too unbounded for a label.
      *
      * @return array<non-empty-string, string|int>
      */

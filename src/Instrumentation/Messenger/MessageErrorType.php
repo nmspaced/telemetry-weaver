@@ -15,14 +15,12 @@ final readonly class MessageErrorType
         while ($error instanceof HandlerFailedException) {
             $causes = $error->getWrappedExceptions();
             if (\count($causes) !== 1) {
-                // Several handlers failed: choosing just one cause would mislabel the operation.
                 break;
             }
 
             $error = \array_values($causes)[0];
         }
 
-        // Anonymous class names contain a source location, unsuitable for metric labels.
         if (!\str_contains($error::class, '@anonymous')) {
             return $error::class;
         }

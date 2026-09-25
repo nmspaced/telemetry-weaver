@@ -33,9 +33,7 @@ final class PublicApiContainerTest extends ContainerTestCase
         yield 'disabled' => [false];
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('enabled')]
     public function publicContractsAutowireIntoAnOptimizedContainer(bool $enabled): void
@@ -103,12 +101,7 @@ final class PublicApiContainerTest extends ContainerTestCase
         }
     }
 
-    /**
-     * The point of the port: code with no operation in scope can still name the trace it
-     * is running inside, and the ids it reads are the ids of the span that is current.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theActiveTraceNamesTheSpanTheCallerIsInside(): void
     {
@@ -132,9 +125,7 @@ final class PublicApiContainerTest extends ContainerTestCase
         self::assertNull($ambient->current(), 'and the operation released it on the way out');
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function applicationAndLibraryScopesShareTheExistingProvider(): void
     {
@@ -163,9 +154,7 @@ final class PublicApiContainerTest extends ContainerTestCase
         self::assertEquals($childSpan->getResource(), $parentSpan->getResource());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function factoryCannotReenableGloballyDisabledTracing(): void
     {

@@ -11,18 +11,13 @@ use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * `only_with_parent` and the trace/metric signal switches. Statement/query span shape lives
- * in {@see DoctrineTelemetryTest}; transaction boundaries live in
- * {@see DoctrineTelemetryTransactionTest}.
+ * `only_with_parent` and the trace/metric signal switches. Statement/query span shape lives in
+ * {@see DoctrineTelemetryTest}; transaction boundaries live in {@see
+ * DoctrineTelemetryTransactionTest}.
  */
 final class DoctrineTelemetryPolicyTest extends DoctrineTelemetryTestCase
 {
-    /**
-     * The point of only_with_parent: an orphan query stays out of the traces, but the
-     * load it puts on the database still has to be counted.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function withoutAParentSpanOnlyTheMetricIsRecorded(): void
     {
@@ -56,12 +51,7 @@ final class DoctrineTelemetryPolicyTest extends DoctrineTelemetryTestCase
         self::assertSame($parent->getContext()->getSpanId(), $query->getParentContext()->getSpanId());
     }
 
-    /**
-     * Switching a signal off is an injected object, not a flag: a no-op meter records
-     * nothing while the span keeps being produced.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aNoopMeterLeavesTheSpanAndRecordsNothing(): void
     {
@@ -74,11 +64,7 @@ final class DoctrineTelemetryPolicyTest extends DoctrineTelemetryTestCase
         self::assertSame([], $this->recordedMetricNames());
     }
 
-    /**
-     * The mirror image: a no-op span opener silences the traces and leaves the metric.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aNoOpSpanOpenerLeavesTheMetricAndRecordsNoSpan(): void
     {

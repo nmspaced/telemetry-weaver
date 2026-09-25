@@ -8,44 +8,15 @@ use Nmspaced\TelemetryWeaver\Internal\Clock\MonotonicClock;
 use OpenTelemetry\API\Common\Time\ClockInterface;
 
 /**
- * @internal One deadline for a flush, shared fairly between the collectors it sends to.
+ * One deadline per flush, divided between destinations (collector origins) rather than
+ * signals, so a hung collector cannot starve a healthy one. Share size lives in
+ * `FlushWindow`, exhaustion in `DestinationShare`, cooldowns in `DestinationCooldowns`.
  *
- * The deadline bounds how long a flush may block, whatever it sends. Within it, time is
- * divided by destination — the collector's origin, `scheme://host:port` — not by signal,
- * because collectors fail, not signals. Traces, logs and metrics sent to one Alloy share
- * its fate; sent to different collectors, a hung one must not starve the rest. Measured
- * before this existed: with traces pointed at a collector that accepts and never answers,
- * the trace export consumed the whole budget, and logs and metrics reached their healthy
- * collector on no request at all under FPM, where no cooldown survives between requests.
- *
- * The rules, each in the type that owns it:
- *
- *  - Share size (`FlushWindow`): fixed on a destination's first send of the flush, as the time
- *    left divided by the destinations not yet served. Time a fast collector did not use rolls
- *    over to the ones after it. Destinations with a transport but nothing to send still count,
- *    which can only make a share shorter — the flush ends early, never late.
- *  - Exhaustion (`DestinationShare`): a destination that used up its share, or timed out, is
- *    refused for the rest of the flush — every later send to it, from any signal or batch, at
- *    once, instead of waiting out the same timeout again.
- *  - Cooldown (`DestinationCooldowns`): a destination that timed out is skipped by scheduled
- *    boundaries for `failure_cooldown_ms`, but only when the timeout is conclusive — the send
- *    had at least half of an even split of the whole budget. A healthy collector that only
- *    got the scraps a slow one left behind would otherwise sit out thirty seconds of
- *    boundaries for someone else's delay. A final flush tries a cooling destination anyway,
- *    as it ignores the signal schedule.
- *
- * Not readonly: the open window is state. Everything about one flush lives in its window and is
- * dropped whole by `end()`, which the coordinator calls in `finally`. What outlives a flush —
- * registered destinations and their cooldowns — is bounded by the transports this container
- * built, at most one per signal, and holds only strings and integers.
+ * @internal
  */
 final class FlushBudget
 {
-    /**
-     * A timeout proves a collector unhealthy only if it had a fair chance: at least this part of
-     * an even split of the whole budget. Not the full split, because collecting metrics and
-     * serializing batches spend some of the budget before the first send even starts.
-     */
+    /** Part of an even split a send must have had for its timeout to trigger a cooldown. */
     private const float CONCLUSIVE_SHARE = 0.5;
 
     private ?FlushWindow $window = null;
@@ -111,10 +82,7 @@ final class FlushBudget
         $this->destinations[$destination] = true;
     }
 
-    /**
-     * How long one send to the destination may take. null when it may not start: there is no
-     * flush, or the destination is cooling down, exhausted or out of time.
-     */
+    /** How long one send may take; null when it may not start. */
     public function allowance(string $destination): ?SendAllowance
     {
         $window = $this->window;
@@ -127,7 +95,7 @@ final class FlushBudget
     }
 
     /**
-     * This destination and every other one this flush has not served yet and will not skip.
+     * This destination plus every one not yet served or skipped.
      *
      * @return positive-int
      */

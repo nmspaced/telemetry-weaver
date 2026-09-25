@@ -74,8 +74,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$retryDelay', param('open_telemetry.sdk.export.retry_delay_ms'))
         ->arg('$headers', param('open_telemetry.sdk.exporter_otlp_headers'));
 
-    // SdkComponentsCompilerPass points this alias at CustomOtlpTransports, in front of these,
-    // when sdk.otlp.transport_factories names a factory.
     $services
         ->set(BudgetedOtlpTransports::class)
         ->arg('$gate', service(ExportGate::class))
@@ -88,9 +86,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$resourceInfo', service(ResourceInfo::class))
         ->arg('$metricExporter', service(MetricExporterInterface::class));
 
-    // Every provider is registered here rather than in its factory, so a provider an application
-    // configures (SdkComponentsCompilerPass aliases open_telemetry.<signal>.provider to it) is
-    // flushed and shut down exactly like the one the bundle builds.
     $services
         ->set('open_telemetry.metrics.provider', MeterProviderInterface::class)
         ->factory([service(MeterProviderFactory::class), 'create']);
@@ -127,7 +122,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$spanExporter', service(SpanExporterInterface::class))
         ->arg(
             '$spanSuppressionStrategy',
-            // @mago-expect analysis:experimental-usage — span suppression is experimental upstream and the bundle depends on it deliberately
+            // @mago-expect analysis:experimental-usage — used deliberately
             service(SpanSuppressionStrategy::class),
         );
 
@@ -147,7 +142,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$version', param('open_telemetry.scope.version'))
         ->arg('$schemaUrl', param('open_telemetry.scope.schema_url'));
 
-    // @mago-expect analysis:experimental-usage — span suppression is experimental upstream and the bundle depends on it deliberately
+    // @mago-expect analysis:experimental-usage — used deliberately
     $services->set(SpanSuppressionStrategy::class)->factory(SpanSuppressionStrategyFactory::create(...));
 
     $services
@@ -166,17 +161,10 @@ return static function (ContainerConfigurator $container): void {
         // @mago-expect analysis:experimental-usage
         ->arg('$responsePropagator', service_closure(ResponsePropagatorInterface::class));
 
-    // The bundle's boot() has to reach this one, and get() only works on public
-    // ids. A public alias keeps the class itself private: what the container
-    // exposes is one namespaced string, not an autowirable FQCN that looks like
-    // an invitation.
     $services->alias(GlobalsRegistrar::REGISTRAR_ID, GlobalsRegistrar::class)->public();
 
     $services->set(ContextStorageInterface::class)->factory(Context::storage(...));
 
-    // The two adapters that keep OpenTelemetry's context out of the metric layer: one
-    // reads the current trace for the measurements that have no span of their own, the
-    // other is what finally hands a captured trace to `HistogramInterface::record()`.
     $services
         ->set(TraceCorrelationSource::class, OtelTraceCorrelationSource::class)
         ->arg('$contextStorage', service(ContextStorageInterface::class));
@@ -199,10 +187,7 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(PropagatorFactory::class);
 
-    // Response propagation is experimental upstream and empty by default: the registry
-    // ships only `none`, and `traceresponse` is a contrib package an application installs.
-    // Wiring it here is what gives OTEL_EXPERIMENTAL_RESPONSE_PROPAGATORS somewhere to act.
-    // @mago-expect analysis:experimental-usage — response propagation is experimental upstream and wired deliberately
+    // @mago-expect analysis:experimental-usage — used deliberately
     $services->set(ResponsePropagatorFactory::class);
 
     $services
@@ -219,11 +204,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$reporter', service(InstrumentationFailureReporter::class));
 
     $services->set(TextMapPropagatorInterface::class)->factory([service(PropagatorFactory::class), 'create']);
-
-    // TraceContextProcessor and OtelLogHandler are registered by
-    // MonologInstrumentationCompilerPass: both are conditional, and a definition made
-    // here could only be removed there, which is how logs.correlation came to mean
-    // nothing at all.
 
     $services
         ->set(LoggerProviderFactory::class)

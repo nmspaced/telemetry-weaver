@@ -7,14 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Client;
 use Nmspaced\TelemetryWeaver\Internal\Operation\ScopedOperation;
 
 /**
- * One outgoing request being observed: the operation, and what it is about.
- *
- * The request is kept alongside the operation because the conventions require the
- * duration and both body-size histograms to be joinable on one label set, and the
- * labels are known at the start while two of the three values are only known at the
- * end. Holding the `OutgoingRequest` is how the end can still reach the labels the
- * start froze; rebuilding them from the response would risk a redirect having changed
- * the host underneath them.
+ * An observed outgoing request: its operation and the request whose labels were frozen at
+ * the start, so the end records body sizes under the same labels.
  */
 final readonly class ClientCall
 {

@@ -51,7 +51,6 @@ $provider = TracerProvider::builder()
 $registry->traces($provider);
 $provider->getTracer('fpm-test')->spanBuilder('request')->startSpan()->end();
 register_shutdown_function(static function () use ($gate, $provider, $directory): void {
-    // A late SDK/user callback must not reopen network export after the gate closes.
     $provider->shutdown();
     file_put_contents($directory . '/shutdown', $gate->isClosed() ? 'closed' : 'open');
 });

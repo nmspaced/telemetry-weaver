@@ -16,22 +16,8 @@ use OpenTelemetry\SDK\Logs\Processor\BatchLogRecordProcessor;
 use OpenTelemetry\SDK\Resource\ResourceInfo;
 
 /**
- * The logger provider, or a no-op one when nothing is configured to receive records.
- *
- * Batched rather than simple, for the same reason spans are: a simple processor exports
- * inside `$logger->error()`, which puts a network round trip — and a dead collector's
- * timeout — on the path of the code that was trying to report a problem. Batching moves
- * that cost to `TelemetryFlusher`, which runs at an execution boundary after the response has
- * been sent.
- *
- * `autoFlush` is off, as for spans (see `TracerProviderFactory`): with it on, `onEmit()`
- * exports whenever a batch fills or `OTEL_BLRP_SCHEDULE_DELAY` — one second by default —
- * has elapsed, which under traffic is nearly every request, and a burst of error logs is
- * exactly when the collector is most likely to be struggling. A queue that fills before
- * the boundary drops records; `OTEL_BLRP_MAX_QUEUE_SIZE` bounds both memory and loss.
- *
- * The `OTEL_BLRP_*` sizes are read here because this factory builds the processor itself
- * instead of going through the SDK's, which would have forced `autoFlush` back on.
+ * Builds the logger provider with a batch processor that never exports from `emit()`; a no-op
+ * provider when nothing receives records. Queues drain at execution boundaries.
  */
 final readonly class LoggerProviderFactory
 {

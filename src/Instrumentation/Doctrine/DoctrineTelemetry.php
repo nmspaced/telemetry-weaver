@@ -50,7 +50,6 @@ final readonly class DoctrineTelemetry
      */
     public function run(string $sql, ConnectionAttributes $connection, \Closure $callback): mixed
     {
-        // Lexed once: the summary and the sanitized text are two readings of the same code.
         $code = SqlLexer::code($sql, $connection->system);
         $summary = SqlSummary::fromCode($code)->value;
         $attributes = $connection->attributes();
@@ -72,18 +71,8 @@ final readonly class DoctrineTelemetry
     }
 
     /**
-     * A transaction boundary — BEGIN, COMMIT or ROLLBACK — as an operation of its own.
-     *
-     * One span per round trip, never one span for the whole open transaction: that would
-     * measure the application's time between the two calls, and a slow COMMIT — the thing
-     * worth an alert — would vanish inside it. The operation name comes from the DBAL
-     * method that was called, which is exactly the case the conventions reserve
-     * `db.operation.name` for, and it is a label as well: three values, from the API,
-     * never from text.
-     *
-     * Nesting needs nothing here. DBAL calls the driver's transaction methods only for
-     * the outermost level and turns inner levels into `SAVEPOINT` / `RELEASE` statements,
-     * which are traced by `run()` like any other statement.
+     * One span per BEGIN, COMMIT or ROLLBACK round trip, not one for the whole transaction.
+     * Nested levels are SAVEPOINT statements and go through `run()`.
      *
      * @template T
      * @param non-empty-string $operation one of the TRANSACTION_* constants
@@ -143,9 +132,7 @@ final readonly class DoctrineTelemetry
     }
 
     /**
-     * SQLSTATE is what the conventions ask for in `db.response.status_code`, and DBAL
-     * exposes it on every driver exception. A failure that is not a driver exception
-     * (a bug in the callback, say) still gets `error.type`.
+     * `error.type`, plus the SQLSTATE as `db.response.status_code` for driver exceptions.
      *
      * @return array<non-empty-string, string>
      */

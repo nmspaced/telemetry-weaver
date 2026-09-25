@@ -21,7 +21,7 @@ final class RuntimeConfiguration
             ->values(['disabled', 'delta'])
             ->defaultValue('disabled')
             ->info(
-                'Metrics from runtimes that build a pipeline per request (PHP-FPM, FRANKENPHP_RESET_KERNEL). "disabled" exports none. "delta" exports counters and histograms as one DELTA stream per FPM child or worker thread; a cumulative backend (Prometheus, Mimir) then needs the collector\'s deltatocumulative processor, with each stream always reaching the same collector instance. Shared workers ignore this key.',
+                'Metrics from runtimes that build a pipeline per request (PHP-FPM, FRANKENPHP_RESET_KERNEL): "disabled" or "delta". Delta needs a collector deltatocumulative processor for cumulative backends. Ignored by shared workers.',
             )
             ->end()
             ->end()

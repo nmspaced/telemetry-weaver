@@ -8,30 +8,10 @@ use OpenTelemetry\SemConv\Incubating\Attributes\UserIncubatingAttributes;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 /**
- * Who the firewall says is making this request, as span attributes.
+ * `user.id` and `user.roles` for the authenticated user, each off by default because `user.id`
+ * makes a trace personal data. Nothing is recorded without an authenticated token.
  *
- * Both keys are off by default and separately switchable, because they are different
- * decisions. `user.id` names a person: in most jurisdictions putting it in a trace makes the
- * trace personal data, with everything that follows — retention, access, erasure requests —
- * and a backend's traces are rarely governed as tightly as an application's database.
- * `user.roles` names a group, so it is the one that is usually safe, and it is also the one
- * that answers the question people actually ask of a trace: was this slow for admins, or for
- * everyone.
- *
- * The identifier comes from `UserInterface::getUserIdentifier()` — the value the application
- * already chose to log in with. It is not hashed here: a hash whose salt this bundle picked
- * would be neither reversible for support nor stable across deployments, and `user.hash`
- * exists for applications that want to compute a real one themselves.
- *
- * Nothing is read outside a firewall: with no token, or with an unauthenticated one, this
- * returns nothing rather than a placeholder — "anonymous" as an attribute value is a series
- * and a lie at the same time.
- *
- * The storage handed in is `security.untracked_token_storage`, not `security.token_storage`.
- * The latter tracks reads, and behind a lazy firewall a single read turns every response
- * into `Cache-Control: private, must-revalidate` — telemetry changing what the application
- * sends, which is the one thing instrumentation must never do. See
- * {@see \Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\SecurityInstrumentationCompilerPass}.
+ * Reads `security.untracked_token_storage`: the tracked storage would make responses private.
  *
  * @internal
  */

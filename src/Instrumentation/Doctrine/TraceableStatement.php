@@ -9,17 +9,8 @@ use Doctrine\DBAL\Driver\Result;
 use Doctrine\DBAL\Driver\Statement;
 
 /**
- * Spans one execution of a prepared statement.
- *
- * A prepared statement is reused, so this object can outlive a request — which is
- * exactly why it holds only the SQL string and the immutable connection attributes.
- * The span is opened and closed inside `execute()`, so nothing about an execution
- * survives it and no `kernel.reset` has anything to release here.
- *
- * Bound parameter values are never recorded: `db.query.parameter.<key>` is where they
- * would go, and the conventions say not to capture it by default because of PII.
- *
- * Not readonly because `AbstractStatementMiddleware` is not.
+ * Spans each execution of a prepared statement. It can outlive a request, so it holds only
+ * the SQL and immutable connection attributes. Bound parameter values are never recorded.
  */
 final class TraceableStatement extends AbstractStatementMiddleware
 {

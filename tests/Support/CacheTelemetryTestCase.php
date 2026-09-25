@@ -73,11 +73,9 @@ abstract class CacheTelemetryTestCase extends TelemetryTestCase
     }
 
     /**
-     * What was recorded since the last read, from one snapshot: collecting clears the
-     * exporter, so reading the two metrics separately would lose the second.
+     * Durations and lookups recorded since the last read, from one snapshot.
      *
-     * @return array{durations: int, lookups: int} how many durations were recorded, and
-     *                                             how many lookups were counted
+     * @return array{durations: int, lookups: int}
      */
     protected function recorded(): array
     {

@@ -13,14 +13,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/**
- * The owner an operation gets when tracing is off or its span is suppressed.
- *
- * Two things it must keep doing despite recording nothing, because they are what a
- * suppressed operation still contributes: the trace its duration belongs to, and the
- * `error.type` that duration is labelled with. A metric-only failure that arrives unlabelled
- * is indistinguishable from a success.
- */
+/** The owner an operation gets when tracing is off or its span is suppressed. */
 #[CoversClass(InertSpan::class)]
 #[CoversClass(NoOpSpanOpener::class)]
 final class InertSpanTest extends TestCase
@@ -41,10 +34,6 @@ final class InertSpanTest extends TestCase
         self::assertSame('probe', $span->name());
     }
 
-    /**
-     * Owner and view are the same object, because with no span behind it there is nothing to
-     * revoke: a retained view can no more reach the next request than it can reach this one.
-     */
     #[Test]
     public function theViewIsTheOwner(): void
     {
@@ -74,10 +63,6 @@ final class InertSpanTest extends TestCase
         self::assertSame('payment.declined', $span->errorType());
     }
 
-    /**
-     * The same rule the recording view follows: a description built in two calls must not
-     * lose what the first one declared.
-     */
     #[Test]
     public function anAbsentKeyLeavesWhatWasRemembered(): void
     {
@@ -99,10 +84,6 @@ final class InertSpanTest extends TestCase
         self::assertSame('timeout', $span->errorType());
     }
 
-    /**
-     * Detaching and finishing something that was never activated or started must be a no-op,
-     * not a special case every caller has to know about.
-     */
     #[Test]
     public function finishingIsIdempotentAndHarmless(): void
     {

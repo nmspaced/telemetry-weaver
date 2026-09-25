@@ -74,8 +74,6 @@ final class FpmRuntimeTest extends TestCase
                 'directory' => $directory,
                 'endpoint' => 'http://' . \trim($address) . '/v1/traces',
             ]));
-            // END_REQUEST precedes kernel.terminate. The next request proves that the
-            // same child finished terminate AND PHP shutdown and is ready for work.
             $second = FastCgi::request($socket, $script, \http_build_query(['directory' => $directory]));
             self::assertLessThan(1.0, (\hrtime(true) - $started) / 1_000_000_000);
             self::assertSame($first, $second, 'The same FPM child keeps its standard SDK resource across requests');

@@ -5,43 +5,17 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
 
 /**
- * `db.query.summary` for a SQL statement: its operations and targets, in order.
- *
- * The database conventions name a span after this summary and say explicitly that
- * `db.operation.name` and `db.collection.name` should *not* be extracted from the query
- * text — those are for instrumentation that is told them by an API. A driver only ever
- * sees the string, so the summary is the one honest thing to derive from it, in the
- * format the conventions give: `{operation} {target} {operation} {target} ...`, original
- * case and order, at most 255 characters, never cut inside a token.
- *
- * The statement is read in two passes. {@see SqlLexer} removes every literal and comment,
- * and refuses a statement whose syntax it cannot read the same way for every system. `SqlScanner` then picks keywords and
- * targets out of the code that remains. Nothing that is data can become part of a summary,
- * because the scanner never sees it. This class decides whether a statement is worth
- * describing at all, and enforces the length cap.
- *
- * The summary is a span attribute and the span name, not a metric label. Its cardinality
- * is bounded by the statements an application's code contains, which is fine for traces;
- * for a histogram, one sharded or dynamically named table is enough to make the label
- * set unbounded, so `DoctrineTelemetry` keeps it out of `db.client.operation.duration`.
- *
- * Deliberately not memoised. A `SQL => summary` cache in a process that serves
- * thousands of requests grows with every distinct statement, and the statements that
- * would benefit least from it (one-off migrations, admin queries) are exactly the ones
- * that would stay in it forever.
- *
- * An unrecognised leading statement yields null rather than a guess — `EXPLAIN SELECT`
- * is not a SELECT, and the span falls back to the system name. The same happens when the
- * lexer cannot read a statement with certainty. A refused statement costs a span name. A
- * statement described from a misreading exposes whatever the misread text contained.
+ * `db.query.summary`: the statement's operations and targets in order, capped at 255
+ * characters without cutting a token. Null for unrecognised statements or ones the lexer
+ * refused. It names the span and is never used as a metric label.
  */
 final readonly class SqlSummary
 {
-    /** The conventions' cap for a summary built by parsing. */
+    /** The conventions' cap for a parsed summary. */
     private const int MAX_LENGTH = 255;
 
     /**
-     * Statements this summary describes. A closed list, not a "first word" heuristic.
+     * Leading keywords that get a summary.
      *
      * @var list<non-empty-string>
      */
@@ -62,10 +36,7 @@ final readonly class SqlSummary
         'RELEASE',
     ];
 
-    /**
-     * The first word of the code. Leading comments, which Doctrine, the ORM and most
-     * migrations emit, are already whitespace by the time this runs.
-     */
+    /** The first word of the lexed code. */
     private const string LEADING = '~^\s*+(?<statement>[a-z]++)~i';
 
     /**
@@ -84,8 +55,7 @@ final readonly class SqlSummary
     }
 
     /**
-     * @param string|null $code a statement as {@see SqlLexer::code()} returned it, so a
-     *                          caller that also needs the sanitized text lexes only once
+     * @param string|null $code the output of {@see SqlLexer::code()}
      */
     public static function fromCode(?string $code): self
     {

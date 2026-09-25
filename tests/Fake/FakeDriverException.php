@@ -6,10 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Fake;
 
 use Doctrine\DBAL\Driver\Exception;
 
-/**
- * A driver-level failure with a SQLSTATE, which is what the instrumentation reads for
- * db.response.status_code. "HY000" is the general-error state every driver uses.
- */
+/** A driver error with SQLSTATE `HY000`, read as `db.response.status_code`. */
 final class FakeDriverException extends \RuntimeException implements Exception
 {
     public function __construct(

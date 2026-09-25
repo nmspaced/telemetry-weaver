@@ -9,13 +9,8 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Turns the `sdk.*` service ids an application configured into references, refusing the ones
- * that name nothing or name the wrong kind of thing.
- *
- * Checked at compile time rather than in the config tree, because only the container knows
- * whether a service exists and what it implements — and a wrong id has to fail the build, not
- * the first request that asks for a tracer. The combinations that cannot work together are
- * {@see SdkComponentRules}.
+ * Turns configured `sdk.*` service ids into references, rejecting ids that name no service or
+ * the wrong kind of service. Checked at compile time so a wrong id fails the build.
  *
  * @internal
  */
@@ -45,8 +40,7 @@ final readonly class SdkComponentIds
     }
 
     /**
-     * A service whose class cannot be known before it is built (a factory without a declared
-     * class) is accepted; handing the wrong kind then fails as a TypeError where it is used.
+     * A service whose class is unknown before it is built is accepted.
      *
      * @param non-empty-string $parameter
      * @param class-string $interface

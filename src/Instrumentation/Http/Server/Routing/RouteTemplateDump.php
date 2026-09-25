@@ -7,11 +7,8 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Routing;
 use Symfony\Component\Config\ConfigCache;
 
 /**
- * Dump format for route templates.
- *
- * Must stay a flat literal array<string, string> — only that shape opcache
- * keeps immutable in SHM (see PhpFileRouteTemplateProvider). No reading here: any
- * wrapper around the loaded array risks copying it.
+ * Dump format for route templates: a flat literal `array<string, string>`, the only shape
+ * opcache keeps immutable in shared memory.
  */
 final readonly class RouteTemplateDump
 {
@@ -30,9 +27,7 @@ final readonly class RouteTemplateDump
         return \sprintf("<?php\n\nreturn %s;\n", \var_export($routeTemplates, true));
     }
 
-    /**
-     * Checked only in dev — ConfigCache's resource metafile is written in debug mode only.
-     */
+    /** Checked only in debug mode, where `ConfigCache` writes resource metadata. */
     public static function isFreshIn(string $dir): bool
     {
         try {

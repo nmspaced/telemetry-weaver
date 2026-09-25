@@ -23,8 +23,6 @@ final class RouteTemplatesFactoryTest extends TestCase
     #[Test]
     public function productionAlwaysReadsTheDump(): void
     {
-        // Router is provided but ignored in prod: the dump avoids holding
-        // the full route collection in worker heap.
         $templates = RouteTemplateProviderFactory::create(\sys_get_temp_dir(), $this->router(), false);
 
         self::assertInstanceOf(PhpFileRouteTemplateProvider::class, $templates);

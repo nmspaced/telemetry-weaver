@@ -11,18 +11,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * What a statement span says about the SQL: never a literal or a comment in its name or
- * summary, and `db.query.text` in the form `query_text` asks for.
+ * What a statement span says about the SQL: never a literal or a comment in its name or summary,
+ * and `db.query.text` in the form `query_text` asks for.
  */
 final class DoctrineQueryTextTest extends DoctrineTelemetryTestCase
 {
-    /**
-     * The audit's reproductions, checked where they would leak: on what is exported, not
-     * on the summary helper. Each statement hides `SYNTHETIC_SECRET` in syntax that means
-     * a literal or a comment to the connection's own system, with the statement text off.
-     *
-     * @return iterable<string, array{'pdo_mysql'|'pdo_pgsql', string}>
-     */
+    /** @return iterable<string, array{'pdo_mysql'|'pdo_pgsql', string}> */
     public static function hiddenText(): iterable
     {
         yield 'mysql double-quoted literal' => ['pdo_mysql', 'SELECT "FROM SYNTHETIC_SECRET" AS message'];
@@ -61,12 +55,7 @@ final class DoctrineQueryTextTest extends DoctrineTelemetryTestCase
         );
     }
 
-    /**
-     * A statement whose literals cannot be found with certainty has no sanitized form, so
-     * it carries no text rather than a text that may still hold one.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aStatementThatCannotBeSanitizedCarriesNoText(): void
     {
@@ -75,9 +64,7 @@ final class DoctrineQueryTextTest extends DoctrineTelemetryTestCase
         self::assertNull($this->exportedSpan()->getAttributes()->get('db.query.text'));
     }
 
-    /**
-     * @return iterable<string, array{QueryText, string|null}>
-     */
+    /** @return iterable<string, array{QueryText, string|null}> */
     public static function queryTextModes(): iterable
     {
         yield 'raw' => [QueryText::Raw, "SELECT id FROM users WHERE name = 'x'"];

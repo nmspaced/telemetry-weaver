@@ -43,14 +43,7 @@ final class ConfigurationTest extends ContainerTestCase
         self::assertInstanceOf(NoopMeter::class, $container->get('open_telemetry.http_server.meter'));
     }
 
-    /**
-     * The scope schema URL is a claim about which conventions the bundle's own telemetry
-     * follows. `db.query.summary`, `db.system.name` and the messaging operation attributes
-     * are all newer than 1.32, so the claim has to name the baseline they were checked
-     * against.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theScopeSchemaIsTheSemanticConventionsBaseline(): void
     {
@@ -78,13 +71,7 @@ final class ConfigurationTest extends ContainerTestCase
         $this->compile(['sdk' => ['autoload' => true]]);
     }
 
-    /**
-     * The worker exclusion used to be an ordinary default, so `excluded_commands: [...]`
-     * — a list written to add one command — silently replaced it and re-enabled tracing
-     * for `messenger:consume`, whose span then stayed open for the life of the process.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anExplicitCommandListReplacesTheDefaultsButNeverTheWorkers(): void
     {

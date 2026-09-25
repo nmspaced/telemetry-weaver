@@ -22,9 +22,9 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Contracts\Cache\CacheInterface;
 
 /**
- * `cache.pools`/`excluded_pools` select which tagged pools get wrapped, an alias to a
- * selected pool must not be wrapped twice, and the wrapping must both trace under the
- * ambient span and record metrics without disturbing context.
+ * `cache.pools`/`excluded_pools` select which tagged pools get wrapped, an alias to a selected pool
+ * must not be wrapped twice, and the wrapping must both trace under the ambient span and record
+ * metrics without disturbing context.
  */
 final class CachePoolSelectionSignalTest extends ContainerTestCase
 {

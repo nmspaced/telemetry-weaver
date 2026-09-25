@@ -9,10 +9,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 /**
  * Which cache pools get instrumented.
  *
- * A pool is decorated once, for both signals at once: the decorator is one object and
- * cannot report to traces while staying silent for metrics. So the selection is one
- * list, not one per signal — unlike HTTP paths, where the two signals genuinely want
- * different answers.
+ * One list for both signals: a pool has one decorator, which serves traces and metrics together.
  */
 final readonly class CachePoolSelection
 {

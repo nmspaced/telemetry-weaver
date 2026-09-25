@@ -18,11 +18,7 @@ use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Context\ContextStorageInterface;
 
 /**
- * Turns a span description into a started, activated OpenTelemetry span.
- *
- * This is where every decision the rest of the package refuses to make gets made: which
- * context an operation descends from, what an unusable incoming trace means, and how the
- * package's own `SpanKind` maps onto the SDK's integers.
+ * Starts and activates an SDK span for an operation: chooses its parent, links and kind.
  */
 final readonly class SpanOpener implements SpanOpenerInterface
 {
@@ -40,12 +36,6 @@ final readonly class SpanOpener implements SpanOpenerInterface
     {
         $ambient = $this->contextStorage->current();
 
-        // `only_with_parent`, decided here rather than by the instrumentation that asked.
-        // A policy object that reads the current span to answer this is an ambient
-        // dependency in the one layer that must not have one; a flag on the description is
-        // a declaration, and the answer belongs to whoever owns the context anyway.
-        // The operation still owns its context: suppressing the span must not drop the
-        // baggage it was given.
         if ($options->onlyInsideTrace && !Span::fromContext($ambient)->getContext()->isValid()) {
             return $this->suppressed()->open($name, $options);
         }
@@ -74,8 +64,7 @@ final readonly class SpanOpener implements SpanOpenerInterface
     }
 
     /**
-     * No span, but the same context: a signal whose spans are off still continues the
-     * trace its boundary received and still carries its baggage.
+     * An opener that records no span but keeps the same context handling.
      */
     #[\Override]
     public function suppressed(): ContextOnlyOpener
@@ -135,13 +124,6 @@ final readonly class SpanOpener implements SpanOpenerInterface
         $context = $span->storeInContext($parent);
 
         try {
-            // `$this->contextStorage->attach()` rather than `$context->activate()`: the latter
-            // is `Context::storage()->attach()`, so a span read out of the injected storage
-            // would be activated in whichever storage the process installed last. In the
-            // container the two are the same object and the difference is invisible; in a test
-            // that swaps in a fiber-bound storage, or a worker that rebuilt its container, the
-            // parent lookup above and this activation would be two different places. Every
-            // other adapter here takes the storage for exactly this reason.
             $activation = $this->contextStorage->attach($context);
         } catch (\Throwable $throwable) {
             $this->instrumentationFailureReporter->report('Context activation failed', $name, $throwable);
@@ -151,9 +133,6 @@ final readonly class SpanOpener implements SpanOpenerInterface
             return OwnedSpan::inert($name, new OtelTraceCorrelation($parent));
         }
 
-        // The child context, not the parent: a duration recorded for this operation names
-        // this operation's span, whether or not the activation is still in place when it
-        // is finally recorded.
         return OwnedSpan::activated(
             $name,
             $span,

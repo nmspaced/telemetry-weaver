@@ -23,18 +23,9 @@ use Symfony\Component\Messenger\Event\WorkerRunningEvent;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * Puts the dispatch middleware at the head of every bus.
+ * Prepends the dispatch middleware to every bus and wraps the senders locator.
  *
- * `MessengerPass` reads the parameter `<busId>.middleware` — a list of
- * `['id' => ..., 'arguments' => ...]` — resolves each id to a service and replaces the
- * bus definition's first argument with the resulting chain. It runs at
- * before-optimization priority 0, so this pass sits above it at 10: a middleware
- * registered afterwards would never make it into any chain, the same trap
- * DoctrineBundle's MiddlewaresPass sets.
- *
- * Prepending rather than appending is what makes the dispatch span meaningful — it then
- * covers validation, the doctrine transaction and the send, which together are what
- * calling the bus actually cost.
+ * Runs before `MessengerPass`, which builds the middleware chains from `<busId>.middleware`.
  */
 final readonly class MessengerInstrumentationCompilerPass implements CompilerPassInterface
 {
@@ -76,11 +67,7 @@ final readonly class MessengerInstrumentationCompilerPass implements CompilerPas
     }
 
     /**
-     * One PRODUCER span per transport, by wrapping what the senders locator hands out.
-     *
-     * Messenger's send events fire once per message, around the whole loop over senders,
-     * so a message routed to two transports could only ever get one span with one of the
-     * two destinations on it. The locator is where the senders become individual.
+     * One PRODUCER span per transport: Messenger's send events fire once per message, not per sender.
      */
     private function decorateSenders(ContainerBuilder $container): void
     {

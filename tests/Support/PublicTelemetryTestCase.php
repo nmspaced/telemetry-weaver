@@ -28,9 +28,7 @@ use OpenTelemetry\SDK\Metrics\MetricReader\ExportingReader;
 use PHPUnit\Framework\Assert;
 
 /**
- * Builds a real `DefaultTelemetry` over the shared `SpanOpener`/context storage from
- * {@see TelemetryTestCase} plus a fresh `SafeMetrics`, letting every `PublicTelemetryTest`
- * split carry only the scenarios specific to it.
+ * A real `DefaultTelemetry` over the shared span opener and a fresh `SafeMetrics`.
  *
  * @internal
  */
@@ -58,10 +56,7 @@ abstract class PublicTelemetryTestCase extends TelemetryTestCase
         parent::tearDown();
     }
 
-    /**
-     * @param bool $traces false is what `traces.enabled: false` builds: no spans, but the
-     *                     same context handling, so baggage and incoming traces still apply
-     */
+    /** @param bool $traces false builds what `traces.enabled: false` does: no spans, same context handling */
     protected function telemetry(bool $traces = true, bool $metrics = true): DefaultTelemetry
     {
         return new DefaultTelemetry(
@@ -77,22 +72,14 @@ abstract class PublicTelemetryTestCase extends TelemetryTestCase
         );
     }
 
-    /**
-     * An incoming trace that carried nothing — how a boundary asks for a new trace rather
-     * than a continuation of whatever the process is already doing.
-     */
+    /** An incoming trace that carried nothing, so the boundary starts a new trace. */
     protected function rootTrace(): IncomingTrace
     {
         return OtelIncomingTrace::none();
     }
 
     /**
-     * The trace an operation ran in, as an incoming one — what a link needs, and what a real
-     * boundary would have extracted from a carrier.
-     *
-     * Ids rather than a span, because that is all a carrier ever holds, and because the ids
-     * have to be read while the operation is still running: a finished one has released its
-     * view and reports none.
+     * An operation's trace as an incoming one; read the ids while the operation runs.
      *
      * @param non-empty-string|null $traceId
      * @param non-empty-string|null $spanId

@@ -23,12 +23,7 @@ final class HttpMethodTest extends TestCase
         unset($_SERVER['OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS']);
     }
 
-    /**
-     * The wire method is what semconv describes, and it is normalized so the
-     * attribute cannot become an unbounded label.
-     *
-     * @return iterable<string, array{string, string, ?string, string}>
-     */
+    /** @return iterable<string, array{string, string, ?string, string}> */
     public static function methods(): iterable
     {
         yield 'known' => ['GET', 'GET', null, 'GET'];
@@ -55,10 +50,6 @@ final class HttpMethodTest extends TestCase
         self::assertSame($original, new ServerSpanAttributes()->from($request)['http.request.method_original'] ?? null);
     }
 
-    /**
-     * An unreadable REQUEST_METHOD has no original worth reporting: an empty
-     * attribute says less than no attribute.
-     */
     /** @throws \Throwable */
     #[Test]
     public function anUnreadableMethodDoesNotEmitAnEmptyOriginal(): void
@@ -72,13 +63,7 @@ final class HttpMethodTest extends TestCase
         self::assertArrayNotHasKey('http.request.method_original', $attributes);
     }
 
-    /**
-     * "Unset it by blanking it" is how the variable actually gets written.
-     * An empty list would rename every span to HTTP and report every method
-     * as _OTHER.
-     *
-     * @return iterable<string, array{string}>
-     */
+    /** @return iterable<string, array{string}> */
     public static function blankSettings(): iterable
     {
         yield 'empty' => [''];

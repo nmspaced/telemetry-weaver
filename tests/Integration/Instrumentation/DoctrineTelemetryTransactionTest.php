@@ -18,20 +18,13 @@ use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Transaction boundaries: BEGIN/COMMIT/ROLLBACK spans, savepoint nesting, and the
- * `only_with_parent` / `record_transactions` policy switches applied to boundaries.
- * Statement/query span shape lives in {@see DoctrineTelemetryTest}; the other signal
- * switches live in {@see DoctrineTelemetryPolicyTest}.
+ * `only_with_parent` / `record_transactions` policy switches applied to boundaries. Statement/query
+ * span shape lives in {@see DoctrineTelemetryTest}; the other signal switches live in {@see
+ * DoctrineTelemetryPolicyTest}.
  */
 final class DoctrineTelemetryTransactionTest extends DoctrineTelemetryTestCase
 {
-    /**
-     * A transaction is its boundaries, not its lifetime: one span for BEGIN and one for
-     * COMMIT, each a round trip of its own, with the statements between them as siblings.
-     * A span covering the whole open transaction would be the application's time, not the
-     * database's — and a slow COMMIT, the thing worth seeing, would disappear inside it.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aCommittedTransactionIsItsBoundariesAndItsStatements(): void
     {
@@ -74,13 +67,7 @@ final class DoctrineTelemetryTransactionTest extends DoctrineTelemetryTestCase
         self::assertSame(['BEGIN', 'SELECT users', 'ROLLBACK'], $this->exportedNames());
     }
 
-    /**
-     * Nesting is DBAL's: only the outermost level reaches the driver's transaction
-     * methods, and the inner ones are savepoint statements, which are traced as the
-     * statements they are. One BEGIN and one COMMIT, however deep the nesting.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function nestedTransactionsAreSavepointsInsideOneBoundaryPair(): void
     {
@@ -101,12 +88,7 @@ final class DoctrineTelemetryTransactionTest extends DoctrineTelemetryTestCase
         self::assertContains('DELETE sessions', $names);
     }
 
-    /**
-     * A commit that fails is the most expensive kind of database error — the work is
-     * lost — and must be as visible as a failed statement, on both signals.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aFailedCommitCarriesTheErrorOnBothSignals(): void
     {
@@ -121,7 +103,6 @@ final class DoctrineTelemetryTransactionTest extends DoctrineTelemetryTestCase
             $connection->commit();
             self::fail('the driver was expected to reject the commit');
         } catch (DriverException $driverException) {
-            // The DBAL exception is what the application sees.
             self::assertSame('HY000', $driverException->getSQLState());
         }
 
@@ -141,13 +122,7 @@ final class DoctrineTelemetryTransactionTest extends DoctrineTelemetryTestCase
         self::assertNotNull($failedPoint->attributes->get('error.type'));
     }
 
-    /**
-     * The boundaries are recorded in the histogram under their operation name — three
-     * values, from the API, so a bounded label — which is what makes commit latency a
-     * number an alert can be written against.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function transactionBoundariesAreMeasuredUnderTheirOperationName(): void
     {
@@ -190,12 +165,7 @@ final class DoctrineTelemetryTransactionTest extends DoctrineTelemetryTestCase
         self::assertCount(1, $this->histogramPoints('db.client.operation.duration'));
     }
 
-    /**
-     * only_with_parent covers the boundaries too: a Messenger transport polling with
-     * BEGIN/SELECT/COMMIT every idle second is exactly what it exists to keep out.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function orphanTransactionsAreMeasuredButNotTraced(): void
     {

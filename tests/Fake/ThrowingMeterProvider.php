@@ -9,10 +9,7 @@ use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use OpenTelemetry\SDK\Common\InstrumentationScope\Configurator;
 use OpenTelemetry\SDK\Metrics\MeterProviderInterface;
 
-/**
- * A collector that is down surfaces here: forceFlush() is where the blocking
- * export happens, so that is what has to be survivable.
- */
+/** A meter provider whose `forceFlush()` throws, like a collector that is down. */
 final readonly class ThrowingMeterProvider implements MeterProviderInterface
 {
     public function __construct(
@@ -35,9 +32,7 @@ final readonly class ThrowingMeterProvider implements MeterProviderInterface
         return true;
     }
 
-    /**
-     * @throws \Throwable always — that is the whole point of this double
-     */
+    /** @throws \Throwable always */
     #[\Override]
     public function forceFlush(): bool
     {

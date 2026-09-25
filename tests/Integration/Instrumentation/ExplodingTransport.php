@@ -10,9 +10,7 @@ use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 /** @internal a transport that refuses every send, to exercise the failed-attempt path */
 final class ExplodingTransport extends InMemoryTransport
 {
-    /**
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     #[\Override]
     public function send(Envelope $envelope): Envelope
     {

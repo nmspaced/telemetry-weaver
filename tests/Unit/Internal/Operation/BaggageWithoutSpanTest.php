@@ -13,8 +13,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Baggage belongs to the context, not to the span, so it has to work where no span is
- * recorded: a boundary with its span suppressed, and an application with tracing off.
+ * Baggage belongs to the context, not to the span, so it has to work where no span is recorded: a
+ * boundary with its span suppressed, and an application with tracing off.
  */
 #[CoversClass(ContextOnlyOpener::class)]
 #[CoversClass(OperationParent::class)]
@@ -22,12 +22,7 @@ final class BaggageWithoutSpanTest extends PublicTelemetryTestCase
 {
     use ReadsBaggage;
 
-    /**
-     * A suppressed span is not a suppressed context. The entries live in a context the
-     * operation activates for itself, so they are carried exactly as with a span.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anOperationWithoutASpanStillCarriesItsBaggage(): void
     {
@@ -52,13 +47,7 @@ final class BaggageWithoutSpanTest extends PublicTelemetryTestCase
         self::assertSame([], $telemetry->operation('after')->run(self::baggageOf(...)), 'restored afterwards');
     }
 
-    /**
-     * `traces.enabled: false` switches off spans, not baggage, which W3C defines
-     * independently of tracing. Everything the traced tests above check holds here too:
-     * adding, inheriting, sending out, and restoring the caller's context afterwards.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function baggageWorksTheSameWithTracingOff(): void
     {
@@ -104,12 +93,7 @@ final class BaggageWithoutSpanTest extends PublicTelemetryTestCase
         self::assertSame([], $this->exporter->getSpans(), 'and no span was recorded');
     }
 
-    /**
-     * The saving the old no-op made, kept: an operation that changes nothing about the
-     * context does not activate one.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anOperationWithoutSpanOrBaggageActivatesNothing(): void
     {

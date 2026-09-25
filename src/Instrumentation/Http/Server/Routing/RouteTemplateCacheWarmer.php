@@ -28,7 +28,7 @@ final readonly class RouteTemplateCacheWarmer implements CacheWarmerInterface
     }
 
     /**
-     * A warmup failure must not break a deploy — any \Throwable here is swallowed.
+     * Swallows any failure so warmup cannot break a deploy.
      *
      * @return list<string>
      */

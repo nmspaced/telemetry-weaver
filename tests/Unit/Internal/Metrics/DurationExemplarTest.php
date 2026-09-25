@@ -10,28 +10,11 @@ use OpenTelemetry\SDK\Metrics\Data\Exemplar;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * Which span a recorded duration is correlated with.
- *
- * This is the reason `DurationTimer` captures a context at all, and until now nothing
- * asserted it: the fake histogram the timer tests use accepts the context argument and
- * drops it, so a refactor that stopped passing one would have gone through green. The
- * measurement here is read back through a real `MeterProvider`, whose default exemplar
- * filter is `WithSampledTraceExemplarFilter` — it reads the span out of the context the
- * recording supplied, which is exactly the contract under test.
- *
- * The second case is the one that constrains the design. An HTTP server span releases its
- * activation at one point in the request and is finished at another, so the duration is
- * recorded when the operation's span is no longer current. Whatever replaces the ambient
- * `Context::getCurrent()` in the timer has to keep the exemplar pointing at the operation's
- * own span, not at whatever happens to be active at `finish()`.
- */
+/** Which span a recorded duration is correlated with. */
 #[CoversClass(DurationTimer::class)]
 final class DurationExemplarTest extends PublicTelemetryTestCase
 {
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theExemplarNamesTheOperationsOwnSpanRatherThanItsParent(): void
     {
@@ -48,9 +31,7 @@ final class DurationExemplarTest extends PublicTelemetryTestCase
         self::assertSame($this->spanIdOf('measured'), $this->exemplarSpanId());
     }
 
-    /**
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function theExemplarSurvivesAnActivationReleasedBeforeTheOperationFinishes(): void
     {
@@ -71,12 +52,7 @@ final class DurationExemplarTest extends PublicTelemetryTestCase
         self::assertSame($this->spanIdOf('measured'), $this->exemplarSpanId());
     }
 
-    /**
-     * The filter is real, not incidentally satisfied: with the span suppressed there is no
-     * sampled span behind the recording and the measurement carries no exemplar at all.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aMeasurementWithoutASpanCarriesNoExemplar(): void
     {
@@ -92,16 +68,7 @@ final class DurationExemplarTest extends PublicTelemetryTestCase
         self::assertSame([], $this->exemplars());
     }
 
-    /**
-     * A suppressed span is not a suppressed trace.
-     *
-     * Doctrine under `only_with_parent` and an excluded HttpClient host both record their
-     * duration while opening no span of their own. That duration belongs to whatever the
-     * caller was doing, and the exemplar has to say so — otherwise switching a component's
-     * spans off silently takes its metrics out of the trace as well.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aSuppressedOperationStillNamesTheTraceItRanInside(): void
     {

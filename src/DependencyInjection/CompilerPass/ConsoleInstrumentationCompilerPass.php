@@ -16,16 +16,10 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Console commands, and the export boundary a console process would otherwise never reach.
+ * Console command tracing, and the flush subscriber a console process needs.
  *
- * The two halves are registered independently on purpose. A command run exports nothing
- * on any schedule of its own without the flush subscriber — `kernel.terminate` never fires
- * outside an HTTP request, and the SDK has no timer — so whatever a command produced
- * through Doctrine, the HTTP client or the application's own scopes would sit in a batch
- * processor until `ExportGate` drains it at the end of the PHP execution, which for a
- * long-running command is a long way off. That makes the flush subscriber a property of
- * the bundle being on, not of console tracing being on, and it is why switching
- * `instrumentation.console` off still leaves a console process exporting.
+ * The flush subscriber is registered even with console tracing off: without it nothing a
+ * command records is exported until the process ends.
  */
 final readonly class ConsoleInstrumentationCompilerPass implements CompilerPassInterface
 {

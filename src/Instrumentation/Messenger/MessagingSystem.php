@@ -10,27 +10,8 @@ use Symfony\Component\Messenger\Bridge\AmazonSqs\Transport\AmazonSqsTransport;
 use Symfony\Component\Messenger\Bridge\Amqp\Transport\AmqpTransport;
 
 /**
- * `messaging.system` for a transport: the broker, when the transport object says which.
- *
- * Decided by the transport's class and nothing else. A DSN would name the broker too, but
- * it is also where the password is, it is usually an unresolved env placeholder at
- * compile time, and reading it at runtime would mean holding a secret to derive a label.
- * The class is known without I/O: a sender is the object being called, and a receiver
- * comes from `messenger.receiver_locator`, which a worker has already asked for the same
- * shared instance before any message arrives.
- *
- * Only transports whose broker has a value in the conventions are mapped — AMQP is
- * RabbitMQ, SQS is `aws_sqs`. Redis, Doctrine, Beanstalkd, in-memory and sync have no
- * such value and keep the framework fallback `symfony`, as does anything the locator
- * cannot produce. A transport is never guessed from its name: `rabbit` is a name someone
- * chose, not a fact about what it connects to.
- *
- * The bridge classes are referenced by name only — they are dev dependencies here, not
- * runtime ones. `is_a()` on an object whose class is unrelated never autoloads the
- * target, so an application without a bridge installed pays nothing and gets the
- * fallback. The map is small and fixed, and nothing is cached:
- * the lookup is one `is_a()` per mapped class, cheaper than the memory a per-transport
- * cache would need to justify.
+ * `messaging.system` for a transport, decided by its class alone (never the DSN, which holds
+ * secrets). AMQP maps to `rabbitmq`, SQS to `aws_sqs`; everything else is `symfony`.
  */
 final readonly class MessagingSystem
 {

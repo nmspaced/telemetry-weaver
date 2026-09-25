@@ -39,10 +39,6 @@ final class TraceContextStampTest extends TestCase
         self::assertTrue($extracted->isSampled());
     }
 
-    /**
-     * The stamp is deserialized from whatever was on the queue, so its content is not
-     * ours to trust: a message written by an older deploy can carry anything.
-     */
     #[Test]
     public function aStampWithoutAUsableCarrierExtractsToAnInvalidContext(): void
     {
@@ -61,10 +57,6 @@ final class TraceContextStampTest extends TestCase
         }
     }
 
-    /**
-     * The class name travels in the envelope, so this test is a tripwire: if it fails,
-     * the rename it reports also breaks every message already queued.
-     */
     #[Test]
     public function theClassNameIsPartOfTheWireFormat(): void
     {

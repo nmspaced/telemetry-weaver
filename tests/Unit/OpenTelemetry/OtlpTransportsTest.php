@@ -35,10 +35,6 @@ final class OtlpTransportsTest extends TestCase
         );
     }
 
-    /**
-     * `http/protobuf`, `http/json` and `http/ndjson` are one family, as in the SDK registry: the
-     * content type the exporter passes is what tells them apart, so one factory can serve all three.
-     */
     #[Test]
     public function anApplicationsTransportFactoryServesEveryProtocolOfItsFamily(): void
     {
@@ -52,10 +48,6 @@ final class OtlpTransportsTest extends TestCase
         self::assertSame($http, $transports->forProtocol('http/ndjson'));
     }
 
-    /**
-     * gRPC and `http/protobuf` share a content type, so a factory handed both could only guess
-     * which one a call is for. A family the application did not replace keeps the bundle's transport.
-     */
     #[Test]
     public function aFamilyWithoutAnApplicationsFactoryKeepsTheBundlesTransport(): void
     {

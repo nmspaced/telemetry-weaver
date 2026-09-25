@@ -17,20 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-/**
- * `shutdown()` and `forceFlush()` on the three resilient exporters.
- *
- * The existing per-signal tests cover `export()`, which is the call that happens while a
- * request is alive. These two are the ones a *boundary* makes, and they run at the worst
- * moment: a worker stopping, a console command terminating, PHP shutting down. An exception
- * escaping there does not lose one batch, it takes the process with it — and the collector
- * being gone is exactly when they throw.
- *
- * The other half is the gate. A closed gate must refuse before the delegate is reached, not
- * after: once a pipeline is sealed, a batch processor draining late or a user calling
- * `shutdown()` a second time has to stop here rather than at a collector that is no longer
- * being waited for. The call counters are what tell "refused" apart from "called and ignored".
- */
+/** `shutdown()` and `forceFlush()` on the three resilient exporters. */
 #[CoversClass(ResilientLogsExporter::class)]
 #[CoversClass(ResilientTracesExporter::class)]
 #[CoversClass(ResilientMetricsExporter::class)]
@@ -85,11 +72,6 @@ final class ResilientExporterLifecycleTest extends TestCase
         self::assertSame('Failed to force flush metrics exporter', $logger->messageAt(1));
     }
 
-    /**
-     * Nothing reaches the delegate once the gate is closed — not the export, not the
-     * lifecycle. The delegate here throws on both lifecycle calls, so reaching it would fail
-     * the test twice over: through the counter and through the report.
-     */
     #[Test]
     public function aClosedGateRefusesEveryCallWithoutReachingTheExporter(): void
     {

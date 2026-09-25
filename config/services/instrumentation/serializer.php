@@ -12,7 +12,6 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
 
-    // Serializer operations, through the traceable serializers.
     InstrumentationServices::register($services, 'serializer', DefaultBuckets::Serializer);
 
     $services

@@ -41,7 +41,6 @@ final class SqlSummaryTest extends TestCase
         yield 'update' => ['UPDATE users SET name = ? WHERE id = ?', 'UPDATE users'];
         yield 'delete' => ['DELETE FROM users WHERE id = ?', 'DELETE users'];
 
-        // The conventions keep the case the statement was written in.
         yield 'lowercase' => ['select id from users', 'select users'];
 
         yield 'multiline' => ["SELECT\n  id,\n  name\nFROM\n  users\n", 'SELECT users'];
@@ -49,7 +48,6 @@ final class SqlSummaryTest extends TestCase
         yield 'leading block comment' => ['/* app: api */ SELECT 1 FROM users', 'SELECT users'];
         yield 'unquoted schema' => ['SELECT * FROM public.users', 'SELECT public.users'];
 
-        // The examples of the database span conventions, verbatim.
         yield 'semconv: simple' => ["SELECT *\nFROM   wuser_table\nWHERE  username = ?", 'SELECT wuser_table'];
         yield 'semconv: insert select' => [
             "INSERT INTO shipping_details\n (order_id,\n address)\nSELECT order_id,\n address\nFROM orders\nWHERE order_id = ?",
@@ -75,7 +73,6 @@ final class SqlSummaryTest extends TestCase
             'INSERT users',
         ];
         yield 'row lock' => ['SELECT * FROM jobs WHERE id = ? FOR UPDATE', 'SELECT jobs'];
-        // Schema statements keep their object in the operation, as the conventions' test cases do.
         yield 'truncate' => ['TRUNCATE TABLE users', 'TRUNCATE TABLE users'];
         yield 'semconv: create table' => [
             "CREATE  TABLE MyTable (\n    ID NOT NULL IDENTITY(1,1) PRIMARY KEY\n)",
@@ -91,7 +88,6 @@ final class SqlSummaryTest extends TestCase
         ];
         yield 'schema statement without an object' => ['DROP USER bob', 'DROP'];
 
-        // `table` is a word, not a clause: a table may be called that.
         yield 'semconv: in clause' => ["SELECT * FROM table WHERE value IN (123, 456, 'abc')", 'SELECT table'];
         yield 'no table' => ['SELECT 1', 'SELECT'];
         yield 'call' => ['CALL refresh_totals(?)', 'CALL refresh_totals'];
@@ -102,8 +98,6 @@ final class SqlSummaryTest extends TestCase
         yield 'empty' => ['', null];
         yield 'whitespace only' => ["  \n\t", null];
 
-        // Nothing that is data may become part of the summary: a table name read out of a
-        // literal or a comment is at best wrong and at worst a user's input.
         yield 'string literal' => ["SELECT 'select * from secret' FROM users", 'SELECT users'];
         yield 'doubled quote' => ["SELECT 'it''s from secret' FROM users", 'SELECT users'];
         yield 'inner line comment' => ["SELECT id -- from secret\nFROM users", 'SELECT users'];
@@ -126,13 +120,7 @@ final class SqlSummaryTest extends TestCase
         }
     }
 
-    /**
-     * Quoting that the lexer reads, and where the system still matters: a MySQL `"..."`
-     * may be a string, so it is treated as data. That costs a target in the summary and
-     * nothing else.
-     *
-     * @return iterable<string, array{string, string, string|null}>
-     */
+    /** @return iterable<string, array{string, string, string|null}> */
     public static function quoting(): iterable
     {
         yield 'mysql double quotes' => ['SELECT "FROM SECRET" AS message FROM users', 'mysql', 'SELECT users'];
@@ -156,42 +144,33 @@ final class SqlSummaryTest extends TestCase
     }
 
     /**
-     * Syntax that some systems, or some session settings, read differently. Guessing
-     * wrong would turn data into code, so none of it is read: the span is named after the
-     * system instead. `SECRET` stands for whatever the literal or comment really held.
+     * Syntax that some systems, or some session settings, read differently.
      *
      * @return iterable<string, array{string, string}>
      */
     public static function refused(): iterable
     {
-        // `NO_BACKSLASH_ESCAPES` and `standard_conforming_strings` move a literal's end.
         yield 'backslash before a quote' => ["SELECT 'a\\' FROM SECRET -- ' FROM users", 'mysql'];
         yield 'backslash in double quotes' => ['SELECT "a\\" FROM SECRET -- " FROM users', 'mysql'];
         yield 'escape string' => ["SELECT E'it\\'s from SECRET' FROM users", 'postgresql'];
         yield 'harmless backslash' => ["SELECT 'C:\\temp' FROM users", 'sqlite'];
 
-        // A MySQL comment, a PostgreSQL operator, a SQL Server temp table.
         yield 'hash comment' => ["SELECT 1 # FROM SECRET\nFROM users", 'mysql'];
         yield 'hash operator' => ['SELECT data #> :path FROM events', 'postgresql'];
         yield 'temp table' => ['SELECT * FROM #jobs', 'microsoft.sql_server'];
-        // No position makes `#` safe: MySQL needs no whitespace in front of the comment.
         yield 'hash comment after a number' => ["SELECT 1# FROM SECRET\nFROM users", 'mysql'];
         yield 'hash comment on mariadb' => ["SELECT 1# FROM SECRET\nFROM users", 'mariadb'];
         yield 'hash inside a name' => ['SELECT a#b FROM SECRET', 'oracle.db'];
 
-        // `1--1` is arithmetic in MySQL, and the literal after it continues onto the next line.
         yield 'dashes without a space' => ["SELECT 1--'x\nFROM SECRET' FROM users", 'mysql'];
         yield 'lone carriage return in a comment' => ["SELECT 1 -- a\rFROM SECRET", 'microsoft.sql_server'];
 
-        // Nested in PostgreSQL and SQL Server, closed at the first `*/` elsewhere.
         yield 'nested comment' => ['SELECT 1 /* outer /* nested */ FROM SECRET */ FROM users', 'postgresql'];
         yield 'flat comment hiding a quote' => ["SELECT /* /* */ 'a */ FROM SECRET' FROM users", 'mysql'];
 
-        // String forms one vendor adds.
         yield 'dollar quoting' => ['SELECT $body$ from SECRET $body$ FROM users', 'postgresql'];
         yield 'empty dollar tag' => ["SELECT $$ it's from SECRET $$ FROM users", 'postgresql'];
         yield 'oracle q-quote' => ["SELECT q'[it's FROM SECRET]' FROM users", 'oracle.db'];
-        // A digit does not make a quote part of a name: these are a number and a string.
         yield 'q-quote after a number' => ["SELECT 1q'[it's FROM SECRET]' FROM dual", 'oracle.db'];
         yield 'dollar quote after a number' => ['SELECT 1$$ FROM SECRET $$ FROM users', 'postgresql'];
         yield 'quote inside brackets' => ["SELECT data['FROM SECRET'] FROM events", 'postgresql'];
@@ -209,12 +188,7 @@ final class SqlSummaryTest extends TestCase
         self::assertSame($summary, SqlSummary::of($sql, $system)->value);
     }
 
-    /**
-     * Refused under every system, not only the one each case was written for: the subset
-     * the lexer reads is the same everywhere.
-     *
-     * @return iterable<string, array{string, string}>
-     */
+    /** @return iterable<string, array{string, string}> */
     public static function refusedEverywhere(): iterable
     {
         foreach (self::refused() as $name => [$sql]) {
@@ -231,10 +205,6 @@ final class SqlSummaryTest extends TestCase
         self::assertNull(SqlSummary::of($sql, $system)->value);
     }
 
-    /**
-     * The conventions cap a parsed summary at 255 characters and forbid cutting an
-     * operation or a target in half — a truncated name would group unrelated queries.
-     */
     #[Test]
     public function aLongSummaryIsTruncatedBetweenTokens(): void
     {
@@ -247,10 +217,6 @@ final class SqlSummaryTest extends TestCase
         self::assertMatchesRegularExpression('~ table_\d{3}$~', $summary, 'the last token is whole');
     }
 
-    /**
-     * A bulk insert is the longest statement an application sends. Its values are data,
-     * and none of them may reach the summary, however many there are.
-     */
     #[Test]
     public function aBulkInsertSummarisesToItsTarget(): void
     {

@@ -32,7 +32,6 @@ final class MetricTemporalityTest extends TestCase
     {
         $d = Temporality::DELTA;
         $c = Temporality::CUMULATIVE;
-        // instrument => cumulative, delta, lowmemory
         $table = [
             [InstrumentType::COUNTER,                      $c, $d, $d],
             [InstrumentType::HISTOGRAM,                    $c, $d, $d],
@@ -59,7 +58,6 @@ final class MetricTemporalityTest extends TestCase
         string $instrument,
         string $expected,
     ): void {
-        // A synchronous stream's own temporality is DELTA: the selector must not fall back to it.
         $metadata = new InstrumentMetadata($instrument, Temporality::DELTA);
 
         self::assertSame($expected, MetricTemporality::preferred($preference)->temporality($metadata));
@@ -76,12 +74,7 @@ final class MetricTemporalityTest extends TestCase
         MetricTemporality::preferred('sometimes');
     }
 
-    /**
-     * The installed OTLP factory turns `delta` into DELTA for every instrument. What reaches the
-     * reader through the bundle's factory is the per-kind choice: state stays cumulative.
-     *
-     * @throws \RuntimeException
-     */
+    /** @throws \RuntimeException */
     #[Test]
     public function theOtlpExporterFromTheFactoryKeepsStateCumulativeUnderADeltaPreference(): void
     {

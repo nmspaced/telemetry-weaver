@@ -11,11 +11,7 @@ use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
-/**
- * Whether a signal produces telemetry is decided by the object injected into it, never
- * by a flag it carries. These are the four signals that have their own switches, and
- * the container is the only place the switches are read.
- */
+/** Each signal is switched off by injecting a no-op object, never by a flag. */
 final class SignalObjectsTest extends ContainerTestCase
 {
     /** @return iterable<string, array{string}> */
@@ -53,12 +49,7 @@ final class SignalObjectsTest extends ContainerTestCase
         self::assertInstanceOf(SpanOpener::class, $noMetrics->get($this->opener($signal)));
     }
 
-    /**
-     * The trap this guards: an instrumentation wired for its metrics half would keep
-     * producing spans after tracing was switched off wholesale.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     #[DataProvider('signals')]
     public function theGlobalSwitchOutranksTheSignalsOwn(string $signal): void

@@ -14,57 +14,19 @@ use OpenTelemetry\API\Logs\LoggerProviderInterface;
 use OpenTelemetry\API\Logs\Severity;
 
 /**
- * Ships Monolog records through the OpenTelemetry Logs API.
+ * Exports Monolog records through the OpenTelemetry Logs API, one logger per channel.
  *
- * Deliberately ours rather than `open-telemetry/opentelemetry-logger-monolog`, whose
- * record shape this follows closely — a logger per channel, so each channel becomes its
- * own instrumentation scope; `Severity::fromPsr3`; `context.exception` promoted to the
- * record's exception; everything else flattened to `context.*` and `extra.*` attributes.
- * Three things in that package are not compatible with this one's guarantees, and none
- * of them can be fixed from outside it, because `write()` is protected and a decorator
- * cannot reach it:
- *
- *  - it catches nothing. `emit()` reaches the processor and, with a simple processor,
- *    the exporter; a collector that is down would then throw out of `$logger->error()`
- *    in application code. Telemetry is not allowed to do that here.
- *  - it has no re-entrance guard. This bundle reports export failures through a PSR
- *    logger, which in a Symfony application is Monolog — so a failing export logs, which
- *    emits, which exports, which fails. That is an unbounded loop, not a slow path.
- *  - its attribute mode is process-global mutable state (`private static $mode`) chosen
- *    by an environment variable. Both halves are wrong here: state that outlives a
- *    request has to justify itself, and `OTEL_*` owns the SDK and the export while what
- *    gets recorded belongs to the bundle's own configuration.
- *
- * Trace correlation is taken from the record, not from the context that happens to be
- * current when it is exported. The SDK resolves an unset context lazily — `Context::
- * getCurrent()` at the moment the record is read — which is the same thing as the active
- * span only while emit happens inside the operation that logged. Behind a `BufferHandler`
- * or `FingersCrossedHandler` it does not: the records are delivered at flush, by which
- * time the operation has finished and the record would be stamped with no trace at all,
- * or with whichever unrelated trace the flush ran inside.
- *
- * So the snapshot {@see TraceContextProcessor} takes when the record is created decides,
- * read back through {@see TraceContextSnapshot}. It can only be taken there: a handler
- * receives the record at flush, and a processor is the only part of Monolog that runs
- * while the record is still inside its operation. The handler is given a `LogCorrelation`
- * only when that processor is in the stack. Without it, the record carries no snapshot and
- * the SDK's own resolution is left in place. That is correct for an unbuffered stack, and
- * it is what `logs.correlation: false` has always meant.
+ * Unlike `open-telemetry/opentelemetry-logger-monolog`, it never throws into application
+ * code, guards against re-entry when an export failure is logged, and takes a record's trace
+ * from its snapshot so buffered records keep the trace they were written in.
  */
 final class OtelLogHandler extends AbstractProcessingHandler
 {
     private const string WHERE = 'monolog';
 
-    /** One logger per channel, bounded; see `ChannelLoggers`. */
     private readonly ChannelLoggers $loggers;
 
-    /**
-     * True while a record is being exported.
-     *
-     * The export path logs when it fails, and that log would arrive back here. The guard
-     * turns the second entry into a no-op, which loses the diagnostic about the failed
-     * export — the right trade, because the alternative is a loop that never returns.
-     */
+    /** Re-entry guard: an export failure is logged and would otherwise loop back here. */
     private bool $emitting = false;
 
     /** @var list<string> */
@@ -79,17 +41,10 @@ final class OtelLogHandler extends AbstractProcessingHandler
     ) {
         parent::__construct(self::level($policy->level), $bubble);
         $this->loggers = new ChannelLoggers($loggerProvider);
-        // Added rather than left to configuration: the bundle's own diagnostics channel
-        // carries the reports about failing exports, and exporting those is what turns one
-        // unreachable collector into a queue that refills itself on every flush. A default
-        // an application could overwrite would make that a foot-gun.
         $this->refused = [...$policy->excludedChannels, DiagnosticsLogger::CHANNEL];
     }
 
-    /**
-     * Excluded channels are dropped here rather than in write(), so they never reach
-     * Monolog's formatting either.
-     */
+    /** The diagnostics channel is always excluded, so export failures are never exported. */
     #[\Override]
     public function isHandling(LogRecord $record): bool
     {
@@ -115,14 +70,13 @@ final class OtelLogHandler extends AbstractProcessingHandler
     }
 
     /**
-     * @throws \Throwable whatever the SDK threw; write() is what contains it
+     * @throws \Throwable whatever the SDK threw; write() contains it
      */
     private function emit(LogRecord $record): void
     {
         $builder = $this->loggers
             ->of($record->channel)
             ->logRecordBuilder()
-            // Monolog keeps microseconds; the API wants nanoseconds.
             ->setTimestamp((int) $record->datetime->format('Uu') * 1_000)
             ->setSeverityNumber(Severity::fromPsr3($record->level->toPsrLogLevel()))
             ->setSeverityText($record->level->getName())
@@ -153,12 +107,7 @@ final class OtelLogHandler extends AbstractProcessingHandler
         $builder->emit();
     }
 
-    /**
-     * The eight PSR-3 names, spelled out. The configuration tree already rejects
-     * anything else, so the default is unreachable in practice — it is here because a
-     * total match says what happens at the one place someone could reach it from,
-     * which is constructing this handler by hand.
-     */
+    /** A PSR-3 level name; unknown names fall back to info. */
     private static function level(string $name): Level
     {
         return match ($name) {
@@ -173,12 +122,8 @@ final class OtelLogHandler extends AbstractProcessingHandler
         };
     }
 
-    /**
-     * Attribute values are scalars, lists of scalars, or nothing. Anything else — an
-     * object, a nested array, a resource — is rendered rather than dropped, because the
-     * reason it was logged is usually visible in its rendering.
-     */
-    // @mago-expect lint:halstead — one total narrowing from mixed to what an attribute may hold; splitting it would spread a single decision across several places
+    /** An attribute value; anything that is not scalar is rendered as JSON rather than dropped. */
+    // @mago-expect lint:halstead — one total narrowing from mixed to an attribute value
     private static function scalar(mixed $value): string|int|float|bool|null
     {
         if ($value === null || \is_scalar($value)) {

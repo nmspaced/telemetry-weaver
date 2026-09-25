@@ -10,18 +10,8 @@ use OpenTelemetry\Context\ContextStorageInterface;
 use OpenTelemetry\Context\Propagation\ResponsePropagatorInterface;
 
 /**
- * Builds the response headers from the context the server span is running in.
- *
- * The context comes from the injected storage rather than `Context::getCurrent()`, as
- * everywhere else in the adapter, and it is read at call time on purpose: the caller is
- * the response listener, which runs while the server span is still the current one.
- *
- * What actually ends up in the headers is not this class's decision. The SDK resolves
- * `OTEL_EXPERIMENTAL_RESPONSE_PROPAGATORS` against its registry, and the registry ships
- * only `none` — `traceresponse` itself is a separate contrib package an application
- * installs. With none configured this returns an empty array on every response, which is
- * the point: the seam costs nothing until somebody wants it, and without it the
- * environment variable would have nowhere to take effect.
+ * Builds response headers from the server span's context. Returns nothing unless
+ * `OTEL_EXPERIMENTAL_RESPONSE_PROPAGATORS` configures a response propagator.
  *
  * @internal
  */

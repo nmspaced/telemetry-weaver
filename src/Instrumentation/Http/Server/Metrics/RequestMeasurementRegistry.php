@@ -15,12 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * The in-flight HTTP server measurements, keyed by their request.
- *
- * Only main requests are measured, so there is at most one entry at a time —
- * but it is keyed and released exactly like the trace registry, because the
- * question "is everything released at the end of an execution" has to have
- * one answer for both signals, not two implementations of one idea.
+ * In-flight HTTP server measurements, keyed and released like the trace registry.
  */
 final readonly class RequestMeasurementRegistry implements ResetInterface
 {

@@ -24,8 +24,6 @@ final class HttpSubRequestTest extends HttpTelemetryTestCase
     #[Test]
     public function resetReleasesNestedOperationsInnermostFirst(): void
     {
-        // Held for the length of the test: the registry keys weakly, so an entry whose
-        // request nobody holds any more is gone before reset() can walk it.
         $requests = [];
 
         foreach (['GET', 'POST', 'PUT'] as $method) {
@@ -41,13 +39,7 @@ final class HttpSubRequestTest extends HttpTelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * A sub-request continues the trace it is rendered inside, so its parent
-     * is the current context, not the incoming headers — those belong to the
-     * main request and would start a second root.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aSubRequestIsAnInternalChildOfTheMainRequest(): void
     {
@@ -68,12 +60,7 @@ final class HttpSubRequestTest extends HttpTelemetryTestCase
         $this->assertNoReports();
     }
 
-    /**
-     * The sub-request ends on finish_request — there is no terminate for it —
-     * and leaves the main request's span alone.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function aSubRequestEndsWithoutClosingTheMainSpan(): void
     {
@@ -130,12 +117,7 @@ final class HttpSubRequestTest extends HttpTelemetryTestCase
         self::assertNull(Context::storage()->scope());
     }
 
-    /**
-     * Excluding a path must not silently reparent its children onto whatever
-     * span happens to be current.
-     *
-     * @throws \Throwable
-     */
+    /** @throws \Throwable */
     #[Test]
     public function anExcludedSubRequestAddsNothing(): void
     {

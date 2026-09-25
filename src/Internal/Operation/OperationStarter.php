@@ -41,8 +41,6 @@ final readonly class OperationStarter
             $span = new InertSpan($name);
         }
 
-        // After the span, never before: the correlation the measurement is recorded with
-        // is the one the opener produced for this operation.
         $timer = Durations::start($duration, $span->correlation(), $this->reporter, $name);
 
         $span->rememberErrorType($options->attributes);
