@@ -7,6 +7,9 @@ namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ExportBacklog;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\LoggerProviderFactory;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\TracerProviderFactory;
+use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
+use OpenTelemetry\API\Behavior\Internal\Logging;
+use OpenTelemetry\API\LoggerHolder;
 use OpenTelemetry\API\Logs\LogRecord;
 use OpenTelemetry\SDK\Common\Future\CompletedFuture;
 use OpenTelemetry\SDK\Common\Future\FutureInterface;
@@ -24,6 +27,24 @@ use PHPUnit\Framework\TestCase;
 final class BacklogDuringExportTest extends TestCase
 {
     private int $exportCalls = 0;
+
+    /** Where the SDK reports export failures; the SDK caches its writer, hence the resets. */
+    private RecordingLogger $sdkLog;
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->sdkLog = new RecordingLogger();
+        LoggerHolder::set($this->sdkLog);
+        Logging::reset();
+    }
+
+    #[\Override]
+    protected function tearDown(): void
+    {
+        LoggerHolder::unset();
+        Logging::reset();
+    }
 
     /** @return iterable<string, array{bool, string}> */
     public static function exports(): iterable
@@ -76,6 +97,12 @@ final class BacklogDuringExportTest extends TestCase
         $emit();
         $emit();
         $provider->forceFlush();
+
+        self::assertSame(
+            \in_array($outcome, ['throw', 'await-error'], true),
+            $this->sdkLog->messages() !== [],
+            'a failed export still reaches the SDK error path, and only a failed one',
+        );
 
         // A nested flush also requests delivery of the newly emitted batch.
         self::assertSame($outcome !== 'nested-flush', $backlog->holdsFullBatch());
