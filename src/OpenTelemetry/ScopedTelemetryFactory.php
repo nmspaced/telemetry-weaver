@@ -10,9 +10,8 @@ use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter
 use Nmspaced\TelemetryWeaver\Internal\Metrics\DurationRecorder;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
 use Nmspaced\TelemetryWeaver\Internal\Operation\DefaultTelemetry;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\ContextOnlyOpener;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelTraceCorrelationSource;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use OpenTelemetry\API\Metrics\MeterProviderInterface;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
@@ -24,9 +23,11 @@ use OpenTelemetry\Context\ContextStorageInterface;
  * @internal Resolves a scope's tracer and meter when the scope is created; there is no scope cache or mutable request state.
  *
  * Whether a signal is on is decided by the providers the container hands in (`SignalTracerProvider`,
- * `SignalMeterProvider`). The no-op tracer provider becomes a `NoOpSpanOpener` rather than a
- * `SpanOpener` over a no-op tracer, which would still activate a context scope per span. The type
- * check runs once per scope, not per span.
+ * `SignalMeterProvider`). The no-op tracer provider becomes a `ContextOnlyOpener` rather than a
+ * `SpanOpener` over a no-op tracer, which would activate a context scope for every span. The
+ * context-only opener activates one only when the operation changes the context, through a
+ * boundary or baggage. That keeps `operation()->baggage()` working with tracing off, because
+ * baggage does not depend on spans. The type check runs once per scope, not per span.
  */
 final readonly class ScopedTelemetryFactory implements TelemetryFactory
 {
@@ -45,7 +46,7 @@ final readonly class ScopedTelemetryFactory implements TelemetryFactory
             throw new \InvalidArgumentException('An instrumentation scope name must not be empty.');
         }
 
-        $opener = NoOpSpanOpener::suppressing(new OtelTraceCorrelationSource($this->contextStorage));
+        $opener = new ContextOnlyOpener($this->contextStorage, $this->reporter);
         $meter = new NoopMeter();
         try {
             if (!$this->tracers instanceof NoopTracerProvider) {

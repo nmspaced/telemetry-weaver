@@ -64,7 +64,7 @@ final readonly class MessengerInstrumentationCompilerPass implements CompilerPas
             ]);
         }
 
-        if ($gate->instruments('messenger')->isClosed()) {
+        if ($gate->carriesContext('messenger')->isClosed()) {
             return;
         }
 

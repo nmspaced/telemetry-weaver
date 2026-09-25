@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Cache;
 
 use Nmspaced\TelemetryWeaver\Api\Span;
+use Nmspaced\TelemetryWeaver\Internal\Operation\PendingOperations;
 use Psr\Cache\CacheItemInterface;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
@@ -20,10 +21,16 @@ use Symfony\Contracts\Service\ResetInterface;
 // @mago-expect lint:too-many-methods — the decorator must implement the complete cache interfaces
 readonly class TraceableCachePool implements AdapterInterface, CacheInterface, PruneableInterface, ResettableInterface
 {
+    /**
+     * @param PendingOperations $pending batch reads not yet iterated to the end. A pool
+     *                                   derived through `withSubNamespace()` shares its
+     *                                   parent's, because only the parent is reset
+     */
     public function __construct(
         protected AdapterInterface $delegate,
         protected CacheTelemetry $cacheTelemetry,
         protected string $poolName = 'cache.app',
+        protected PendingOperations $pending = new PendingOperations(),
     ) {}
 
     /**
@@ -51,8 +58,10 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
     }
 
     /**
-     * Like Symfony's TraceableAdapter, measures the pool call and counts hits
-     * lazily. Consumer work is never included in the cache span.
+     * Stays as lazy as the pool it decorates. The operation ends when the caller has read
+     * the items, not when this method returns, because that is when a lazy backend reads.
+     * Hits are counted as items are produced, and time spent in the caller's loop is
+     * measured by neither the span's children nor the duration.
      *
      * @param array<array-key, string> $keys
      *
@@ -62,7 +71,9 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
     #[\Override]
     public function getItems(array $keys = []): iterable
     {
-        return $this->readItems($this->run(
+        return $this->cacheTelemetry->read(
+            $this->pending,
+            $this->poolName,
             __FUNCTION__,
             ['cache.keys' => \array_values($keys)],
             /**
@@ -70,7 +81,7 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
              * @throws InvalidArgumentException
              */
             fn(): iterable => $this->delegate->getItems($keys),
-        ));
+        );
     }
 
     /**
@@ -236,6 +247,9 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
     #[\Override]
     public function reset(): void
     {
+        // The worker boundary: a batch still unread belongs to a request that is over.
+        $this->pending->abandonAll();
+
         if (!$this->delegate instanceof ResetInterface) {
             return;
         }
@@ -262,19 +276,5 @@ readonly class TraceableCachePool implements AdapterInterface, CacheInterface, P
     private function lookup(string $operation, bool $hit, ?Span $span = null): void
     {
         $this->cacheTelemetry->lookup($this->poolName, $operation, $hit, $span);
-    }
-
-    /**
-     * @param iterable<string, CacheItem> $items
-     *
-     * @return \Generator<string, CacheItem>
-     */
-    private function readItems(iterable $items): \Generator
-    {
-        foreach ($items as $key => $item) {
-            $this->lookup('getItems', $item->isHit());
-
-            yield $key => $item;
-        }
     }
 }

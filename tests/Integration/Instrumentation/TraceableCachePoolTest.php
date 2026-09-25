@@ -28,7 +28,6 @@ use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\TagAwareAdapter;
 use Symfony\Component\Cache\Adapter\TagAwareAdapterInterface;
-use Symfony\Component\Cache\CacheItem;
 use Symfony\Component\Cache\Exception\BadMethodCallException;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\NamespacedPoolInterface;
@@ -210,73 +209,6 @@ final class TraceableCachePoolTest extends TelemetryTestCase
         }
 
         self::assertSame(StatusCode::STATUS_ERROR, $this->exportedSpan()->getStatus()->getCode());
-        self::assertNull(Context::storage()->scope());
-    }
-
-    /** @throws \Throwable */
-    #[Test]
-    public function batchReadsStayLazyAndReleaseContextBeforeYielding(): void
-    {
-        $item = new ArrayAdapter()->getItem('key');
-        $steps = 0;
-        $delegate = $this->createMock(AdapterInterface::class);
-        $delegate
-            ->expects(self::once())
-            ->method('getItems')
-            ->with(['key'])
-            ->willReturnCallback(
-                /** @return \Generator<string, CacheItem> */
-                static function () use ($item, &$steps): \Generator {
-                    ++$steps;
-                    yield 'key' => $item;
-                    ++$steps;
-                },
-            );
-        $items = $this->pool($delegate)->getItems(['key']);
-        self::assertSame(0, $steps);
-        // @mago-expect lint:loop-does-not-iterate — deliberately abandons a partially consumed batch
-        foreach ($items as $key => $found) {
-            self::assertSame('key', $key);
-            self::assertSame($item, $found);
-            // @mago-expect analysis:impossible-type-comparison — the generator was advanced once
-            self::assertSame(1, $steps);
-            self::assertNull(Context::storage()->scope());
-            break;
-        }
-
-        unset($items);
-        // @mago-expect analysis:impossible-type-comparison — the generator was advanced once
-        self::assertSame(1, $steps);
-        self::assertSame(['cache.getItems'], $this->exportedNames());
-        $this->assertNoReports();
-    }
-
-    /** @throws \Throwable */
-    #[Test]
-    public function lazyIteratorExceptionsArePreservedWithoutLeavingAScope(): void
-    {
-        $error = new \RuntimeException('read failed');
-        $delegate = $this->createStub(AdapterInterface::class);
-        $delegate
-            ->method('getItems')
-            ->willReturnCallback(
-                /**
-                 * @return \Generator<string, CacheItem>
-                 * @throws \RuntimeException
-                 */
-                static function () use ($error): \Generator {
-                    yield from [];
-                    throw $error;
-                },
-            );
-        try {
-            \iterator_to_array($this->pool($delegate)->getItems(['key']));
-            self::fail('The iterator exception must propagate.');
-        } catch (\RuntimeException $runtimeException) {
-            self::assertSame($error, $runtimeException);
-        }
-
-        self::assertSame(['cache.getItems'], $this->exportedNames());
         self::assertNull(Context::storage()->scope());
     }
 

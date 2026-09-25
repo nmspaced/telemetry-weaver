@@ -8,7 +8,7 @@ use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Internal\Operation\OperationPlan;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
-use OpenTelemetry\API\Baggage\Propagation\BaggagePropagator;
+use Nmspaced\TelemetryWeaver\Tests\Support\ReadsBaggage;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -24,6 +24,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(OtelBaggageReader::class)]
 final class BaggageTest extends PublicTelemetryTestCase
 {
+    use ReadsBaggage;
+
     /** @throws \Throwable */
     #[Test]
     public function anOperationSeesWhatItAdded(): void
@@ -32,7 +34,7 @@ final class BaggageTest extends PublicTelemetryTestCase
             ->telemetry()
             ->operation('checkout')
             ->baggage(['tenant.id' => 'acme'])
-            ->run(self::entries(...));
+            ->run(self::baggageOf(...));
 
         self::assertSame(['tenant.id' => 'acme'], $seen);
     }
@@ -50,19 +52,9 @@ final class BaggageTest extends PublicTelemetryTestCase
             ->telemetry()
             ->operation('checkout')
             ->baggage(['tenant.id' => 'acme'])
-            ->run($this->injected(...));
+            ->run($this->injectedBaggage(...));
 
         self::assertSame(['baggage' => 'tenant.id=acme'], $carrier);
-    }
-
-    /** @return array<array-key, mixed> */
-    private function injected(): array
-    {
-        /** @var mixed $carrier */
-        $carrier = [];
-        BaggagePropagator::getInstance()->inject($carrier, null, $this->contextStorage->current());
-
-        return \is_array($carrier) ? $carrier : [];
     }
 
     /** @throws \Throwable */
@@ -85,9 +77,9 @@ final class BaggageTest extends PublicTelemetryTestCase
                     $inner = $telemetry
                         ->operation('inner')
                         ->baggage(['cohort' => 'beta'])
-                        ->run(self::entries(...));
+                        ->run(self::baggageOf(...));
 
-                    return self::entries($context);
+                    return self::baggageOf($context);
                 },
             );
 
@@ -115,9 +107,9 @@ final class BaggageTest extends PublicTelemetryTestCase
                     $inner = $telemetry
                         ->operation('inner')
                         ->baggage(['tenant.id' => 'globex'])
-                        ->run(self::entries(...));
+                        ->run(self::baggageOf(...));
 
-                    return self::entries($context);
+                    return self::baggageOf($context);
                 },
             );
 
@@ -135,40 +127,9 @@ final class BaggageTest extends PublicTelemetryTestCase
             ->baggage(['tenant.id' => 'acme'])
             ->run(static fn(): null => null);
 
-        $after = $telemetry->operation('after')->run(self::entries(...));
+        $after = $telemetry->operation('after')->run(self::baggageOf(...));
 
         self::assertSame([], $after);
-    }
-
-    /**
-     * The documented limitation. Entries live in the context activation the span owns, and
-     * a suppressed operation has none — so `withoutSpan()` silently carries nothing rather
-     * than opening a second activation on every Doctrine query to hold entries almost
-     * nobody sets.
-     *
-     * @throws \Throwable
-     */
-    #[Test]
-    public function anOperationWithoutASpanCarriesNoBaggage(): void
-    {
-        $seen = $this
-            ->telemetry()
-            ->boundary('suppressed')
-            ->withoutSpan()
-            ->baggage(['tenant.id' => 'acme'])
-            ->run(self::entries(...));
-
-        self::assertSame([], $seen);
-    }
-
-    /**
-     * Named rather than inline so the map's own type survives into the assertions.
-     *
-     * @return array<non-empty-string, string>
-     */
-    private static function entries(OperationContext $context): array
-    {
-        return $context->baggage();
     }
 
     /** @throws \Throwable */

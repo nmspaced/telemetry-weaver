@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
-use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\ContextOnlyOpener;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
@@ -45,7 +45,7 @@ final class SignalObjectsTest extends ContainerTestCase
     public function itsOwnKeyTurnsOffOneHalfAndLeavesTheOther(string $signal): void
     {
         $noTraces = $this->compile(['instrumentation' => [$signal => ['traces' => false]]]);
-        self::assertInstanceOf(NoOpSpanOpener::class, $noTraces->get($this->opener($signal)));
+        self::assertInstanceOf(ContextOnlyOpener::class, $noTraces->get($this->opener($signal)));
         self::assertNotInstanceOf(NoopMeter::class, $noTraces->get($this->meter($signal)));
 
         $noMetrics = $this->compile(['instrumentation' => [$signal => ['metrics' => false]]]);
@@ -64,7 +64,7 @@ final class SignalObjectsTest extends ContainerTestCase
     public function theGlobalSwitchOutranksTheSignalsOwn(string $signal): void
     {
         $noTraces = $this->compile(['traces' => ['enabled' => false]]);
-        self::assertInstanceOf(NoOpSpanOpener::class, $noTraces->get($this->opener($signal)));
+        self::assertInstanceOf(ContextOnlyOpener::class, $noTraces->get($this->opener($signal)));
 
         $noMetrics = $this->compile(['metrics' => ['enabled' => false]]);
         self::assertInstanceOf(NoopMeter::class, $noMetrics->get($this->meter($signal)));

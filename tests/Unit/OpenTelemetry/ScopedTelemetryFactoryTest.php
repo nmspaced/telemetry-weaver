@@ -4,21 +4,38 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\OpenTelemetry;
 
+use Nmspaced\TelemetryWeaver\Api\OperationContext;
+use Nmspaced\TelemetryWeaver\Api\Telemetry;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\ContextOnlyOpener;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelIncomingTrace;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\ScopedTelemetryFactory;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalMeterProvider;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalTracerProvider;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryTestCase;
+use OpenTelemetry\API\Baggage\Propagation\BaggagePropagator;
 use OpenTelemetry\API\Metrics\Noop\NoopMeterProvider;
 use OpenTelemetry\API\Trace\NoopTracerProvider;
+use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
+use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\SpanContext;
+use OpenTelemetry\API\Trace\TraceFlags;
+use OpenTelemetry\Context\Context;
+use OpenTelemetry\Context\Propagation\MultiTextMapPropagator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
 #[CoversClass(ScopedTelemetryFactory::class)]
 #[CoversClass(SignalTracerProvider::class)]
 #[CoversClass(SignalMeterProvider::class)]
+#[CoversClass(ContextOnlyOpener::class)]
 final class ScopedTelemetryFactoryTest extends TelemetryTestCase
 {
+    private const string TRACE_ID = '0af7651916cd43dd8448eb211c80319c';
+
+    private const string SPAN_ID = 'b7ad6b7169203331';
+
     #[Test]
     public function aSwitchedOffSignalHandsOutTheNoopProvider(): void
     {
@@ -29,7 +46,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
 
     /**
      * A span opener over a no-op tracer would still activate a context scope for every span;
-     * the no-op opener activates nothing.
+     * an operation that changes nothing about the context activates nothing.
      */
     #[Test]
     public function aScopeOnTheNoopTracerProviderActivatesNoContext(): void
@@ -50,6 +67,69 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         $operation->finish();
     }
 
+    /**
+     * The audit's probe: tracing off, and a public operation that declares baggage. W3C
+     * baggage does not depend on tracing, and the documentation promises the entries reach
+     * downstream services with no condition attached. So the callback sees them and a
+     * propagator injects them.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function aScopeOnTheNoopTracerProviderStillCarriesBaggage(): void
+    {
+        $telemetry = $this->noopScope();
+
+        $carrier = [];
+        $entries = $telemetry
+            ->operation('baggage')
+            ->baggage(['tenant' => 'one'])
+            ->run(
+                /** @return array<non-empty-string, string> */
+                function (OperationContext $context) use (&$carrier): array {
+                    $carrier = $this->injected();
+
+                    return $context->baggage();
+                },
+            );
+
+        self::assertSame(['tenant' => 'one'], $entries);
+        self::assertSame(['baggage' => 'tenant=one'], $carrier);
+        $next = $telemetry
+            ->operation('next')
+            ->run(
+                /** @return array<non-empty-string, string> */
+                static fn(OperationContext $context): array => $context->baggage(),
+            );
+        self::assertSame([], $next, 'nothing leaks into the next operation');
+    }
+
+    /**
+     * A boundary with no span of its own still continues the trace it received, so a
+     * downstream service is handed the caller's trace rather than none at all.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function aBoundaryOnTheNoopTracerProviderPassesTheIncomingTraceThrough(): void
+    {
+        $incoming = OtelIncomingTrace::extracted(
+            Span::wrap(SpanContext::createFromRemoteParent(self::TRACE_ID, self::SPAN_ID, TraceFlags::SAMPLED))
+                ->storeInContext(Context::getRoot()),
+        );
+
+        $telemetry = $this->noopScope();
+        self::assertInstanceOf(BoundaryTelemetry::class, $telemetry);
+
+        $carrier = $telemetry
+            ->boundary('request')
+            ->from($incoming)
+            ->run($this->injected(...));
+
+        self::assertSame(['traceparent' => '00-' . self::TRACE_ID . '-' . self::SPAN_ID . '-01'], $carrier);
+        self::assertNull($this->contextStorage->scope(), 'and the boundary released its context');
+    }
+
     #[Test]
     public function aScopeOnARealTracerProviderRecordsSpans(): void
     {
@@ -64,5 +144,27 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         $telemetry->operation('work')->start()->finish();
 
         self::assertSame(['work'], $this->exportedNames());
+    }
+
+    private function noopScope(): Telemetry
+    {
+        return new ScopedTelemetryFactory(
+            new NoopTracerProvider(),
+            new NoopMeterProvider(),
+            $this->contextStorage,
+            new OtelDurationRecorder(),
+            $this->reporter,
+        )->scope('probe');
+    }
+
+    /** @return array<array-key, mixed> */
+    private function injected(): array
+    {
+        /** @var mixed $carrier */
+        $carrier = [];
+        new MultiTextMapPropagator([TraceContextPropagator::getInstance(), BaggagePropagator::getInstance()])
+            ->inject($carrier, null, $this->contextStorage->current());
+
+        return \is_array($carrier) ? $carrier : [];
     }
 }

@@ -127,6 +127,10 @@ final class FrameworkInstrumentationRegistrationTest extends ContainerTestCase
     }
 
     /**
+     * Either signal keeps an adapter that only records. The HTTP client also carries trace
+     * context and baggage to the next service, which the global signal switches do not
+     * govern, so it stays decorated with both of them off.
+     *
      * @throws \Throwable
      */
     #[Test]
@@ -137,7 +141,7 @@ final class FrameworkInstrumentationRegistrationTest extends ContainerTestCase
             ['traces' => ['enabled' => $traces], 'metrics' => ['enabled' => $metrics]],
             configure: self::services(...),
         );
-        self::assertSame($traces || $metrics, $container->get('http_client') instanceof TraceableHttpClient);
+        self::assertInstanceOf(TraceableHttpClient::class, $container->get('http_client'));
         self::assertSame($traces || $metrics, $container->get('mailer.transports') instanceof TraceableMailTransport);
         self::assertSame($traces || $metrics, $container->has(SchedulerTelemetrySubscriber::class));
         self::assertSame($traces || $metrics, $container->has(ConsoleTelemetrySubscriber::class));

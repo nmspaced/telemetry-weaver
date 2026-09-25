@@ -25,9 +25,10 @@ time**. Sampling, propagation, aggregation and OTLP stay with the official SDK.
   it has to send. Collectors that time out are skipped for a cooldown; a hung collector does
   not consume the time a healthy one needs. Synchronous retries are off by default because in
   PHP they are sleeps in the worker.
-- **A public API with no OpenTelemetry types in it.** `Telemetry`, `Operation`, `Span`,
-  `Metrics` — enough to trace and measure a business operation without learning Context,
-  scopes or exporters. The full OpenTelemetry metrics API is one call away when you want it.
+- **A public API without OpenTelemetry's tracing, context or SDK types.** `Telemetry`,
+  `Operation`, `Span` and `Metrics` are enough to trace and measure a business operation without
+  learning about Context, scopes or exporters. `Metrics` intentionally returns OpenTelemetry's own
+  metric instruments, so the full metrics API is there when you need it.
 - **Instrumentation that knows Symfony.** HTTP server and client, Doctrine, Messenger,
   Console, Cache, Serializer, Mailer, Scheduler, Monolog and the PHP runtime — wired by
   compiler passes that only activate when the component is actually installed.

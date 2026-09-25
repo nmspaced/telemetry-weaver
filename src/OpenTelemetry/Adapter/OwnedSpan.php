@@ -11,6 +11,8 @@ use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanContext;
 use OpenTelemetry\API\Trace\SpanContextInterface;
 use OpenTelemetry\API\Trace\SpanInterface;
+use OpenTelemetry\Context\ContextInterface;
+use OpenTelemetry\Context\ContextStorageInterface;
 use OpenTelemetry\Context\ScopeInterface;
 
 // @mago-expect lint:too-many-methods — the SpanOwner port plus the two accessors the opener
@@ -42,6 +44,14 @@ final class OwnedSpan implements SpanOwner
     private ?ScopeInterface $activation;
 
     private bool $finished = false;
+
+    /**
+     * How `attach()` activates the operation's context again; null for an owner that cannot
+     * be re-entered. Released with the span, because it holds the context.
+     *
+     * @var (\Closure(): ScopeInterface)|null
+     */
+    private ?\Closure $reentry = null;
 
     private readonly SpanContextInterface $spanContext;
 
@@ -173,6 +183,33 @@ final class OwnedSpan implements SpanOwner
         }
     }
 
+    /**
+     * Allows `attach()` to activate the context again, in the storage it was first
+     * activated in.
+     */
+    public function reenterableIn(ContextStorageInterface $storage, ContextInterface $context): self
+    {
+        $this->reentry = static fn(): ScopeInterface => $storage->attach($context);
+
+        return $this;
+    }
+
+    #[\Override]
+    public function attach(): void
+    {
+        // Finishing releases the re-entry, so a finished owner stops here too.
+        if ($this->activation !== null || $this->reentry === null) {
+            return;
+        }
+
+        try {
+            $this->activation = ($this->reentry)();
+            ShutdownScopeCleanup::register($this);
+        } catch (\Throwable $throwable) {
+            $this->instrumentationFailureReporter?->report('Context activation failed', $this->name, $throwable);
+        }
+    }
+
     #[\Override]
     public function detach(): void
     {
@@ -226,6 +263,7 @@ final class OwnedSpan implements SpanOwner
         $this->span = null;
 
         $this->correlation = null;
+        $this->reentry = null;
 
         $this->view->release();
         $this->finished = true;

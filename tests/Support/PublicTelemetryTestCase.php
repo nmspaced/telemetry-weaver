@@ -10,7 +10,6 @@ use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\SafeMetrics;
 use Nmspaced\TelemetryWeaver\Internal\Operation\DefaultTelemetry;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelIncomingTrace;
@@ -59,10 +58,14 @@ abstract class PublicTelemetryTestCase extends TelemetryTestCase
         parent::tearDown();
     }
 
+    /**
+     * @param bool $traces false is what `traces.enabled: false` builds: no spans, but the
+     *                     same context handling, so baggage and incoming traces still apply
+     */
     protected function telemetry(bool $traces = true, bool $metrics = true): DefaultTelemetry
     {
         return new DefaultTelemetry(
-            $traces ? $this->spans : NoOpSpanOpener::disabled(),
+            $traces ? $this->spans : $this->spans->suppressed(),
             new SafeMetrics(
                 $metrics ? $this->meters->getMeter('test') : new NoopMeter(),
                 $this->reporter,

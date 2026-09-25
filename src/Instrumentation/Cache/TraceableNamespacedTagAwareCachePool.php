@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Cache;
 
+use Nmspaced\TelemetryWeaver\Internal\Operation\PendingOperations;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Cache\Adapter\TagAwareAdapterInterface;
 use Symfony\Contracts\Cache\NamespacedPoolInterface;
@@ -15,8 +16,9 @@ final readonly class TraceableNamespacedTagAwareCachePool extends TraceableTagAw
         TagAwareAdapterInterface&NamespacedPoolInterface $delegate,
         CacheTelemetry $cacheTelemetry,
         string $poolName = 'cache.app',
+        PendingOperations $pending = new PendingOperations(),
     ) {
-        parent::__construct($delegate, $cacheTelemetry, $poolName);
+        parent::__construct($delegate, $cacheTelemetry, $poolName, $pending);
     }
 
     /**
@@ -37,6 +39,11 @@ final readonly class TraceableNamespacedTagAwareCachePool extends TraceableTagAw
             ));
         }
 
-        return new self($delegate->withSubNamespace($namespace), $this->cacheTelemetry, $this->poolName);
+        return new self(
+            $delegate->withSubNamespace($namespace),
+            $this->cacheTelemetry,
+            $this->poolName,
+            $this->pending,
+        );
     }
 }

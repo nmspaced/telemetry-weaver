@@ -32,11 +32,6 @@ final readonly class TraceContextProcessor implements ProcessorInterface
             return $record;
         }
 
-        return $record->with(extra: [
-            ...$record->extra,
-            'trace_id' => $current->traceId,
-            'span_id' => $current->spanId,
-            'trace_flags' => $current->traceFlagsHex(),
-        ]);
+        return TraceContextSnapshot::write($record, $current);
     }
 }

@@ -6,10 +6,12 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineMiddleware;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrinePolicy;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
+use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\QueryText;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\ContextOnlyOpener;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -53,7 +55,7 @@ final class DoctrineRegistrationTest extends ContainerTestCase
     {
         $container = $this->compile(['instrumentation' => ['doctrine' => ['traces' => false]]]);
 
-        self::assertInstanceOf(NoOpSpanOpener::class, $container->get('open_telemetry.doctrine.span_opener'));
+        self::assertInstanceOf(ContextOnlyOpener::class, $container->get('open_telemetry.doctrine.span_opener'));
         self::assertNotInstanceOf(NoopMeter::class, $container->get('open_telemetry.doctrine.meter'));
     }
 
@@ -73,20 +75,38 @@ final class DoctrineRegistrationTest extends ContainerTestCase
     {
         $container = $this->compile(['traces' => ['enabled' => false]]);
 
-        self::assertInstanceOf(NoOpSpanOpener::class, $container->get('open_telemetry.doctrine.span_opener'));
+        self::assertInstanceOf(ContextOnlyOpener::class, $container->get('open_telemetry.doctrine.span_opener'));
     }
 
-    /** @throws \Throwable */
-    #[Test]
-    public function theConfiguredStatementAndParentFlagsReachThePolicy(): void
+    /**
+     * `sanitized` is the default. The boolean the key used to take still means what it
+     * meant: `true` the statement as sent, `false` nothing.
+     *
+     * @return iterable<string, array{array<string, mixed>, QueryText}>
+     */
+    public static function queryTextSettings(): iterable
     {
-        $container = $this->compile([
-            'instrumentation' => ['doctrine' => ['query_text' => true, 'only_with_parent' => false]],
-        ]);
+        yield 'default' => [[], QueryText::Sanitized];
+        yield 'raw' => [['query_text' => 'raw'], QueryText::Raw];
+        yield 'off' => [['query_text' => 'off'], QueryText::Off];
+        yield 'legacy true' => [['query_text' => true], QueryText::Raw];
+        yield 'legacy false' => [['query_text' => false], QueryText::Off];
+    }
 
-        $policy = $container->get(DoctrinePolicy::class);
+    /**
+     * @param array<string, mixed> $doctrine
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    #[DataProvider('queryTextSettings')]
+    public function theQueryTextSettingReachesThePolicy(array $doctrine, QueryText $expected): void
+    {
+        $policy = $this->compile(['instrumentation' => ['doctrine' => [...$doctrine, 'only_with_parent' => false]]])
+            ->get(DoctrinePolicy::class);
+
         self::assertInstanceOf(DoctrinePolicy::class, $policy);
-        self::assertTrue($policy->recordStatements);
+        self::assertSame($expected, $policy->queryText);
         self::assertFalse($policy->onlyWithParent, 'only_with_parent: false must open a span without a parent');
     }
 

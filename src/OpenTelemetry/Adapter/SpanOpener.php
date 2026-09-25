@@ -6,17 +6,14 @@ namespace Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter;
 
 use Nmspaced\TelemetryWeaver\Api\SpanKind;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
-use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpenerInterface;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOptions;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceRelations;
-use OpenTelemetry\API\Baggage\Baggage;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanContextInterface;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind as OtelSpanKind;
 use OpenTelemetry\API\Trace\TracerInterface;
-use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Context\ContextStorageInterface;
 
@@ -47,11 +44,13 @@ final readonly class SpanOpener implements SpanOpenerInterface
         // A policy object that reads the current span to answer this is an ambient
         // dependency in the one layer that must not have one; a flag on the description is
         // a declaration, and the answer belongs to whoever owns the context anyway.
+        // The operation still owns its context: suppressing the span must not drop the
+        // baggage it was given.
         if ($options->onlyInsideTrace && !Span::fromContext($ambient)->getContext()->isValid()) {
-            return OwnedSpan::inert($name, new OtelTraceCorrelation($ambient));
+            return $this->suppressed()->open($name, $options);
         }
 
-        $parent = self::withBaggage(self::parentOf($options->relations, $ambient), $options->baggage);
+        $parent = OperationParent::resolve($options, $ambient);
 
         try {
             $builder = $this->tracer
@@ -74,29 +73,14 @@ final readonly class SpanOpener implements SpanOpenerInterface
         return $this->activate($name, $span, $parent);
     }
 
-    #[\Override]
-    public function suppressed(): SpanOpenerInterface
-    {
-        return NoOpSpanOpener::suppressing(new OtelTraceCorrelationSource($this->contextStorage));
-    }
-
     /**
-     * No incoming trace continues whatever is running; one that arrived replaces it, valid
-     * or not. An invalid one is the whole point of the distinction: a boundary that carried
-     * nothing starts a new trace, where inheriting the ambient context would attach a fresh
-     * request to the remains of the last one.
+     * No span, but the same context: a signal whose spans are off still continues the
+     * trace its boundary received and still carries its baggage.
      */
-    private static function parentOf(TraceRelations $relations, ContextInterface $ambient): ContextInterface
+    #[\Override]
+    public function suppressed(): ContextOnlyOpener
     {
-        $incoming = $relations->parent;
-
-        if ($incoming === null) {
-            return $ambient;
-        }
-
-        // An explicit boundary without a usable SDK context, including RootTrace after
-        // a propagation failure, must not adopt the ambient span.
-        return $incoming instanceof OtelIncomingTrace ? $incoming->context : Context::getRoot();
+        return new ContextOnlyOpener($this->contextStorage, $this->instrumentationFailureReporter);
     }
 
     /**
@@ -130,30 +114,6 @@ final readonly class SpanOpener implements SpanOpenerInterface
     }
 
     /**
-     * Baggage goes into the context the span is created in, so the span's own context
-     * carries it and every outgoing call made inside the operation propagates it.
-     *
-     * Applied before `startSpan()` rather than after: a sampler may read baggage, and one
-     * that does would otherwise see the parent's entries instead of this operation's.
-     *
-     * @param array<non-empty-string, string> $entries
-     */
-    private static function withBaggage(ContextInterface $parent, array $entries): ContextInterface
-    {
-        if ($entries === []) {
-            return $parent;
-        }
-
-        $builder = Baggage::fromContext($parent)->toBuilder();
-
-        foreach ($entries as $key => $value) {
-            $builder->set($key, $value);
-        }
-
-        return $builder->build()->storeInContext($parent);
-    }
-
-    /**
      * @return int<0, 4>
      */
     private static function kind(SpanKind $kind): int
@@ -175,7 +135,14 @@ final readonly class SpanOpener implements SpanOpenerInterface
         $context = $span->storeInContext($parent);
 
         try {
-            $activation = $context->activate();
+            // `$this->contextStorage->attach()` rather than `$context->activate()`: the latter
+            // is `Context::storage()->attach()`, so a span read out of the injected storage
+            // would be activated in whichever storage the process installed last. In the
+            // container the two are the same object and the difference is invisible; in a test
+            // that swaps in a fiber-bound storage, or a worker that rebuilt its container, the
+            // parent lookup above and this activation would be two different places. Every
+            // other adapter here takes the storage for exactly this reason.
+            $activation = $this->contextStorage->attach($context);
         } catch (\Throwable $throwable) {
             $this->instrumentationFailureReporter->report('Context activation failed', $name, $throwable);
 
@@ -193,6 +160,6 @@ final readonly class SpanOpener implements SpanOpenerInterface
             $activation,
             $this->instrumentationFailureReporter,
             new OtelTraceCorrelation($context),
-        );
+        )->reenterableIn($this->contextStorage, $context);
     }
 }

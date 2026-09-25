@@ -50,14 +50,22 @@ final readonly class DoctrineTelemetry
      */
     public function run(string $sql, ConnectionAttributes $connection, \Closure $callback): mixed
     {
-        $summary = SqlSummary::of($sql)->value;
+        // Lexed once: the summary and the sanitized text are two readings of the same code.
+        $code = SqlLexer::code($sql, $connection->system);
+        $summary = SqlSummary::fromCode($code)->value;
         $attributes = $connection->attributes();
         $spanAttributes = $summary === null
             ? $attributes
             : [...$attributes, DbAttributes::DB_QUERY_SUMMARY => $summary];
 
-        if ($this->policy->recordStatements) {
-            $spanAttributes[DbAttributes::DB_QUERY_TEXT] = $sql;
+        $text = match ($this->policy->queryText) {
+            QueryText::Sanitized => SqlQueryText::sanitized($code),
+            QueryText::Raw => $sql,
+            QueryText::Off => null,
+        };
+
+        if ($text !== null && $text !== '') {
+            $spanAttributes[DbAttributes::DB_QUERY_TEXT] = $text;
         }
 
         return $this->measure($summary ?? $connection->system, $spanAttributes, $attributes, $callback);

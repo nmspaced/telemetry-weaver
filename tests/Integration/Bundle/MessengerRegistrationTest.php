@@ -114,6 +114,27 @@ final class MessengerRegistrationTest extends ContainerTestCase
         self::assertSame(['validation', 'send_message', 'handle_message'], \array_column($middleware, 'id'));
     }
 
+    /**
+     * The middleware and the sender decorator also carry the message's trace and baggage.
+     * The global signal switches decide what is recorded, not whether that context
+     * travels, so with both of them off the wrapping stays.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function turningOffBothGlobalSignalsKeepsTheMiddlewareForPropagation(): void
+    {
+        $container = $this->compile(
+            ['traces' => ['enabled' => false], 'metrics' => ['enabled' => false]],
+            configure: self::withBus(...),
+        );
+
+        /** @var list<array{id: string}> $middleware */
+        $middleware = $container->getParameter(self::BUS_ID . '.middleware');
+        $first = $middleware[0] ?? Assert::fail('middleware chain is empty');
+        self::assertSame(self::BUS_ID . '.open_telemetry_middleware', $first['id']);
+    }
+
     /** Stands up a bus the way FrameworkBundle does: a tagged service plus the parameter. */
     private static function withBus(ContainerBuilder $container): void
     {

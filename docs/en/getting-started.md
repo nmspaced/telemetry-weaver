@@ -359,6 +359,9 @@ $telemetry
     });
 ```
 
+Baggage does not depend on tracing. It is still sent when `traces.enabled` is `false`, and from
+operations that record no span.
+
 Baggage is not an attribute. An attribute describes the span it is set on and stops there.
 Baggage is added to the outgoing headers of every request the operation makes, so it leaves the
 process and reaches services that may not be yours. Put a tenant or a feature cohort in it, never

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Doctrine\DBAL\Exception\DriverException;
-use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrinePolicy;
 use Nmspaced\TelemetryWeaver\Tests\Support\DoctrineTelemetryTestCase;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
@@ -36,25 +35,11 @@ final class DoctrineTelemetryTest extends DoctrineTelemetryTestCase
                 'server.address' => 'db.internal',
                 'server.port' => 5432,
                 'db.query.summary' => 'SELECT users',
+                'db.query.text' => 'SELECT id FROM users WHERE id = ?',
             ],
             $span->getAttributes()->toArray(),
         );
         self::assertSame([], $this->logger->messages());
-    }
-
-    /** @throws \Throwable */
-    #[Test]
-    public function theStatementTextIsRecordedOnlyWhenTheConfigurationAsksForIt(): void
-    {
-        $silent = $this->connection();
-        $silent->executeQuery('SELECT id FROM users');
-
-        self::assertNull($this->exportedSpan()->getAttributes()->get('db.query.text'));
-
-        $verbose = $this->connection(new DoctrinePolicy(recordStatements: true, onlyWithParent: false));
-        $verbose->executeQuery('SELECT id FROM users');
-
-        self::assertSame('SELECT id FROM users', $this->exportedSpan(1)->getAttributes()->get('db.query.text'));
     }
 
     /** @throws \Throwable */

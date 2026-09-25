@@ -81,6 +81,12 @@ final class InertSpan implements Span, SpanOwner
     }
 
     #[\Override]
+    public function attach(): void
+    {
+        // Nothing was activated, so there is nothing to activate again.
+    }
+
+    #[\Override]
     public function detach(): void
     {
         // Nothing was activated.

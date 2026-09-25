@@ -17,20 +17,17 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
 final readonly class DoctrinePolicy
 {
     /**
-     * @param bool $recordStatements record the SQL text as `db.query.text`
-     * @param bool $onlyWithParent open spans only inside an existing trace
-     * @param bool $recordTransactions record BEGIN, COMMIT and ROLLBACK as operations of their own
-     */
-    /**
+     * @param QueryText $queryText what `db.query.text` carries
      * @param bool $onlyWithParent open spans only inside an existing trace. Kept as the
      *                             plain configuration value it is: whether a trace is
      *                             running is not this object's to look up, and asking it to
      *                             made a value object depend on the current execution.
      *                             {@see \Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryOperation::onlyInsideTrace()}
      *                             carries the decision to the one place that owns the context.
+     * @param bool $recordTransactions record BEGIN, COMMIT and ROLLBACK as operations of their own
      */
     public function __construct(
-        public bool $recordStatements = false,
+        public QueryText $queryText = QueryText::Sanitized,
         public bool $onlyWithParent = true,
         public bool $recordTransactions = true,
     ) {}

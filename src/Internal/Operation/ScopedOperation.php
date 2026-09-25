@@ -23,6 +23,22 @@ interface ScopedOperation extends RunningOperation
     public function detach(): void;
 
     /**
+     * Hands control back to the caller in the middle of the operation: the context stops
+     * being ambient and the duration clock stops. The span stays open.
+     *
+     * For a lazy result handed back piece by piece. Between two pieces the caller runs its
+     * own code, which is neither a child of the operation nor time the operation took. The
+     * span still covers the whole read, which is what a trace should show.
+     */
+    public function suspend(): void;
+
+    /**
+     * Takes control back after `suspend()`: the operation's context is ambient again, so
+     * backend work done now is its child, and the clock runs.
+     */
+    public function resume(): void;
+
+    /**
      * The trace a measurement taken for this operation belongs to, or null when nothing
      * was being traced.
      *

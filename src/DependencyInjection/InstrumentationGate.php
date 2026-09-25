@@ -94,6 +94,22 @@ final readonly class InstrumentationGate
         return new self($this->container, SignalSwitch::instrumented($this->container, $component));
     }
 
+    /**
+     * Like {@see instruments()}, for a component whose wrapper also propagates context: it
+     * stays open while the component's own switches are on, whatever the global signal
+     * switches say. See {@see SignalSwitch::carriesContext()}.
+     *
+     * @param non-empty-string $component
+     */
+    public function carriesContext(string $component): self
+    {
+        if (!$this->open) {
+            return $this;
+        }
+
+        return new self($this->container, SignalSwitch::carriesContext($this->container, $component));
+    }
+
     public function isOpen(): bool
     {
         return $this->open;

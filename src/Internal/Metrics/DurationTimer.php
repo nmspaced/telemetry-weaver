@@ -28,7 +28,11 @@ use OpenTelemetry\API\Metrics\HistogramInterface;
  */
 final class DurationTimer
 {
-    private readonly int $startedAt;
+    /** When the clock last started, or null while it is paused. */
+    private ?int $runningSince;
+
+    /** Time measured before the last pause, in nanoseconds. */
+    private int $elapsed = 0;
 
     private bool $stopped = false;
 
@@ -40,7 +44,7 @@ final class DurationTimer
         private readonly DurationRuntime $runtime,
         ?TraceCorrelation $correlation,
     ) {
-        $this->startedAt = $runtime->clock->now();
+        $this->runningSince = $runtime->clock->now();
         $this->correlation = $correlation;
     }
 
@@ -76,10 +80,29 @@ final class DurationTimer
 
         $this->runtime->recorder->record(
             $this->histogram,
-            $this->unit->fromNanoseconds(\max(0, $this->runtime->clock->now() - $this->startedAt)),
+            $this->unit->fromNanoseconds($this->elapsed + $this->sinceResumed()),
             $attributes,
             $correlation,
         );
+    }
+
+    public function pause(): void
+    {
+        if ($this->stopped || $this->runningSince === null) {
+            return;
+        }
+
+        $this->elapsed += $this->sinceResumed();
+        $this->runningSince = null;
+    }
+
+    public function resume(): void
+    {
+        if ($this->stopped || $this->runningSince !== null) {
+            return;
+        }
+
+        $this->runningSince = $this->runtime->clock->now();
     }
 
     public function cancel(): void
@@ -90,5 +113,11 @@ final class DurationTimer
 
         $this->stopped = true;
         $this->correlation = null;
+    }
+
+    /** A monotonic clock cannot go backwards, but a test double can; never negative. */
+    private function sinceResumed(): int
+    {
+        return $this->runningSince === null ? 0 : \max(0, $this->runtime->clock->now() - $this->runningSince);
     }
 }

@@ -14,9 +14,11 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
  * format the conventions give: `{operation} {target} {operation} {target} ...`, original
  * case and order, at most 255 characters, never cut inside a token.
  *
- * The words come from `SqlScanner`, which refuses to read data: nothing that is a literal,
- * a comment or a function argument can become part of a summary. This class decides
- * whether a statement is one worth describing at all, and enforces the length cap.
+ * The statement is read in two passes. {@see SqlLexer} removes every literal and comment,
+ * and refuses a statement whose syntax it cannot read the same way for every system. `SqlScanner` then picks keywords and
+ * targets out of the code that remains. Nothing that is data can become part of a summary,
+ * because the scanner never sees it. This class decides whether a statement is worth
+ * describing at all, and enforces the length cap.
  *
  * The summary is a span attribute and the span name, not a metric label. Its cardinality
  * is bounded by the statements an application's code contains, which is fine for traces;
@@ -29,7 +31,9 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Doctrine;
  * that would stay in it forever.
  *
  * An unrecognised leading statement yields null rather than a guess — `EXPLAIN SELECT`
- * is not a SELECT, and the span falls back to the system name.
+ * is not a SELECT, and the span falls back to the system name. The same happens when the
+ * lexer cannot read a statement with certainty. A refused statement costs a span name. A
+ * statement described from a misreading exposes whatever the misread text contained.
  */
 final readonly class SqlSummary
 {
@@ -59,11 +63,10 @@ final readonly class SqlSummary
     ];
 
     /**
-     * Skips leading whitespace, line comments and block comments, then captures the
-     * first word. Doctrine and the ORM both emit commented SQL, and a migration file
-     * routinely starts with one.
+     * The first word of the code. Leading comments, which Doctrine, the ORM and most
+     * migrations emit, are already whitespace by the time this runs.
      */
-    private const string LEADING = '~^(?:\s++|--[^\n]*+|/\*.*?\*/)*+([a-z]++)~is';
+    private const string LEADING = '~^\s*+(?<statement>[a-z]++)~i';
 
     /**
      * @param non-empty-string|null $value
@@ -72,16 +75,28 @@ final readonly class SqlSummary
         public ?string $value,
     ) {}
 
-    public static function of(string $sql): self
+    /**
+     * @param string $system the connection's `db.system.name`
+     */
+    public static function of(string $sql, string $system): self
     {
-        if (!self::isDescribable($sql)) {
+        return self::fromCode(SqlLexer::code($sql, $system));
+    }
+
+    /**
+     * @param string|null $code a statement as {@see SqlLexer::code()} returned it, so a
+     *                          caller that also needs the sanitized text lexes only once
+     */
+    public static function fromCode(?string $code): self
+    {
+        if ($code === null || !self::isDescribable($code)) {
             return new self(null);
         }
 
         $tokens = [];
         $length = -1;
 
-        foreach (SqlScanner::tokens($sql) as $token) {
+        foreach (SqlScanner::tokens($code) as $token) {
             $length += \strlen($token) + 1;
 
             if ($length > self::MAX_LENGTH) {
@@ -102,7 +117,7 @@ final readonly class SqlSummary
             return false;
         }
 
-        /** @var array{non-empty-string, non-empty-string} $matches */
-        return \in_array(\strtoupper($matches[1]), self::STATEMENTS, true);
+        /** @var array{0: non-empty-string, statement: non-empty-string, 1: non-empty-string} $matches */
+        return \in_array(\strtoupper($matches['statement']), self::STATEMENTS, true);
     }
 }

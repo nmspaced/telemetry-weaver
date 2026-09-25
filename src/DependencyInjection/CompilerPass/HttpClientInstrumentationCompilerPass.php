@@ -66,7 +66,7 @@ final readonly class HttpClientInstrumentationCompilerPass implements CompilerPa
     {
         $gate = InstrumentationGate::bundle($container)
             ->requires('symfony/http-client', AsyncResponse::class)
-            ->instruments('http_client');
+            ->carriesContext('http_client');
 
         if ($gate->isClosed()) {
             return;

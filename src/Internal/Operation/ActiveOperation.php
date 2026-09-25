@@ -102,6 +102,21 @@ final class ActiveOperation implements ScopedOperation
     }
 
     #[\Override]
+    public function suspend(): void
+    {
+        $this->owner->detach();
+        $this->measurement?->pause();
+    }
+
+    #[\Override]
+    public function resume(): void
+    {
+        // Safe after `finish()`: the owner releases its re-entry and the measurement is gone.
+        $this->owner->attach();
+        $this->measurement?->resume();
+    }
+
+    #[\Override]
     public function correlation(): ?TraceCorrelation
     {
         if ($this->finished) {

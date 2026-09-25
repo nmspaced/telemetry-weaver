@@ -58,6 +58,29 @@ final readonly class SignalSwitch
         );
     }
 
+    /**
+     * Whether the component itself is instrumented, by its own switches only.
+     *
+     * For components that carry context across a process boundary — an outgoing request, a
+     * message. Their wrapper propagates baggage and the incoming trace, and that belongs to
+     * the application's contract rather than to either signal: `traces.enabled: false`
+     * removes spans, `metrics.enabled: false` removes measurements, and neither is a reason
+     * for `operation()->baggage()` to stop reaching downstream services. Switching both of
+     * the component's own signals off is what opts it out, headers included.
+     *
+     * @param non-empty-string $component
+     */
+    public static function carriesContext(ContainerBuilder $container, string $component): bool
+    {
+        return (
+            self::bundleEnabled($container)
+            && (
+                self::on($container, \sprintf('open_telemetry.instrumentation.%s.traces', $component))
+                || self::on($container, \sprintf('open_telemetry.instrumentation.%s.metrics', $component))
+            )
+        );
+    }
+
     public static function on(ContainerBuilder $container, string $parameter): bool
     {
         return $container->hasParameter($parameter) && $container->getParameter($parameter) === true;

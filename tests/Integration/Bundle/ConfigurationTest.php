@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
-use Nmspaced\TelemetryWeaver\Internal\Tracing\NoOpSpanOpener;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\ContextOnlyOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use OpenTelemetry\API\Trace\TracerInterface;
@@ -39,7 +39,7 @@ final class ConfigurationTest extends ContainerTestCase
             'instrumentation' => ['http_server' => ['traces' => false, 'metrics' => false]],
         ]);
 
-        self::assertInstanceOf(NoOpSpanOpener::class, $container->get('open_telemetry.http_server.span_opener'));
+        self::assertInstanceOf(ContextOnlyOpener::class, $container->get('open_telemetry.http_server.span_opener'));
         self::assertInstanceOf(NoopMeter::class, $container->get('open_telemetry.http_server.meter'));
     }
 

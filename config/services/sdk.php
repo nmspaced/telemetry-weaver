@@ -11,10 +11,12 @@ use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\ExportGate;
 use Nmspaced\TelemetryWeaver\Internal\Runtime\SymfonyRuntimeProfile;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\BaggageReader;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\LogCorrelation;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\TraceCorrelationSource;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTrace;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelBaggageReader;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelLogCorrelation;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelResponsePropagation;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelTraceCorrelationSource;
@@ -192,6 +194,8 @@ return static function (ContainerConfigurator $container): void {
     $services
         ->set(ActiveTrace::class, OtelActiveTrace::class)
         ->arg('$contextStorage', service(ContextStorageInterface::class));
+
+    $services->set(LogCorrelation::class, OtelLogCorrelation::class);
 
     $services->set(PropagatorFactory::class);
 

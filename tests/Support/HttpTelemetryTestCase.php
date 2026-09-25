@@ -13,6 +13,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTraceReg
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\ServerTraceResponseSubscriber;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Propagation\ResponsePropagation;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpenerInterface;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelResponsePropagation;
 use Nmspaced\TelemetryWeaver\Tests\Fake\StaticRouteTemplateProvider;
@@ -50,6 +51,12 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
     protected ResponsePropagation $responsePropagation;
 
     /**
+     * The opener the server boundary uses, when a test needs it to differ from the shared
+     * one — `http_server: traces: false` is `$this->spans->suppressed()`.
+     */
+    protected ?SpanOpenerInterface $serverSpans = null;
+
+    /**
      * @param array<string, string> $routes route name to template
      * @param list<non-empty-string> $excludedPaths
      * @param TextMapPropagatorInterface|null $propagator null is W3C trace context, the real default
@@ -68,7 +75,7 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
             $this->reporter,
         );
         $this->scopes = new RequestTraceRegistry(
-            TelemetryFactory::tracing($this->spans, $this->reporter),
+            TelemetryFactory::tracing($this->serverSpans ?? $this->spans, $this->reporter),
             $this->reporter,
         );
         $this->dispatcher = new EventDispatcher();
@@ -122,7 +129,9 @@ abstract class HttpTelemetryTestCase extends TelemetryTestCase
     /**
      * @param \Closure(): Response $controller
      * @param array<string, string> $attributes extra request attributes, e.g. _route
-     * @param array<string, string> $headers
+     * @param array<string, string|list<string>> $headers a list is a header sent more than
+     *                                                    once, which a PSR-7 runtime keeps
+     *                                                    rather than folding
      *
      * @throws \Throwable
      */

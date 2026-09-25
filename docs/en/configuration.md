@@ -385,6 +385,10 @@ open_telemetry:
 
 `diagnostics.enabled: false` silences the SDK too, rather than returning it to `error_log()`.
 
+There is one exception. If reading the active trace fails while a log record is being given its
+trace IDs, the failure is not reported: the report would itself be a log record and would hit
+the same failure. The record is simply written without trace IDs.
+
 ## Complete examples
 
 Recommended sets, each checked end to end against a real collector, Prometheus and Jaeger:

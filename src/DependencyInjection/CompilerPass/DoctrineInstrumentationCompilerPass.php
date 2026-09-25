@@ -10,6 +10,7 @@ use Nmspaced\TelemetryWeaver\DependencyInjection\SignalSwitch;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineMiddleware;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrinePolicy;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineTelemetry;
+use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\QueryText;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -45,10 +46,12 @@ final readonly class DoctrineInstrumentationCompilerPass implements CompilerPass
 
         $container
             ->register(DoctrinePolicy::class, DoctrinePolicy::class)
-            ->setArgument('$recordStatements', SignalSwitch::on(
-                $container,
-                'open_telemetry.instrumentation.doctrine.query_text',
-            ))
+            ->setArgument(
+                '$queryText',
+                QueryText::from(self::string($container->getParameter(
+                    'open_telemetry.instrumentation.doctrine.query_text',
+                ))),
+            )
             ->setArgument('$onlyWithParent', SignalSwitch::on(
                 $container,
                 'open_telemetry.instrumentation.doctrine.only_with_parent',
@@ -68,5 +71,11 @@ final readonly class DoctrineInstrumentationCompilerPass implements CompilerPass
             ->register(DoctrineMiddleware::class, DoctrineMiddleware::class)
             ->setArgument('$doctrineTelemetry', new Reference(DoctrineTelemetry::class))
             ->addTag(self::MIDDLEWARE_TAG, ['priority' => 0]);
+    }
+
+    /** The configuration tree has already constrained the value to one of the enum's. */
+    private static function string(mixed $value): string
+    {
+        return \is_string($value) ? $value : QueryText::Sanitized->value;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\DependencyInjection\Configuration;
 
+use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\QueryText;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 
 /**
@@ -176,11 +177,16 @@ final class RequestComponents
 
         $node
             ->children()
-            ->booleanNode('query_text')
+            ->enumNode('query_text')
             ->info(
-                'Record the statement as db.query.text. Off by default: raw SQL may carry literals and personal data.',
+                'What db.query.text carries. "sanitized" (default): literals replaced by ?, as the database conventions require for text recorded by default; nothing for a statement that cannot be sanitized with certainty. "raw": the statement as sent, literals included. "off": nothing. true and false are accepted as "raw" and "off".',
             )
-            ->defaultFalse()
+            ->beforeNormalization()
+            ->ifTrue(static fn(mixed $value): bool => \is_bool($value))
+            ->then(static fn(bool $value): string => $value ? QueryText::Raw->value : QueryText::Off->value)
+            ->end()
+            ->values(\array_map(static fn(QueryText $mode): string => $mode->value, QueryText::cases()))
+            ->defaultValue(QueryText::Sanitized->value)
             ->end()
             ->booleanNode('only_with_parent')
             ->info(

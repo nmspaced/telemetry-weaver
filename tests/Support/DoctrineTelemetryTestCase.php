@@ -89,11 +89,17 @@ abstract class DoctrineTelemetryTestCase extends TestCase
         Context::setStorage($this->previousStorage);
     }
 
-    /** @throws Exception */
+    /**
+     * @param 'pdo_mysql'|'pdo_pgsql'|'pdo_sqlite'|'pdo_sqlsrv'|'pdo_oci'|'ibm_db2' $driver the DBAL driver name the instrumentation reads
+     *                                                                                      the system, and so the SQL dialect, from
+     *
+     * @throws Exception
+     */
     protected function connection(
         ?DoctrinePolicy $policy = null,
         ?MeterInterface $meter = null,
         ?SpanOpenerInterface $spanOpener = null,
+        string $driver = 'pdo_pgsql',
     ): Connection {
         $reporter = new InstrumentationFailureReporter($this->logger);
 
@@ -112,7 +118,7 @@ abstract class DoctrineTelemetryTestCase extends TestCase
                 // Both keys on purpose: DriverManager instantiates driverClass and
                 // ignores driver, while the instrumentation reads driver to derive
                 // db.system.name — so the attributes are those of a real connection.
-                'driver' => 'pdo_pgsql',
+                'driver' => $driver,
                 'driverClass' => FakeDbalDriver::class,
                 'dbname' => 'app',
                 'host' => 'db.internal',

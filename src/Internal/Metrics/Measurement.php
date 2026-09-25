@@ -22,4 +22,16 @@ interface Measurement
     public function stop(array $attributes = []): void;
 
     public function cancel(): void;
+
+    /**
+     * Stops the clock without ending the interval. Time until `resume()` is not measured.
+     *
+     * For work that is handed out in pieces, such as a lazy result: the time a consumer
+     * spends between two pieces is the consumer's own work and not part of the operation
+     * being measured. Idempotent, and a no-op once the interval has ended.
+     */
+    public function pause(): void;
+
+    /** Restarts a paused clock. Idempotent, and a no-op unless paused. */
+    public function resume(): void;
 }

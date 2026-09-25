@@ -22,4 +22,10 @@ final readonly class NoopDuration implements Measurement, StartableDuration
 
     #[\Override]
     public function cancel(): void {}
+
+    #[\Override]
+    public function pause(): void {}
+
+    #[\Override]
+    public function resume(): void {}
 }

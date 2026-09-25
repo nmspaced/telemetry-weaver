@@ -60,6 +60,15 @@ interface SpanOwner
     /** Releases the activation, leaving the span open. */
     public function detach(): void;
 
+    /**
+     * Makes the span ambient again after `detach()`, until the next `detach()`.
+     *
+     * For work that resumes in pieces, such as a lazy result: each piece of backend work
+     * belongs under the operation, while the caller's code between the pieces does not.
+     * Does nothing for a span that is active already, was never activated, or has finished.
+     */
+    public function attach(): void;
+
     /** Detaches and ends. Idempotent. */
     public function finish(): void;
 }

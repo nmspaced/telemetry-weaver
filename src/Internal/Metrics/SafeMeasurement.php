@@ -37,6 +37,26 @@ final class SafeMeasurement implements Measurement
     }
 
     #[\Override]
+    public function pause(): void
+    {
+        try {
+            $this->timer?->pause();
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Duration pause failed', $this->name, $throwable);
+        }
+    }
+
+    #[\Override]
+    public function resume(): void
+    {
+        try {
+            $this->timer?->resume();
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('Duration resume failed', $this->name, $throwable);
+        }
+    }
+
+    #[\Override]
     public function cancel(): void
     {
         $timer = $this->timer;

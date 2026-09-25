@@ -7,10 +7,12 @@ namespace Nmspaced\TelemetryWeaver\Instrumentation\Cache;
 use Nmspaced\TelemetryWeaver\Api\Duration;
 use Nmspaced\TelemetryWeaver\Api\OperationContext;
 use Nmspaced\TelemetryWeaver\Api\Span;
-use Nmspaced\TelemetryWeaver\Api\Telemetry;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\DefaultBuckets;
 use Nmspaced\TelemetryWeaver\Internal\Metrics\Buckets\OperationBuckets;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
+use Nmspaced\TelemetryWeaver\Internal\Operation\PendingOperations;
 use OpenTelemetry\API\Metrics\CounterInterface;
+use Symfony\Component\Cache\CacheItem;
 
 /**
  * @internal Cache semantics; execution ownership belongs to the same API applications use.
@@ -22,7 +24,7 @@ final readonly class CacheTelemetry
     private Duration $duration;
 
     public function __construct(
-        private Telemetry $telemetry,
+        private BoundaryTelemetry $telemetry,
         OperationBuckets $buckets = DefaultBuckets::Cache,
     ) {
         $this->lookups = $telemetry->metrics()->counter('cache.lookup.count', '{lookup}', 'Number of cache lookups.');
@@ -51,6 +53,69 @@ final readonly class CacheTelemetry
             ->attributes($attributes + $spanAttributes)
             ->duration($this->duration, attributes: $attributes)
             ->run(static fn(OperationContext $context): mixed => $callback($context->span()));
+    }
+
+    /**
+     * A batch read whose result may be lazy, measured until the caller has read it.
+     *
+     * The call itself runs with the span active, like any other operation, so that anything
+     * the backend traces while fetching is its child. An array result has been read by then
+     * and the operation ends here. For anything else the caller drives the read: see
+     * {@see LazyCacheRead} for how the outcome, the span and the duration follow the
+     * iteration rather than the call. Until then the operation is in `$pending`, where a
+     * worker reset can abandon it.
+     *
+     * @param PendingOperations $pending the pool's own, which its `reset()` abandons
+     * @param non-empty-string $operation
+     * @param array<non-empty-string, bool|float|int|string|list<string>> $spanAttributes
+     * @param \Closure(): iterable<string, CacheItem> $read
+     *
+     * @return iterable<string, CacheItem>
+     *
+     * @throws \Throwable whatever the backend throws from the call, untouched
+     */
+    public function read(
+        PendingOperations $pending,
+        string $pool,
+        string $operation,
+        array $spanAttributes,
+        \Closure $read,
+    ): iterable {
+        $attributes = ['cache.pool.name' => $pool, 'cache.operation.name' => $operation];
+
+        $running = $this->telemetry
+            ->boundary(\sprintf('cache.%s', $operation))
+            ->attributes($attributes + $spanAttributes)
+            ->duration($this->duration, attributes: $attributes)
+            ->start();
+
+        try {
+            $items = $read();
+        } catch (\Throwable $throwable) {
+            $running->finish($throwable);
+
+            throw $throwable;
+        }
+
+        $onItem = function (CacheItem $item) use ($pool, $operation): void {
+            $this->lookup($pool, $operation, $item->isHit());
+        };
+
+        if (\is_array($items)) {
+            foreach ($items as $item) {
+                $onItem($item);
+            }
+
+            $running->finish();
+
+            return $items;
+        }
+
+        $running->suspend();
+
+        $pending->add($running);
+
+        return new LazyCacheRead($items, $running, $onItem);
     }
 
     /**

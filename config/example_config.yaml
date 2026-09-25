@@ -177,9 +177,10 @@ open_telemetry:
             # the defaults. The unit stays seconds either way.
             duration_buckets: []
 
-            # Records the statement as db.query.text. Raw SQL may carry literals and
-            # personal data, so this is opt-in.
-            query_text: false
+            # What db.query.text carries. sanitized: literals replaced by ?, and nothing
+            # for a statement that cannot be sanitized with certainty. raw: the
+            # statement as sent, literals and personal data included. off: nothing.
+            query_text: sanitized
 
             # Query spans only inside an existing trace. Keeps the orphan spans of
             # background polling — a Messenger transport doing BEGIN/SELECT/COMMIT

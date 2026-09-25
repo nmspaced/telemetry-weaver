@@ -62,6 +62,42 @@ final class TimerTest extends TestCase
         self::assertSame([[1_500.0, []]], $this->histogram->records);
     }
 
+    /**
+     * Paused time is not measured, and pausing or resuming twice changes nothing: the
+     * lazy reads that use this call both from more than one path.
+     */
+    #[Test]
+    public function pausedTimeIsLeftOut(): void
+    {
+        $timer = DurationTimer::started($this->histogram, DurationUnit::Milliseconds, $this->runtime);
+
+        $this->clock->advanceNanoseconds(1_000_000);
+        $timer->pause();
+        $timer->pause();
+
+        $this->clock->advanceNanoseconds(50_000_000);
+        $timer->resume();
+        $timer->resume();
+
+        $this->clock->advanceNanoseconds(2_000_000);
+        $timer->stop();
+
+        self::assertSame([[3.0, []]], $this->histogram->records);
+    }
+
+    #[Test]
+    public function aTimerStoppedWhilePausedRecordsWhatRanBefore(): void
+    {
+        $timer = DurationTimer::started($this->histogram, DurationUnit::Milliseconds, $this->runtime);
+
+        $this->clock->advanceNanoseconds(1_000_000);
+        $timer->pause();
+        $this->clock->advanceNanoseconds(50_000_000);
+        $timer->stop();
+
+        self::assertSame([[1.0, []]], $this->histogram->records);
+    }
+
     #[Test]
     public function attributesReachTheHistogram(): void
     {

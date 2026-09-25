@@ -9,6 +9,11 @@ use Nmspaced\TelemetryWeaver\Internal\Propagation\Propagation;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\RootTrace;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelPropagation;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpTelemetryTestCase;
+use OpenTelemetry\API\Baggage\Baggage;
+use OpenTelemetry\API\Baggage\Entry;
+use OpenTelemetry\API\Baggage\Propagation\BaggagePropagator;
+use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
+use OpenTelemetry\Context\Propagation\MultiTextMapPropagator;
 use OpenTelemetry\Context\Propagation\TextMapPropagatorInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -85,6 +90,112 @@ final class HttpParentContextTest extends HttpTelemetryTestCase
         $main = $this->exportedSpan(1);
         self::assertSame($main->getContext()->getSpanId(), $sub->getParentContext()->getSpanId());
         self::assertNotSame('b7ad6b7169203331', $sub->getParentContext()->getSpanId());
+        $this->assertNoReports();
+    }
+
+    /**
+     * `tracestate` is a list with an explicit combining rule, and a runtime that does not
+     * fold duplicate headers — any PSR-7 bridge, so RoadRunner — hands the `HeaderBag` one
+     * entry per header. Reading only the first silently drops every vendor after it.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function aTracestateSentAsSeveralHeadersKeepsEveryVendorInOrder(): void
+    {
+        $this->handle($this->request(static fn(): Response => new Response(), headers: [
+            'traceparent' => self::TRACEPARENT,
+            'tracestate' => ['vendor1=value1', 'vendor2=value2'],
+        ]));
+
+        $traceState = $this->exportedSpan()->getContext()->getTraceState();
+
+        self::assertNotNull($traceState);
+        self::assertSame('value1', $traceState->get('vendor1'));
+        self::assertSame('value2', $traceState->get('vendor2'), 'the second header was not dropped');
+        $this->assertNoReports();
+    }
+
+    /**
+     * The same for baggage, which W3C defines as a comma-separated list whose entries may
+     * arrive as separate headers. A tenant id in the second one is not optional.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function baggageSentAsSeveralHeadersKeepsEveryEntry(): void
+    {
+        $this->boot(propagator: new MultiTextMapPropagator([
+            TraceContextPropagator::getInstance(),
+            BaggagePropagator::getInstance(),
+        ]));
+
+        $entries = [];
+        $this->handle($this->request(static function () use (&$entries): Response {
+            foreach (Baggage::getCurrent()->getAll() as $key => $entry) {
+                $entries[$key] = $entry instanceof Entry && \is_string($entry->getValue()) ? $entry->getValue() : null;
+            }
+
+            return new Response();
+        }, headers: [
+            'traceparent' => self::TRACEPARENT,
+            'baggage' => ['tenant=one', 'region=west'],
+        ]));
+
+        self::assertSame(['tenant' => 'one', 'region' => 'west'], $entries);
+        $this->assertNoReports();
+    }
+
+    /**
+     * `http_server: traces: false` removes the server span, not the request's context: what
+     * the application sends downstream still continues the caller's trace and carries its
+     * baggage.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function withServerSpansOffTheIncomingContextStillReachesDownstreamCalls(): void
+    {
+        $propagator = new MultiTextMapPropagator([
+            TraceContextPropagator::getInstance(),
+            BaggagePropagator::getInstance(),
+        ]);
+        $this->serverSpans = $this->spans->suppressed();
+        $this->boot(propagator: $propagator);
+
+        $outgoing = [];
+        $this->handle($this->request(function () use ($propagator, &$outgoing): Response {
+            $propagator->inject($outgoing, null, $this->contextStorage->current());
+
+            return new Response();
+        }, headers: ['traceparent' => self::TRACEPARENT, 'baggage' => 'tenant=one']));
+
+        self::assertSame(['traceparent' => self::TRACEPARENT, 'baggage' => 'tenant=one'], $outgoing);
+        self::assertSame([], $this->exportedNames(), 'and no server span was recorded');
+        self::assertNull($this->contextStorage->scope(), 'the request released its context');
+        $this->assertNoReports();
+    }
+
+    /**
+     * `traceparent` is the one field a valid request carries at most once. Two of them are
+     * two callers disagreeing about the parent, not a longer header: joining them would
+     * assemble a syntactically valid traceparent out of an ambiguous request, and picking
+     * one is a coin toss. The request becomes a new root, which is what every other
+     * unusable boundary means here — and baggage, which is independent of tracing, still
+     * arrives.
+     *
+     * @throws \Throwable
+     */
+    #[Test]
+    public function twoTraceparentsAreRefusedRatherThanCombined(): void
+    {
+        $this->handle($this->request(static fn(): Response => new Response(), headers: [
+            'traceparent' => [self::TRACEPARENT, '00-' . \str_repeat('b', 32) . '-' . \str_repeat('c', 16) . '-01'],
+        ]));
+
+        $span = $this->exportedSpan();
+        self::assertFalse($span->getParentContext()->isValid());
+        self::assertNotSame('0af7651916cd43dd8448eb211c80319c', $span->getContext()->getTraceId());
         $this->assertNoReports();
     }
 

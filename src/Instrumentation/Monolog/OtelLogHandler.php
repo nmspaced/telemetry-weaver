@@ -9,6 +9,7 @@ use Monolog\Level;
 use Monolog\LogRecord;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\DiagnosticsLogger;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Internal\Tracing\LogCorrelation;
 use OpenTelemetry\API\Logs\LoggerProviderInterface;
 use OpenTelemetry\API\Logs\Severity;
 
@@ -34,23 +35,25 @@ use OpenTelemetry\API\Logs\Severity;
  *    request has to justify itself, and `OTEL_*` owns the SDK and the export while what
  *    gets recorded belongs to the bundle's own configuration.
  *
- * Trace correlation is not done here. The SDK stamps the active span onto the record at
- * emit, which is more accurate than anything this class could copy in, and it is why
- * `logs.correlation` can be off while export is on: that switch is about the fields
- * other handlers see, not about these records.
+ * Trace correlation is taken from the record, not from the context that happens to be
+ * current when it is exported. The SDK resolves an unset context lazily — `Context::
+ * getCurrent()` at the moment the record is read — which is the same thing as the active
+ * span only while emit happens inside the operation that logged. Behind a `BufferHandler`
+ * or `FingersCrossedHandler` it does not: the records are delivered at flush, by which
+ * time the operation has finished and the record would be stamped with no trace at all,
+ * or with whichever unrelated trace the flush ran inside.
+ *
+ * So the snapshot {@see TraceContextProcessor} takes when the record is created decides,
+ * read back through {@see TraceContextSnapshot}. It can only be taken there: a handler
+ * receives the record at flush, and a processor is the only part of Monolog that runs
+ * while the record is still inside its operation. The handler is given a `LogCorrelation`
+ * only when that processor is in the stack. Without it, the record carries no snapshot and
+ * the SDK's own resolution is left in place. That is correct for an unbuffered stack, and
+ * it is what `logs.correlation: false` has always meant.
  */
 final class OtelLogHandler extends AbstractProcessingHandler
 {
     private const string WHERE = 'monolog';
-
-    /**
-     * Written into `extra` by {@see TraceContextProcessor} for handlers that cannot ask
-     * the SDK. Here they would be a second, staler copy of what the record already
-     * carries natively.
-     *
-     * @var list<string>
-     */
-    private const array CORRELATION_KEYS = ['trace_id', 'span_id', 'trace_flags'];
 
     /** One logger per channel, bounded; see `ChannelLoggers`. */
     private readonly ChannelLoggers $loggers;
@@ -67,25 +70,20 @@ final class OtelLogHandler extends AbstractProcessingHandler
     /** @var list<string> */
     private readonly array $refused;
 
-    /**
-     * @param non-empty-string $level a PSR-3 level name; the configuration tree is what
-     *                                constrains it to one of the eight
-     * @param list<string> $excludedChannels channels never exported, whatever their level
-     */
     public function __construct(
         LoggerProviderInterface $loggerProvider,
         private readonly InstrumentationFailureReporter $reporter,
-        string $level = 'info',
+        LogExportPolicy $policy = new LogExportPolicy(),
+        private readonly ?LogCorrelation $correlation = null,
         bool $bubble = true,
-        array $excludedChannels = [],
     ) {
-        parent::__construct(self::level($level), $bubble);
+        parent::__construct(self::level($policy->level), $bubble);
         $this->loggers = new ChannelLoggers($loggerProvider);
         // Added rather than left to configuration: the bundle's own diagnostics channel
         // carries the reports about failing exports, and exporting those is what turns one
         // unreachable collector into a queue that refills itself on every flush. A default
         // an application could overwrite would make that a foot-gun.
-        $this->refused = [...$excludedChannels, DiagnosticsLogger::CHANNEL];
+        $this->refused = [...$policy->excludedChannels, DiagnosticsLogger::CHANNEL];
     }
 
     /**
@@ -130,6 +128,8 @@ final class OtelLogHandler extends AbstractProcessingHandler
             ->setSeverityText($record->level->getName())
             ->setBody($record->message);
 
+        $this->correlation?->correlate($builder, TraceContextSnapshot::read($record));
+
         /** @var mixed $value */
         foreach ($record->context as $key => $value) {
             if ($key === 'exception' && $value instanceof \Throwable) {
@@ -143,7 +143,7 @@ final class OtelLogHandler extends AbstractProcessingHandler
 
         /** @var mixed $value */
         foreach ($record->extra as $key => $value) {
-            if (\in_array($key, self::CORRELATION_KEYS, true)) {
+            if (\in_array($key, TraceContextSnapshot::KEYS, true)) {
                 continue;
             }
 
