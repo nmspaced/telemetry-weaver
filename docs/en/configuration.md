@@ -126,9 +126,11 @@ Decide sampling before you shrink queues to compensate for volume.
 rate. Use `always_on` for local development.
 
 The bundle builds the batch processor with auto-flush disabled. `span->end()` only enqueues, and
-the queue drains at execution boundaries. If the queue fills before the next boundary, spans are
-dropped rather than exported inline: bounded loss instead of an unbounded queue or a network wait
-inside business code. Size the queue for the volume **per worker**.
+the queue drains at execution boundaries: after the schedule delay, or at the first boundary that
+finds a full batch waiting. Spans that overflow the queue within one unit of work are dropped
+rather than exported inline: bounded loss instead of an unbounded queue or a network wait inside
+business code. The next boundary logs the loss. Size the queue for the busiest single request,
+message or command **per worker**.
 
 `OTEL_PHP_TRACES_PROCESSOR=simple` opts out of all of that and exports when a span ends, which
 puts the collector's latency back on the request path.

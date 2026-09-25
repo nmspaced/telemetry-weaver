@@ -19,12 +19,14 @@ final class SignalFlusher
     /**
      * @param int<0, max> $failureCooldownMilliseconds
      */
+    // @mago-expect lint:excessive-parameter-list — the cooldown and clock are defaulted test seams
     public function __construct(
         private readonly TracerProviderInterface|LoggerProviderInterface|MeterProviderInterface $provider,
         private readonly FlushPolicy $flushPolicy,
         private readonly ExportFailureReporter $failures,
         private readonly int $failureCooldownMilliseconds = 30_000,
         private readonly ClockInterface $clock = new MonotonicClock(),
+        private readonly ExportBacklog $backlog = new ExportBacklog(),
     ) {}
 
     /** @return non-empty-string */
@@ -33,9 +35,15 @@ final class SignalFlusher
         return $this->flushPolicy->signal();
     }
 
+    /** Flushes on the schedule, or early when a full batch waits; never during a cooldown. */
     public function atBoundary(): void
     {
-        if ($this->clock->now() < $this->retryAt || !$this->flushPolicy->shouldFlush()) {
+        $this->reportDropped();
+
+        if (
+            $this->clock->now() < $this->retryAt
+            || !$this->flushPolicy->shouldFlush($this->backlog->holdsFullBatch())
+        ) {
             return;
         }
 
@@ -45,7 +53,28 @@ final class SignalFlusher
     /** A final attempt ignores the interval and cooldown; the shared budget still applies. */
     public function atShutdown(): void
     {
+        $this->reportDropped();
         $this->flush(true);
+    }
+
+    /** Reported before a flush, so it cannot count as that flush's failure. */
+    private function reportDropped(): void
+    {
+        $dropped = $this->backlog->takeDropped();
+
+        if ($dropped === 0) {
+            return;
+        }
+
+        $this->failures->record(
+            'Telemetry export queue overflowed',
+            new \OverflowException(\sprintf(
+                '%d %s records were dropped: the queue filled up before a boundary could export it',
+                $dropped,
+                $this->flushPolicy->signal(),
+            )),
+            ['signal' => $this->flushPolicy->signal(), 'dropped' => $dropped],
+        );
     }
 
     private function flush(bool $shutdown): void

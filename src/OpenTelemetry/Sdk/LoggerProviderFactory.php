@@ -17,7 +17,8 @@ use OpenTelemetry\SDK\Resource\ResourceInfo;
 
 /**
  * Builds the logger provider with a batch processor that never exports from `emit()`; a no-op
- * provider when nothing receives records. Queues drain at execution boundaries.
+ * provider when nothing receives records. Queues drain at execution boundaries, early once
+ * {@see ExportBacklog} holds a full batch.
  */
 final readonly class LoggerProviderFactory
 {
@@ -27,25 +28,29 @@ final readonly class LoggerProviderFactory
     ) {}
 
     /**
+     * @param ExportBacklog|null $backlog shared with the boundary flush; null sizes it from OTEL_BLRP_*
+     *
      * @throws \InvalidArgumentException when the OTEL_BLRP_* sizes contradict each other
      */
-    public function create(): LoggerProviderInterface
+    public function create(?ExportBacklog $backlog = null): LoggerProviderInterface
     {
         if ($this->logRecordExporter === null) {
             return new NoopLoggerProvider();
         }
 
-        $processor = new BatchLogRecordProcessor(
-            $this->logRecordExporter,
-            Clock::getDefault(),
-            Configuration::getInt(Variables::OTEL_BLRP_MAX_QUEUE_SIZE, Defaults::OTEL_BLRP_MAX_QUEUE_SIZE),
-            Configuration::getInt(Variables::OTEL_BLRP_SCHEDULE_DELAY, Defaults::OTEL_BLRP_SCHEDULE_DELAY),
-            Configuration::getInt(Variables::OTEL_BLRP_EXPORT_TIMEOUT, Defaults::OTEL_BLRP_EXPORT_TIMEOUT),
-            Configuration::getInt(
-                Variables::OTEL_BLRP_MAX_EXPORT_BATCH_SIZE,
-                Defaults::OTEL_BLRP_MAX_EXPORT_BATCH_SIZE,
+        $backlog ??= ExportBacklog::logRecords();
+
+        $processor = new BacklogLogRecordProcessor(
+            new BatchLogRecordProcessor(
+                $this->logRecordExporter,
+                Clock::getDefault(),
+                $backlog->capacity,
+                Configuration::getInt(Variables::OTEL_BLRP_SCHEDULE_DELAY, Defaults::OTEL_BLRP_SCHEDULE_DELAY),
+                Configuration::getInt(Variables::OTEL_BLRP_EXPORT_TIMEOUT, Defaults::OTEL_BLRP_EXPORT_TIMEOUT),
+                $backlog->batchSize,
+                autoFlush: false,
             ),
-            autoFlush: false,
+            $backlog,
         );
 
         return LoggerProvider::builder()

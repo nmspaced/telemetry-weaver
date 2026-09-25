@@ -27,8 +27,15 @@ instrumentation and application code
       OTLP transports
 ```
 
-A queue that fills before the next boundary drops records. That is deliberate: bounded loss is a
-better failure than an unbounded queue or a network wait inside business code. Queue sizes are
+A boundary exports a queue on the SDK's schedule: once `OTEL_BSP_SCHEDULE_DELAY` (or
+`OTEL_BLRP_SCHEDULE_DELAY`) has passed, or as soon as the queue holds a full batch of
+`OTEL_BSP_MAX_EXPORT_BATCH_SIZE` (`OTEL_BLRP_MAX_EXPORT_BATCH_SIZE`) records. A busy worker therefore
+exports every few requests instead of letting its queue overflow between two scheduled flushes.
+
+A queue can still fill inside one unit of work, such as a single request, message or command that
+produces more records than the queue holds. The excess is dropped, not exported inline: bounded
+loss is a better failure than an unbounded queue or a network wait inside business code. The next
+boundary logs how many records were dropped on the `open_telemetry` channel. Queue sizes are
 `OTEL_BSP_MAX_QUEUE_SIZE` and `OTEL_BLRP_MAX_QUEUE_SIZE`, and they apply per worker.
 
 Metrics differ only in that there is nothing to enqueue. They are collected and exported at the

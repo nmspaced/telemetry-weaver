@@ -22,7 +22,8 @@ use OpenTelemetry\SDK\Trace\TracerProviderInterface;
 
 /**
  * Builds the tracer provider with a batch processor that never exports from `span->end()`;
- * queues drain at execution boundaries instead.
+ * queues drain at execution boundaries instead, and {@see ExportBacklog} tells a boundary when
+ * a full batch is waiting.
  *
  * Configured sampler, id generator and span processors are added to this pipeline; extra
  * processors run before the batch processor.
@@ -38,14 +39,17 @@ final readonly class TracerProviderFactory
     ) {}
 
     /**
+     * @param ExportBacklog|null $backlog shared with the boundary flush; null sizes it from OTEL_BSP_*
+     *
      * @throws \RuntimeException
      */
-    public function create(): TracerProviderInterface
+    public function create(?ExportBacklog $backlog = null): TracerProviderInterface
     {
+        $backlog ??= ExportBacklog::spans();
         $internalMeterProvider = $this->internalMeterProvider();
 
         $processors = \iterator_to_array($this->decisions->spanProcessors, false);
-        $processors[] = $this->spanProcessor($internalMeterProvider);
+        $processors[] = $this->spanProcessor($internalMeterProvider, $backlog);
 
         return new TracerProvider(
             spanProcessors: $processors,
@@ -69,8 +73,10 @@ final readonly class TracerProviderFactory
     /**
      * @throws \RuntimeException
      */
-    private function spanProcessor(?MeterProviderInterface $internalMeterProvider): SpanProcessorInterface
-    {
+    private function spanProcessor(
+        ?MeterProviderInterface $internalMeterProvider,
+        ExportBacklog $backlog,
+    ): SpanProcessorInterface {
         if (
             $this->spanExporter === null
             || Configuration::getEnum(Variables::OTEL_PHP_TRACES_PROCESSOR) !== KnownValues::VALUE_BATCH
@@ -78,18 +84,18 @@ final readonly class TracerProviderFactory
             return new SpanProcessorFactory()->create($this->spanExporter, $internalMeterProvider);
         }
 
-        return new BatchSpanProcessor(
-            $this->spanExporter,
-            Clock::getDefault(),
-            Configuration::getInt(Variables::OTEL_BSP_MAX_QUEUE_SIZE, BatchSpanProcessor::DEFAULT_MAX_QUEUE_SIZE),
-            Configuration::getInt(Variables::OTEL_BSP_SCHEDULE_DELAY, BatchSpanProcessor::DEFAULT_SCHEDULE_DELAY),
-            Configuration::getInt(Variables::OTEL_BSP_EXPORT_TIMEOUT, BatchSpanProcessor::DEFAULT_EXPORT_TIMEOUT),
-            Configuration::getInt(
-                Variables::OTEL_BSP_MAX_EXPORT_BATCH_SIZE,
-                BatchSpanProcessor::DEFAULT_MAX_EXPORT_BATCH_SIZE,
+        return new BacklogSpanProcessor(
+            new BatchSpanProcessor(
+                $this->spanExporter,
+                Clock::getDefault(),
+                $backlog->capacity,
+                Configuration::getInt(Variables::OTEL_BSP_SCHEDULE_DELAY, BatchSpanProcessor::DEFAULT_SCHEDULE_DELAY),
+                Configuration::getInt(Variables::OTEL_BSP_EXPORT_TIMEOUT, BatchSpanProcessor::DEFAULT_EXPORT_TIMEOUT),
+                $backlog->batchSize,
+                autoFlush: false,
+                meterProvider: $internalMeterProvider ?? new NoopMeterProvider(),
             ),
-            autoFlush: false,
-            meterProvider: $internalMeterProvider ?? new NoopMeterProvider(),
+            $backlog,
         );
     }
 }

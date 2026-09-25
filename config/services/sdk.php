@@ -22,6 +22,7 @@ use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelResponsePropagation;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelTraceCorrelationSource;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\GlobalsRegistrar;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\BudgetedOtlpTransports;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\ExportBacklog;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\Exporter\ResilientExporters;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\LoggerProviderFactory;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Sdk\LogRecordExporterFactory;
@@ -115,6 +116,8 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(MetricExporterInterface::class)->factory([service(MetricExporterFactory::class), 'create']);
 
+    $services->set('open_telemetry.traces.backlog', ExportBacklog::class)->factory(ExportBacklog::spans(...));
+
     $services
         ->set(TracerProviderFactory::class)
         ->arg('$resourceInfo', service(ResourceInfo::class))
@@ -128,12 +131,14 @@ return static function (ContainerConfigurator $container): void {
 
     $services
         ->set('open_telemetry.traces.provider', TracerProviderInterface::class)
-        ->factory([service(TracerProviderFactory::class), 'create']);
+        ->factory([service(TracerProviderFactory::class), 'create'])
+        ->arg('$backlog', service('open_telemetry.traces.backlog'));
 
     $services
         ->set(TracerProviderInterface::class)
         ->factory([service(ProviderRegistry::class), 'traces'])
-        ->arg('$provider', service('open_telemetry.traces.provider'));
+        ->arg('$provider', service('open_telemetry.traces.provider'))
+        ->arg('$backlog', service('open_telemetry.traces.backlog'));
 
     $services
         ->set(TracerInterface::class)
@@ -205,6 +210,8 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(TextMapPropagatorInterface::class)->factory([service(PropagatorFactory::class), 'create']);
 
+    $services->set('open_telemetry.logs.backlog', ExportBacklog::class)->factory(ExportBacklog::logRecords(...));
+
     $services
         ->set(LoggerProviderFactory::class)
         ->arg('$resourceInfo', service(ResourceInfo::class))
@@ -212,12 +219,14 @@ return static function (ContainerConfigurator $container): void {
 
     $services
         ->set('open_telemetry.logs.provider', LoggerProviderInterface::class)
-        ->factory([service(LoggerProviderFactory::class), 'create']);
+        ->factory([service(LoggerProviderFactory::class), 'create'])
+        ->arg('$backlog', service('open_telemetry.logs.backlog'));
 
     $services
         ->set('open_telemetry.logger_provider', LoggerProviderInterface::class)
         ->factory([service(ProviderRegistry::class), 'logs'])
-        ->arg('$provider', service('open_telemetry.logs.provider'));
+        ->arg('$provider', service('open_telemetry.logs.provider'))
+        ->arg('$backlog', service('open_telemetry.logs.backlog'));
 
     $services
         ->set(LogRecordExporterFactory::class)

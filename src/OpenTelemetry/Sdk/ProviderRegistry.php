@@ -39,9 +39,14 @@ final class ProviderRegistry
     /**
      * Registers a provider for boundary flushes and shutdown and returns it. No-op providers
      * are returned unregistered.
+     *
+     * @param ExportBacklog $backlog what the provider's batch processor holds; a provider the
+     *                               bundle did not build has none to track
      */
-    public function traces(TracerProviderInterface $provider): TracerProviderInterface
-    {
+    public function traces(
+        TracerProviderInterface $provider,
+        ExportBacklog $backlog = new ExportBacklog(),
+    ): TracerProviderInterface {
         if (!$provider instanceof NoopTracerProvider) {
             $this->add(
                 new SignalFlusher(
@@ -49,6 +54,7 @@ final class ProviderRegistry
                     FlushPolicy::onSdkSchedule('traces'),
                     $this->failures,
                     $this->failureCooldownMilliseconds,
+                    backlog: $backlog,
                 ),
             );
         }
@@ -57,8 +63,10 @@ final class ProviderRegistry
     }
 
     /** @see traces() */
-    public function logs(LoggerProviderInterface $provider): LoggerProviderInterface
-    {
+    public function logs(
+        LoggerProviderInterface $provider,
+        ExportBacklog $backlog = new ExportBacklog(),
+    ): LoggerProviderInterface {
         if (!$provider instanceof NoopLoggerProvider) {
             $this->add(
                 new SignalFlusher(
@@ -66,6 +74,7 @@ final class ProviderRegistry
                     FlushPolicy::onSdkSchedule('logs'),
                     $this->failures,
                     $this->failureCooldownMilliseconds,
+                    backlog: $backlog,
                 ),
             );
         }

@@ -12,7 +12,8 @@ use OpenTelemetry\SDK\Common\Configuration\Variables;
 
 /**
  * How often a boundary may drain a signal's queue: the first boundary of a process flushes,
- * then at most once per interval. State is process-wide, so it survives container rebuilds.
+ * then once per interval, or sooner when a full batch is waiting, as the SDK schedule does.
+ * State is process-wide, so it survives container rebuilds.
  *
  * @internal
  */
@@ -94,11 +95,12 @@ final class FlushPolicy
         return $this->signal;
     }
 
-    public function shouldFlush(): bool
+    /** @param bool $batchReady the queue holds a full export batch */
+    public function shouldFlush(bool $batchReady = false): bool
     {
         $now = $this->clock->now();
 
-        if ($now < (self::$state[$this->signal] ?? 0)) {
+        if (!$batchReady && $now < (self::$state[$this->signal] ?? 0)) {
             return false;
         }
 
