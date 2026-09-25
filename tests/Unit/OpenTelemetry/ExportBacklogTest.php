@@ -31,7 +31,7 @@ final class ExportBacklogTest extends TestCase
     {
         $backlog = new ExportBacklog(batchSize: 1, capacity: 10);
         $backlog->added();
-        $backlog->drained();
+        $backlog->completed(1);
 
         self::assertFalse($backlog->holdsFullBatch());
     }
@@ -45,7 +45,7 @@ final class ExportBacklogTest extends TestCase
             $backlog->added();
         }
 
-        $backlog->drained();
+        $backlog->completed(2);
 
         self::assertSame(3, $backlog->takeDropped(), 'a flush empties the queue, not the loss');
         self::assertSame(0, $backlog->takeDropped());

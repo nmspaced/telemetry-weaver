@@ -86,7 +86,7 @@ final readonly class TracerProviderFactory
 
         return new BacklogSpanProcessor(
             new BatchSpanProcessor(
-                $this->spanExporter,
+                new BacklogSpanExporter($this->spanExporter, $backlog),
                 Clock::getDefault(),
                 $backlog->capacity,
                 Configuration::getInt(Variables::OTEL_BSP_SCHEDULE_DELAY, BatchSpanProcessor::DEFAULT_SCHEDULE_DELAY),

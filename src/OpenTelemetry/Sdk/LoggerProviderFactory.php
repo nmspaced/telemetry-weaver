@@ -42,7 +42,7 @@ final readonly class LoggerProviderFactory
 
         $processor = new BacklogLogRecordProcessor(
             new BatchLogRecordProcessor(
-                $this->logRecordExporter,
+                new BacklogLogRecordExporter($this->logRecordExporter, $backlog),
                 Clock::getDefault(),
                 $backlog->capacity,
                 Configuration::getInt(Variables::OTEL_BLRP_SCHEDULE_DELAY, Defaults::OTEL_BLRP_SCHEDULE_DELAY),

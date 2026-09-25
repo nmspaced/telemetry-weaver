@@ -31,20 +31,14 @@ final readonly class BacklogLogRecordProcessor implements LogRecordProcessorInte
     #[\Override]
     public function forceFlush(?CancellationInterface $cancellation = null): bool
     {
-        try {
-            return $this->delegate->forceFlush($cancellation);
-        } finally {
-            $this->backlog->drained();
-        }
+        return $this->delegate->forceFlush($cancellation);
     }
 
     #[\Override]
     public function shutdown(?CancellationInterface $cancellation = null): bool
     {
-        try {
-            return $this->delegate->shutdown($cancellation);
-        } finally {
-            $this->backlog->drained();
-        }
+        $this->backlog->close();
+
+        return $this->delegate->shutdown($cancellation);
     }
 }

@@ -9,7 +9,7 @@ use OpenTelemetry\SDK\Common\Configuration\Defaults;
 use OpenTelemetry\SDK\Common\Configuration\Variables;
 
 /**
- * What one batch processor's queue holds since its last flush, so a boundary can export a full
+ * What one batch processor's queue holds, including a batch being exported, so a boundary can export a full
  * batch before the schedule delay, as the SDK would from `onEnd()`. It is also where the batch
  * processor's sizes come from, so both see the same limits.
  *
@@ -22,6 +22,8 @@ final class ExportBacklog
     private int $queued = 0;
 
     private int $dropped = 0;
+
+    private bool $closed = false;
 
     public function __construct(
         public readonly int $batchSize = \PHP_INT_MAX,
@@ -50,6 +52,10 @@ final class ExportBacklog
     /** A record reached the processor; past capacity the processor drops it. */
     public function added(): void
     {
+        if ($this->closed) {
+            return;
+        }
+
         if ($this->queued >= $this->capacity) {
             ++$this->dropped;
 
@@ -59,10 +65,16 @@ final class ExportBacklog
         ++$this->queued;
     }
 
-    /** The processor exported or discarded everything it held. */
-    public function drained(): void
+    /** The SDK releases a batch after export finishes, including failed exports. */
+    public function completed(int $count): void
     {
-        $this->queued = 0;
+        $this->queued -= $count;
+    }
+
+    /** Shutdown stops accepting records before it exports the remaining batches. */
+    public function close(): void
+    {
+        $this->closed = true;
     }
 
     public function holdsFullBatch(): bool
