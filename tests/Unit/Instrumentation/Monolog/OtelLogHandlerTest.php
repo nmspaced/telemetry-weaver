@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Unit\Instrumentation\Monolog;
 
+use Monolog\Level;
 use Monolog\Logger;
 use Monolog\LogRecord;
+use Nmspaced\TelemetryWeaver\Api\SpanKind;
 use Nmspaced\TelemetryWeaver\Instrumentation\Monolog\OtelLogHandler;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\DiagnosticsLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\OtelLogHandlerTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -107,5 +110,43 @@ final class OtelLogHandlerTest extends OtelLogHandlerTestCase
 
         self::assertCount(1, $this->records());
         self::assertSame('kept', $this->record()->getBody());
+    }
+
+    #[Test]
+    public function enumsAndStringablesInTheContextAreExportedByValue(): void
+    {
+        $logger = new Logger('app', [$this->handler()]);
+        $logger->info('sent', [
+            'level' => Level::Error,
+            'kind' => SpanKind::Client,
+            'error' => new \RuntimeException('boom'),
+        ]);
+
+        $attributes = $this->record()->getAttributes();
+        self::assertSame(400, $attributes->get('context.level'));
+        self::assertSame('Client', $attributes->get('context.kind'), 'a pure enum is exported by its case name');
+        self::assertStringStartsWith('RuntimeException: boom', (string) $attributes->get('context.error'));
+    }
+
+    /** @return iterable<string, array{non-empty-string, Level}> */
+    public static function levels(): iterable
+    {
+        yield 'debug' => ['debug', Level::Debug];
+        yield 'info' => ['info', Level::Info];
+        yield 'notice' => ['notice', Level::Notice];
+        yield 'warning' => ['warning', Level::Warning];
+        yield 'error' => ['error', Level::Error];
+        yield 'critical' => ['critical', Level::Critical];
+        yield 'alert' => ['alert', Level::Alert];
+        yield 'emergency' => ['emergency', Level::Emergency];
+        yield 'unknown falls back to info' => ['verbose', Level::Info];
+    }
+
+    /** @param non-empty-string $name */
+    #[Test]
+    #[DataProvider('levels')]
+    public function theConfiguredLevelNameSetsTheThreshold(string $name, Level $expected): void
+    {
+        self::assertSame($expected, $this->handler(level: $name)->getLevel());
     }
 }

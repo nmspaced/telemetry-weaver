@@ -15,12 +15,14 @@ use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalMeterProvider;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\SignalTracerProvider;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryTestCase;
 use OpenTelemetry\API\Baggage\Propagation\BaggagePropagator;
+use OpenTelemetry\API\Metrics\MeterProviderInterface;
 use OpenTelemetry\API\Metrics\Noop\NoopMeterProvider;
 use OpenTelemetry\API\Trace\NoopTracerProvider;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanContext;
 use OpenTelemetry\API\Trace\TraceFlags;
+use OpenTelemetry\API\Trace\TracerProviderInterface;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\Propagation\MultiTextMapPropagator;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -36,6 +38,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
 
     private const string SPAN_ID = 'b7ad6b7169203331';
 
+    /** @throws \Throwable */
     #[Test]
     public function aSwitchedOffSignalHandsOutTheNoopProvider(): void
     {
@@ -44,6 +47,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         self::assertInstanceOf(NoopMeterProvider::class, SignalMeterProvider::create(new NoopMeterProvider(), false));
     }
 
+    /** @throws \Throwable */
     #[Test]
     public function aScopeOnTheNoopTracerProviderActivatesNoContext(): void
     {
@@ -114,6 +118,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         self::assertNull($this->contextStorage->scope(), 'and the boundary released its context');
     }
 
+    /** @throws \Throwable */
     #[Test]
     public function aScopeOnARealTracerProviderRecordsSpans(): void
     {
@@ -130,7 +135,45 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
         self::assertSame(['work'], $this->exportedNames());
     }
 
-    private function noopScope(): Telemetry
+    /** @throws \Throwable */
+    #[Test]
+    public function anEmptyScopeNameIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->noopScope('');
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function providersThatCannotResolveAScopeLeaveAWorkingNoopScope(): void
+    {
+        $tracers = $this->createStub(TracerProviderInterface::class);
+        $tracers->method('getTracer')->willThrowException(new \RuntimeException('tracer unavailable'));
+        $meters = $this->createStub(MeterProviderInterface::class);
+        $meters->method('getMeter')->willThrowException(new \RuntimeException('meter unavailable'));
+        $telemetry = new ScopedTelemetryFactory(
+            $tracers,
+            $meters,
+            $this->contextStorage,
+            new OtelDurationRecorder(),
+            $this->reporter,
+        )->scope('probe');
+
+        self::assertSame(42, $telemetry->trace('work', static fn(): int => 42));
+        $telemetry->metrics()->counter('probe.count')->add(1);
+
+        self::assertSame([], $this->exportedNames());
+        self::assertSame(
+            [
+                'OpenTelemetry lifecycle: Tracer resolution failed at "probe": tracer unavailable (1 total in this process)',
+                'OpenTelemetry lifecycle: Meter resolution failed at "probe": meter unavailable (2 total in this process)',
+            ],
+            $this->logger->messages(),
+        );
+    }
+
+    private function noopScope(string $name = 'probe'): Telemetry
     {
         return new ScopedTelemetryFactory(
             new NoopTracerProvider(),
@@ -138,7 +181,7 @@ final class ScopedTelemetryFactoryTest extends TelemetryTestCase
             $this->contextStorage,
             new OtelDurationRecorder(),
             $this->reporter,
-        )->scope('probe');
+        )->scope($name);
     }
 
     /** @return array<array-key, mixed> */

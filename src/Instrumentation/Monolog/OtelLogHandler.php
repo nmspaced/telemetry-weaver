@@ -134,6 +134,10 @@ final class OtelLogHandler extends AbstractProcessingHandler
             return $value->value;
         }
 
+        if ($value instanceof \UnitEnum) {
+            return $value->name;
+        }
+
         if ($value instanceof \Stringable) {
             return (string) $value;
         }

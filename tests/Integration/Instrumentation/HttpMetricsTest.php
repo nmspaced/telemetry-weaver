@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpMetricsTestCase;
+use Nmspaced\TelemetryWeaver\Tests\Support\MetricPoints;
 use OpenTelemetry\SDK\Metrics\Data\Histogram;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -160,5 +162,64 @@ final class HttpMetricsTest extends HttpMetricsTestCase
             self::assertSame('/orders/{id}', $point->attributes->get('http.route'));
             self::assertNull($point->attributes->get('http.request.method_original'));
         }
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function declaredBodySizesAreRecordedWithTheDurationLabels(): void
+    {
+        $this->handle($this->request(static fn(): Response => new Response('hello'), headers: [
+            'Content-Length' => '42',
+        ]));
+
+        $duration = MetricPoints::firstHistogram($this->metric('http.server.request.duration'));
+        $request = MetricPoints::firstHistogram($this->metric('http.server.request.body.size'));
+        $response = MetricPoints::firstHistogram($this->metric('http.server.response.body.size'));
+        self::assertSame(42.0, $request->sum);
+        self::assertSame(5.0, $response->sum);
+        self::assertSame($duration->attributes->toArray(), $request->attributes->toArray());
+        self::assertSame($duration->attributes->toArray(), $response->attributes->toArray());
+        $this->assertNoReports();
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function anUnknownBodySizeIsNotRecordedAsZero(): void
+    {
+        $this->handle($this->request(
+            static fn(): Response => new StreamedResponse(static function (): void {}),
+            headers: ['Content-Length' => 'chunked'],
+        ));
+
+        self::assertCount(1, MetricPoints::of($this->metric('http.server.request.duration')));
+        self::assertSame([], MetricPoints::of($this->metric('http.server.request.body.size')));
+        self::assertSame([], MetricPoints::of($this->metric('http.server.response.body.size')));
+    }
+
+    /** @return iterable<string, array{string, string|null}> */
+    public static function protocols(): iterable
+    {
+        yield 'HTTP/1.0' => ['HTTP/1.0', '1.0'];
+        yield 'HTTP/1.1' => ['HTTP/1.1', '1.1'];
+        yield 'HTTP/2' => ['HTTP/2', '2'];
+        yield 'HTTP/3.0' => ['HTTP/3.0', '3'];
+        yield 'unknown is left out' => ['SPDY/3', null];
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    #[DataProvider('protocols')]
+    public function theProtocolVersionIsNormalized(string $protocol, ?string $expected): void
+    {
+        $request = $this->request(static fn(): Response => new Response());
+        $request->server->set('SERVER_PROTOCOL', $protocol);
+        $this->handle($request);
+
+        self::assertSame(
+            $expected,
+            MetricPoints::firstHistogram($this->metric('http.server.request.duration'))->attributes->get(
+                'network.protocol.version',
+            ),
+        );
     }
 }

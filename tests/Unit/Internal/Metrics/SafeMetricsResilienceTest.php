@@ -13,10 +13,15 @@ use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelDurationRecorder;
 use Nmspaced\TelemetryWeaver\Tests\Support\MetricPoints;
 use Nmspaced\TelemetryWeaver\Tests\Support\PublicTelemetryTestCase;
 use OpenTelemetry\API\Common\Time\ClockInterface;
+use OpenTelemetry\API\Metrics\CounterInterface;
+use OpenTelemetry\API\Metrics\GaugeInterface;
 use OpenTelemetry\API\Metrics\HistogramInterface;
 use OpenTelemetry\API\Metrics\MeterInterface;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
+use OpenTelemetry\API\Metrics\ObserverInterface;
+use OpenTelemetry\API\Metrics\UpDownCounterInterface;
 use OpenTelemetry\API\Trace\Span as OtelSpan;
+use OpenTelemetry\SDK\Metrics\Data\Metric;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -141,6 +146,67 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         $measurement->stop();
         $measurement->stop();
         self::assertSame(6, $this->reporter->total());
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function recordingFailuresOfEveryInstrumentKindAreContained(): void
+    {
+        $failure = new \RuntimeException('record failed');
+        $counter = $this->createStub(CounterInterface::class);
+        $counter->method('add')->willThrowException($failure);
+        $upDown = $this->createStub(UpDownCounterInterface::class);
+        $upDown->method('add')->willThrowException($failure);
+        // @mago-expect analysis:experimental-usage — the synchronous Gauge is stable in the metrics spec
+        $gauge = $this->createStub(GaugeInterface::class);
+        $gauge->method('record')->willThrowException($failure);
+        $meter = $this->createStub(MeterInterface::class);
+        $meter->method('createCounter')->willReturn($counter);
+        $meter->method('createUpDownCounter')->willReturn($upDown);
+        $meter->method('createGauge')->willReturn($gauge);
+        $meter->method('createObservableGauge')->willThrowException(new \RuntimeException('observable creation'));
+        $metrics = new SafeMetrics($meter, $this->reporter, new OtelDurationRecorder(), $this->clock);
+
+        $metrics->counter('count')->add(1);
+        $metrics->upDownCounter('in.flight')->add(-1);
+        $metrics->gauge('depth')->record(3);
+        $metrics->observableGauge('memory', static fn(ObserverInterface $_observer): null => null)->detach();
+
+        self::assertSame(4, $this->reporter->total());
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aFailingObservationIsReportedAndTheCollectionGoesOn(): void
+    {
+        $metrics = $this->telemetry()->metrics();
+        $broken = $metrics->observableCounter(
+            'app.broken',
+            /** @throws \RuntimeException */ static function (ObserverInterface $_observer): never {
+                throw new \RuntimeException('observer crashed');
+            },
+        );
+        $working = $metrics->observableCounter(
+            'app.working',
+            static fn(ObserverInterface $observer): null => $observer->observe(7) ?? null,
+        );
+
+        try {
+            $this->meters->forceFlush();
+            $names = \array_map(
+                static fn(Metric $metric): string => $metric->name,
+                \array_filter(
+                    $this->metricExporter->collect(true),
+                    static fn(Metric $metric): bool => MetricPoints::of($metric) !== [],
+                ),
+            );
+        } finally {
+            $broken->detach();
+            $working->detach();
+        }
+
+        self::assertSame(['app.working'], \array_values($names));
+        self::assertStringContainsString('Observation failed at "app.broken"', $this->logger->messageAt(0));
     }
 
     /** @throws \Throwable */

@@ -82,4 +82,35 @@ final class SerializerRegistrationTest extends ContainerTestCase
         self::assertFalse($container->hasDefinition('serializer.open_telemetry'));
         self::assertInstanceOf(ProfilerSerializer::class, $container->get('serializer'));
     }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function namedSerializersAreWrappedUnderTheirOwnName(): void
+    {
+        $container = $this->compile(configure: static function (ContainerBuilder $container): void {
+            self::serializer($container);
+            $container->setParameter('.serializer.named_serializers', ['api' => [], 'undefined' => [], 0 => []]);
+            $container->registerChild('serializer.api', 'serializer');
+        });
+
+        self::assertInstanceOf(TraceableSerializer::class, $container->get('serializer'));
+        self::assertInstanceOf(TraceableSerializer::class, $container->get('serializer.api'));
+        self::assertContains('api', $container->getDefinition('serializer.api.open_telemetry')->getArguments());
+        self::assertFalse($container->hasDefinition('serializer.undefined.open_telemetry'));
+        self::assertFalse($container->hasDefinition('serializer.0.open_telemetry'));
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function anUnreadableNamedSerializerListWrapsOnlyTheDefault(): void
+    {
+        $container = $this->compile(configure: static function (ContainerBuilder $container): void {
+            self::serializer($container);
+            $container->setParameter('.serializer.named_serializers', 'api');
+            $container->registerChild('serializer.api', 'serializer');
+        });
+
+        self::assertInstanceOf(TraceableSerializer::class, $container->get('serializer'));
+        self::assertInstanceOf(Serializer::class, $container->get('serializer.api'));
+    }
 }

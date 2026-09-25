@@ -6,6 +6,8 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Mailer\MailerTelemetry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Mailer\TraceableMailTransport;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\FrameworkInstrumentationTestCase;
 use OpenTelemetry\API\Trace\StatusCode;
 use PHPUnit\Framework\Assert;
@@ -21,6 +23,7 @@ use Symfony\Component\Mailer\Transport\Transports;
 use Symfony\Component\Messenger\Envelope as MessengerEnvelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Header\Headers;
 use Symfony\Component\Mime\RawMessage;
 
 /**
@@ -160,6 +163,57 @@ final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
                 ),
                 self::histogramPoints($this->telemetry->measurements(), 'mailer.send.duration'),
             ),
+        );
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aRawMessageOrAMissingSubjectFallsBackQuietly(): void
+    {
+        $mailer = new MailerTelemetry($this->telemetry, $this->reporter, recordSubject: true);
+
+        self::assertSame('sent', $mailer->send(new RawMessage('raw'), static fn(): string => 'sent'));
+        $mailer->send(new Email(), static fn(): null => null);
+
+        self::assertSame('default', $this->span(0)->getAttributes()->get('mailer.transport'));
+        self::assertFalse($this->span(0)->getAttributes()->has('email.subject'));
+        self::assertFalse($this->span(1)->getAttributes()->has('email.subject'));
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function anUnreadableMessageIsReportedAndStillSent(): void
+    {
+        $logger = new RecordingLogger();
+        $mailer = new MailerTelemetry(
+            $this->telemetry,
+            new InstrumentationFailureReporter($logger),
+            recordSubject: true,
+        );
+        $broken = new class() extends Email {
+            #[\Override]
+            public function getHeaders(): Headers
+            {
+                throw new \LogicException('headers are broken');
+            }
+
+            #[\Override]
+            public function getSubject(): ?string
+            {
+                throw new \LogicException('subject is broken');
+            }
+        };
+
+        self::assertSame('sent', $mailer->send($broken, static fn(): string => 'sent'));
+
+        self::assertSame('default', $this->span()->getAttributes()->get('mailer.transport'));
+        self::assertFalse($this->span()->getAttributes()->has('email.subject'));
+        self::assertSame(
+            [
+                'OpenTelemetry lifecycle: Mail transport name extraction failed at "mailer.send": headers are broken (1 total in this process)',
+                'OpenTelemetry lifecycle: Mail subject extraction failed at "mailer.send": subject is broken (2 total in this process)',
+            ],
+            $logger->messages(),
         );
     }
 }

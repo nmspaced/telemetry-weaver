@@ -135,6 +135,26 @@ final class LazyCacheReadTest extends CacheTelemetryTestCase
 
     /** @throws \Throwable */
     #[Test]
+    public function aBackendThatFailsBeforeReturningFailsTheReadAtOnce(): void
+    {
+        $error = new \RuntimeException('connection refused');
+        $delegate = $this->createStub(AdapterInterface::class);
+        $delegate->method('getItems')->willThrowException($error);
+
+        try {
+            $this->pool($delegate)->getItems(['key']);
+            self::fail('The backend exception must reach the caller.');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertSame($error, $runtimeException);
+        }
+
+        self::assertSame(StatusCode::STATUS_ERROR, $this->exportedSpan()->getStatus()->getCode());
+        self::assertSame(['durations' => 1, 'lookups' => 0], $this->recorded());
+        self::assertNull(Context::storage()->scope());
+    }
+
+    /** @throws \Throwable */
+    #[Test]
     public function theDurationExcludesTheCallersLoopBody(): void
     {
         $clock = $this->clock;

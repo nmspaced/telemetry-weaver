@@ -21,6 +21,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ExportFailureReporter::class)]
 final class ResilientLogsExporterTest extends TestCase
 {
+    /** @throws \Throwable */
     #[Test]
     public function aFailedLogExportIsReportedAsAnExport(): void
     {
@@ -33,6 +34,21 @@ final class ResilientLogsExporterTest extends TestCase
 
         $exporter->export([])->await();
 
+        self::assertSame('Failed to export log records', $logger->messageAt(0));
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aSynchronousLogExportFailureIsReportedAndAnsweredWithFalse(): void
+    {
+        $logger = new RecordingLogger();
+        $exporter = new ResilientLogsExporter(
+            FailingLogRecordExporter::throwing(new \RuntimeException('encoder crashed')),
+            new ExportFailureReporter($logger),
+            Flushers::openGate(),
+        );
+
+        self::assertFalse($exporter->export([])->await());
         self::assertSame('Failed to export log records', $logger->messageAt(0));
     }
 }

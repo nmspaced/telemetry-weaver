@@ -20,6 +20,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(BudgetedTransport::class)]
 final class BudgetedTransportTest extends TestCase
 {
+    /** @throws \Throwable */
     #[Test]
     public function batchesReceiveTheRemainingBudgetAndNeverRetry(): void
     {
@@ -54,6 +55,7 @@ final class BudgetedTransportTest extends TestCase
         self::assertCount(3, $delegate->calls, 'outside boundaries the original transport is reused');
     }
 
+    /** @throws \Throwable */
     #[Test]
     public function aShorterTransportTimeoutIsPreservedAndShutdownCannotBeBypassed(): void
     {
@@ -70,6 +72,7 @@ final class BudgetedTransportTest extends TestCase
         $transport->send('after shutdown')->await();
     }
 
+    /** @throws \Throwable */
     #[Test]
     public function aHungCollectorCostsItsShareOnceAndOtherCollectorsStillSend(): void
     {
@@ -102,6 +105,80 @@ final class BudgetedTransportTest extends TestCase
             ],
             $collectors->sends,
         );
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aTransportThatCannotBeBuiltFailsOnlyThatSend(): void
+    {
+        $clock = new FrozenClock();
+        $budget = new FlushBudget(1000, $clock);
+        $attempts = new \ArrayObject();
+        $transport = new BudgetedTransport(
+            $this->createStub(TransportInterface::class),
+            ExportGate::forBudget($budget),
+            'http://alloy:4318',
+            /** @throws \RuntimeException */
+            static function () use ($attempts): TransportInterface {
+                $attempts->append(true);
+
+                throw new \RuntimeException(\sprintf('cannot build transport %d', $attempts->count()));
+            },
+        );
+
+        $budget->begin();
+        self::assertFailsWith($transport, 'cannot build transport 1');
+        self::assertFailsWith($transport, 'cannot build transport 2');
+        $clock->advanceSeconds(1.0);
+        self::assertFailsWith($transport, 'budget exhausted for http://alloy:4318');
+        self::assertCount(2, $attempts, 'an instant failure leaves the share for the next batch');
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aSendThatThrowsReleasesItsTransportAndSpendsTheShare(): void
+    {
+        $clock = new FrozenClock();
+        $budget = new FlushBudget(1000, $clock);
+        $built = $this->createMock(TransportInterface::class);
+        $built
+            ->expects(self::once())
+            ->method('send')
+            ->willReturnCallback(
+                /** @throws \RuntimeException */ static function () use ($clock): never {
+                    $clock->advanceSeconds(1.0);
+
+                    throw new \RuntimeException('socket closed');
+                },
+            );
+        $built->expects(self::once())->method('shutdown')->willReturn(true);
+        $transport = new BudgetedTransport(
+            $this->createStub(TransportInterface::class),
+            ExportGate::forBudget($budget),
+            'http://alloy:4318',
+            static fn(): TransportInterface => $built,
+        );
+
+        $budget->begin();
+        self::assertFailsWith($transport, 'socket closed');
+        self::assertFailsWith($transport, 'budget exhausted');
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function forceFlushReachesTheDelegateOnlyUntilShutdown(): void
+    {
+        $delegate = new RecordingTransportFactory()->create('http://alloy:4318/v1/traces', 'application/json');
+        $transport = new BudgetedTransport(
+            $delegate,
+            ExportGate::forBudget(new FlushBudget()),
+            'http://alloy:4318',
+            static fn(): TransportInterface => $delegate,
+        );
+
+        self::assertTrue($transport->forceFlush());
+        self::assertTrue($transport->shutdown());
+        self::assertFalse($transport->forceFlush());
     }
 
     /** @return string the failure message */

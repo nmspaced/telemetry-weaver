@@ -76,6 +76,26 @@ final class TraceableSerializerTest extends TraceableSerializerTestCase
 
     /** @throws \Throwable */
     #[Test]
+    public function denormalizeRecordsTheTargetTypeAndTheFormat(): void
+    {
+        $this->activateParent();
+        $serializer = $this->serializer();
+
+        $date = $serializer->denormalize('2026-01-01T00:00:00+00:00', \DateTimeImmutable::class, 'json');
+        self::assertInstanceOf(\DateTimeImmutable::class, $date);
+        self::assertSame(
+            [
+                'serializer.name' => 'default',
+                'serializer.operation.name' => 'denormalize',
+                'serializer.format' => 'json',
+                'serializer.type' => \DateTimeImmutable::class,
+            ],
+            $this->exportedSpan()->getAttributes()->toArray(),
+        );
+    }
+
+    /** @throws \Throwable */
+    #[Test]
     public function encodeAndDecodeAreMeasuredSeparately(): void
     {
         $this->activateParent();
