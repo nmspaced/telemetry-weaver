@@ -29,7 +29,7 @@ final class RequestTraceSetupFailureTest extends TestCase
     {
         $reporter = new InstrumentationFailureReporter(new RecordingLogger());
         $telemetry = $this->createStub(BoundaryTelemetry::class);
-        $telemetry->method('boundary')->willThrowException(new \RuntimeException('telemetry unavailable'));
+        $telemetry->method('execution')->willThrowException(new \RuntimeException('telemetry unavailable'));
         $registry = new RequestTraceRegistry($telemetry, $reporter);
         $request = new Request();
 

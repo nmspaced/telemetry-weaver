@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
+use Nmspaced\TelemetryWeaver\Api\RunningOperation;
 use Nmspaced\TelemetryWeaver\Instrumentation\Messenger\MessengerConsumption;
+use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OwnedActivations;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OwnedSpan;
-use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\ShutdownScopeCleanup;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\MessengerSpanAssertions;
+use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryFactory;
+use OpenTelemetry\API\Baggage\Baggage;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\SDK\Trace\ImmutableSpan;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\Messenger\Envelope;
 
 /** A long-running worker gives every message its own trace and leaves no context behind. */
 #[CoversClass(MessengerConsumption::class)]
@@ -54,6 +60,38 @@ final class MessengerWorkerIsolationTest extends MessengerTelemetryTestCase
         self::assertSame([], $this->logger->messages());
     }
 
+    /** @throws \Throwable */
+    #[Test]
+    public function anOperationLeftUnfinishedByAHandlerEndsWithItsMessage(): void
+    {
+        $consumption = $this->consumption($this->telemetry());
+        $application = TelemetryFactory::tracing(
+            new SpanOpener(
+                $this->tracers->getTracer('application'),
+                Context::storage(),
+                new InstrumentationFailureReporter($this->logger),
+            ),
+        );
+        $envelope = new Envelope(new SampleMessage('first'));
+        $held = null;
+
+        $consumption->run($envelope, 'async', static function () use ($application, $envelope, &$held): Envelope {
+            $held = $application->operation('unfinished')->baggage(['tenant' => 'first'])->start();
+
+            return $envelope;
+        });
+
+        self::assertInstanceOf(RunningOperation::class, $held);
+        self::assertFalse($held->span()->isRecording());
+        self::assertNull(Context::storage()->scope(), 'the next message would start inside the handler context');
+        self::assertNull(Baggage::getCurrent()->getValue('tenant'));
+        self::assertSame(
+            ['unfinished', 'process async'],
+            \array_map(static fn(ImmutableSpan $span): string => $span->getName(), $this->spans->getSpans()),
+        );
+        self::assertSame([], $this->logger->messages());
+    }
+
     /**
      * How many spans this process still holds activated.
      *
@@ -61,9 +99,9 @@ final class MessengerWorkerIsolationTest extends MessengerTelemetryTestCase
      */
     private static function activatedOwners(): int
     {
-        $owners = new \ReflectionProperty(ShutdownScopeCleanup::class, 'owners');
+        $owners = new \ReflectionProperty(OwnedActivations::class, 'owners');
 
-        /** @var \WeakMap<OwnedSpan, null>|null $map */
+        /** @var \WeakMap<object, \WeakReference<OwnedSpan>>|null $map */
         $map = $owners->getValue();
 
         return $map === null ? 0 : \count($map);

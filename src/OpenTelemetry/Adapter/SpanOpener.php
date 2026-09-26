@@ -26,6 +26,7 @@ final readonly class SpanOpener implements SpanOpenerInterface
         private TracerInterface $tracer,
         private ContextStorageInterface $contextStorage,
         private InstrumentationFailureReporter $instrumentationFailureReporter,
+        private bool $confining = false,
     ) {}
 
     /**
@@ -57,7 +58,7 @@ final readonly class SpanOpener implements SpanOpenerInterface
         } catch (\Throwable $throwable) {
             $this->instrumentationFailureReporter->report('Span creation failed', $name, $throwable);
 
-            return OwnedSpan::inert($name, new OtelTraceCorrelation($parent));
+            return $this->suppressed()->open($name, $options);
         }
 
         return $this->activate($name, $span, $parent);
@@ -69,7 +70,13 @@ final readonly class SpanOpener implements SpanOpenerInterface
     #[\Override]
     public function suppressed(): ContextOnlyOpener
     {
-        return new ContextOnlyOpener($this->contextStorage, $this->instrumentationFailureReporter);
+        return new ContextOnlyOpener($this->contextStorage, $this->instrumentationFailureReporter, $this->confining);
+    }
+
+    #[\Override]
+    public function confining(): self
+    {
+        return new self($this->tracer, $this->contextStorage, $this->instrumentationFailureReporter, true);
     }
 
     /**
@@ -133,12 +140,14 @@ final readonly class SpanOpener implements SpanOpenerInterface
             return OwnedSpan::inert($name, new OtelTraceCorrelation($parent));
         }
 
-        return OwnedSpan::activated(
+        $owner = OwnedSpan::activated(
             $name,
             $span,
             $activation,
             $this->instrumentationFailureReporter,
             new OtelTraceCorrelation($context),
         )->reenterableIn($this->contextStorage, $context);
+
+        return $this->confining ? $owner->confining($this->contextStorage) : $owner;
     }
 }

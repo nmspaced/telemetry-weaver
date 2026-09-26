@@ -41,7 +41,7 @@ final readonly class UserAttributesSubscriber implements EventSubscriberInterfac
         }
 
         $trace = $this->requestTraces->of($event->getRequest());
-        if ($trace === null) {
+        if ($trace === null || !$trace->isRecording()) {
             return;
         }
 

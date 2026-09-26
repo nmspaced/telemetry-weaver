@@ -149,7 +149,7 @@ final readonly class MessengerTelemetry
         bool $linkActiveSpan = false,
     ): ScopedOperation {
         $operation = $this->telemetry
-            ->boundary($name)
+            ->execution($name)
             ->kind(SpanKind::Consumer)
             ->attributes($spanAttributes)
             ->duration($this->processDuration, attributes: $attributes)

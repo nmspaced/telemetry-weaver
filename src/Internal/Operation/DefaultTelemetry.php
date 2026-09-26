@@ -24,6 +24,8 @@ final readonly class DefaultTelemetry implements BoundaryTelemetry
 {
     private OperationStarter $starter;
 
+    private OperationStarter $executions;
+
     public function __construct(
         SpanOpenerInterface $opener,
         private Metrics $instruments,
@@ -31,6 +33,7 @@ final readonly class DefaultTelemetry implements BoundaryTelemetry
         BaggageReader $baggage,
     ) {
         $this->starter = new OperationStarter($opener, $reporter, $baggage);
+        $this->executions = $this->starter->confining();
     }
 
     /**
@@ -67,6 +70,12 @@ final readonly class DefaultTelemetry implements BoundaryTelemetry
     public function boundary(string $name): BoundaryOperation
     {
         return OperationPlan::named($name, $this->starter);
+    }
+
+    #[\Override]
+    public function execution(string $name): BoundaryOperation
+    {
+        return OperationPlan::named($name, $this->executions);
     }
 
     #[\Override]

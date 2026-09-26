@@ -9,6 +9,7 @@ use Nmspaced\TelemetryWeaver\Instrumentation\Http\HttpMethod;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\RequestPolicy;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Execution\ExecutionRegistry;
+use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryOperation;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\IncomingTrace;
 use Symfony\Component\HttpFoundation\Request;
@@ -47,25 +48,23 @@ final readonly class RequestTraceRegistry implements ResetInterface
         SpanKind $kind = SpanKind::Internal,
         ?IncomingTrace $parent = null,
     ): ?RequestTrace {
-        try {
-            $operation = $this->telemetry
-                ->boundary($method->spanName())
-                ->attributes($attributes)
-                ->kind($kind)
-                ->from($parent);
+        return $this->start($request, $method, static fn(BoundaryOperation $execution): BoundaryOperation => $execution
+            ->attributes($attributes)
+            ->kind($kind)
+            ->from($parent));
+    }
 
-            $name = $method->spanName();
-            $minStatus = $this->recordExceptionMinStatus;
-
-            return $this->traces->open(
-                $request,
-                static fn(): RequestTrace => new RequestTrace($operation->start(), $name, $minStatus),
-            );
-        } catch (\Throwable $throwable) {
-            $this->reporter->report('HTTP trace setup failed', 'kernel.request', $throwable);
-
-            return null;
-        }
+    /**
+     * Opens an excluded request: no span and no incoming trace, but whatever the request leaves
+     * activated is still released with it.
+     */
+    public function openUntraced(Request $request, HttpMethod $method): ?RequestTrace
+    {
+        return $this->start(
+            $request,
+            $method,
+            static fn(BoundaryOperation $execution): BoundaryOperation => $execution->withoutSpan(),
+        );
     }
 
     public function of(Request $request): ?RequestTrace
@@ -97,5 +96,26 @@ final readonly class RequestTraceRegistry implements ResetInterface
     public function reset(): void
     {
         $this->traces->reset();
+    }
+
+    /**
+     * @param \Closure(BoundaryOperation): BoundaryOperation $describe
+     */
+    private function start(Request $request, HttpMethod $method, \Closure $describe): ?RequestTrace
+    {
+        try {
+            $name = $method->spanName();
+            $operation = $describe($this->telemetry->execution($name));
+            $minStatus = $this->recordExceptionMinStatus;
+
+            return $this->traces->open(
+                $request,
+                static fn(): RequestTrace => new RequestTrace($operation->start(), $name, $minStatus),
+            );
+        } catch (\Throwable $throwable) {
+            $this->reporter->report('HTTP trace setup failed', 'kernel.request', $throwable);
+
+            return null;
+        }
     }
 }

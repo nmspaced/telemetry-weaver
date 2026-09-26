@@ -16,4 +16,10 @@ interface SpanOpenerInterface
 
     /** The same opener without spans; context, baggage and correlation still apply. */
     public function suppressed(): self;
+
+    /**
+     * The same opener for an execution such as a request: each operation always activates its
+     * context and, when it ends, releases whatever is still activated above it.
+     */
+    public function confining(): self;
 }

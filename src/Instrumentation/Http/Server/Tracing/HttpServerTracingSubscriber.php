@@ -49,11 +49,14 @@ final readonly class HttpServerTracingSubscriber implements EventSubscriberInter
     {
         $request = $event->getRequest();
 
+        $method = HttpMethod::from($request, $this->knownMethods);
+
         if ($this->requestPolicy->isExcluded($request)) {
+            $this->requestTraces->openUntraced($request, $method);
+
             return;
         }
 
-        $method = HttpMethod::from($request, $this->knownMethods);
         $attributes = $this->serverSpanAttributes->from($request, $method);
 
         if (!$event->isMainRequest()) {

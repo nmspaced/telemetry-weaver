@@ -32,4 +32,10 @@ final readonly class NoOpSpanOpener implements SpanOpenerInterface
     {
         return $this;
     }
+
+    #[\Override]
+    public function confining(): SpanOpenerInterface
+    {
+        return $this;
+    }
 }

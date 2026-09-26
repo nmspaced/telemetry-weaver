@@ -46,4 +46,7 @@ interface SpanOwner
 
     /** Detaches and ends. Idempotent. */
     public function finish(): void;
+
+    /** Whether the enclosing execution ended it first; the operation then records no duration. */
+    public function isAbandoned(): bool;
 }

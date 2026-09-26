@@ -62,6 +62,11 @@ final class RequestTrace implements ExecutionEntry
         $this->operation->span()->attributes($attributes);
     }
 
+    public function isRecording(): bool
+    {
+        return $this->operation->span()->isRecording();
+    }
+
     /** Remembers the exception for `complete()`; the latest one wins. */
     public function exception(\Throwable $e): void
     {

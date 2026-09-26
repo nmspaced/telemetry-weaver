@@ -41,6 +41,11 @@ final class OwnedSpan implements SpanOwner
 
     private bool $finished = false;
 
+    private bool $abandoned = false;
+
+    /** The scopes stacked above the activation that belong to this owner; null unless it confines them. */
+    private ?ScopeConfinement $confinement = null;
+
     /**
      * Re-activates the context in its original storage; null when the owner cannot be re-entered.
      *
@@ -92,7 +97,7 @@ final class OwnedSpan implements SpanOwner
         $owner = new self($name, $span, $activation, $reporter, $correlation);
 
         if ($owner->activation !== null) {
-            ShutdownScopeCleanup::register($owner);
+            OwnedActivations::register($activation, $owner);
         }
 
         return $owner;
@@ -185,23 +190,46 @@ final class OwnedSpan implements SpanOwner
         }
 
         try {
-            $this->activation = ($this->reentry)();
-            ShutdownScopeCleanup::register($this);
+            $activation = ($this->reentry)();
         } catch (\Throwable $throwable) {
             $this->instrumentationFailureReporter?->report('Context activation failed', $this->name, $throwable);
+
+            return;
         }
+
+        $this->activation = $activation;
+        OwnedActivations::register($activation, $this);
+    }
+
+    /**
+     * Makes the scopes later stacked above the activation part of this owner: `detach()` releases
+     * them and `finish()` abandons the owners among them. Applies only while the activation is the
+     * storage's top scope, so a storage that hands out other scope objects is left alone.
+     */
+    public function confining(ContextStorageInterface $storage): self
+    {
+        $this->confinement = ScopeConfinement::above(
+            $this->activation,
+            $storage,
+            $this->instrumentationFailureReporter,
+            $this->name,
+        );
+
+        return $this;
     }
 
     #[\Override]
     public function detach(): void
     {
-        if ($this->activation === null) {
+        $activation = $this->activation;
+
+        if ($activation === null) {
             return;
         }
 
-        $activation = $this->activation;
+        $this->confinement?->release();
         $this->activation = null;
-        ShutdownScopeCleanup::forget($this);
+        OwnedActivations::forget($activation);
 
         try {
             $this->reportFlags($activation->detach());
@@ -219,9 +247,27 @@ final class OwnedSpan implements SpanOwner
 
         try {
             $this->detach();
+            $this->confinement?->abandon();
         } finally {
             $this->end();
         }
+    }
+
+    /** Finishes on behalf of the confining owner, before the operation itself did. */
+    public function abandon(): void
+    {
+        if ($this->finished) {
+            return;
+        }
+
+        $this->abandoned = true;
+        $this->finish();
+    }
+
+    #[\Override]
+    public function isAbandoned(): bool
+    {
+        return $this->abandoned;
     }
 
     /**
@@ -244,6 +290,7 @@ final class OwnedSpan implements SpanOwner
 
         $this->correlation = null;
         $this->reentry = null;
+        $this->confinement = null;
 
         $this->view->release();
         $this->finished = true;

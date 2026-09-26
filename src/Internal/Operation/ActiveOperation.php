@@ -137,6 +137,12 @@ final class ActiveOperation implements ScopedOperation
             return;
         }
 
+        if ($this->owner->isAbandoned()) {
+            $this->abandon();
+
+            return;
+        }
+
         $attributes = $this->attributes;
         $failure = $this->failure;
         $measurement = $this->release();

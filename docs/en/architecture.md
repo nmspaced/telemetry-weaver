@@ -65,6 +65,18 @@ At a boundary, work that is still unfinished is **abandoned**: its state is rele
 pretending the operation completed. Abandonment is the correct outcome for a request that died
 halfway, not a failure mode to avoid, and it is what keeps the next request clean.
 
+An HTTP main request or subrequest confines the context activated inside it. When it detaches at
+`kernel.finish_request`, every scope still stacked above its own is released innermost first,
+whether an unfinished `operation()->start()` holds it or it was activated directly through
+OpenTelemetry. The package's own operations among them are ended at terminate or reset, without
+recording their durations; until then lazy work may still resume and finish. Scopes activated
+before the request stay. Confinement also applies to excluded paths and with server tracing off,
+and each Fiber releases only its own stack. Operations started outside a request still need an
+explicit `finish()` or `abandon()`; prefer `run()` wherever possible.
+
+A consumed Messenger message confines its handlers the same way. It has a single phase: when the
+message has been handled, whatever is still activated inside it is released and abandoned at once.
+
 The destructor and PHP-shutdown paths do the same thing conservatively, by detaching context.
 They are not a promise that unfinished telemetry will be delivered after a fatal error or a
 killed process.

@@ -92,6 +92,15 @@ final readonly class InMemoryTelemetry implements BoundaryTelemetry
         return $this->delegate->boundary($name);
     }
 
+    /**
+     * @internal for the bundle's own instrumentation tests
+     */
+    #[\Override]
+    public function execution(string $name): BoundaryOperation
+    {
+        return $this->delegate->execution($name);
+    }
+
     #[\Override]
     public function metrics(): Metrics
     {

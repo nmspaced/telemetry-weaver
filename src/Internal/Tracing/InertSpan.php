@@ -72,6 +72,12 @@ final class InertSpan implements Span, SpanOwner
     public function finish(): void {}
 
     #[\Override]
+    public function isAbandoned(): bool
+    {
+        return false;
+    }
+
+    #[\Override]
     public function attribute(string $name, string|int|float|bool|array|null $value): void
     {
         $this->attributes([$name => $value]);

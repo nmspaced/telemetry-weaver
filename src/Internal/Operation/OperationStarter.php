@@ -28,6 +28,12 @@ final readonly class OperationStarter
         return new self($this->opener->suppressed(), $this->reporter, $this->baggage);
     }
 
+    /** Starts executions that release, when they end, whatever is still activated inside them. */
+    public function confining(): self
+    {
+        return new self($this->opener->confining(), $this->reporter, $this->baggage);
+    }
+
     /**
      * @param non-empty-string $name
      * @param array<non-empty-string, string|int|float|bool|list<string|int|float|bool>|null> $attributes
