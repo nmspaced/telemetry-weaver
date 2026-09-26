@@ -13,7 +13,6 @@ use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use OpenTelemetry\API\Trace\StatusCode;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\CacheItem;
@@ -83,19 +82,18 @@ final class CachePoolDelegateTest extends TelemetryTestCase
 
     /** @throws \Throwable */
     #[Test]
-    public function anInvalidKeyIsLeftToThePoolAndNotRecorded(): void
+    public function aKeyThatIsNotAStringIsLeftToThePoolAndNotRecorded(): void
     {
-        $rejected = null;
-        try {
-            $this->pool(new ArrayAdapter())->getItem(42);
-        } catch (InvalidArgumentException $exception) {
-            $rejected = $exception;
-        }
+        // Whether such a key is valid is the pool's decision, and Symfony's answer differs
+        // between versions; the decorator only has to pass it on and keep it off the span.
+        $item = new CacheItem();
+        $delegate = $this->createMock(AdapterInterface::class);
+        $delegate->expects(self::once())->method('getItem')->with(42)->willReturn($item);
 
-        self::assertNotNull($rejected, 'the pool rejects keys that are not strings');
-
+        self::assertSame($item, $this->pool($delegate)->getItem(42));
         self::assertNull($this->exportedSpan()->getAttributes()->get('cache.key'));
-        self::assertSame(StatusCode::STATUS_ERROR, $this->exportedSpan()->getStatus()->getCode());
+        self::assertSame(StatusCode::STATUS_UNSET, $this->exportedSpan()->getStatus()->getCode());
+        $this->assertNoReports();
     }
 
     private function pool(AdapterInterface $delegate): TraceableCachePool
