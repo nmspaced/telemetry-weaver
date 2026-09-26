@@ -13,6 +13,7 @@ use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
 use Nmspaced\TelemetryWeaver\Tests\Support\MessengerSpanAssertions;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryFactory;
 use OpenTelemetry\API\Baggage\Baggage;
+use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\SDK\Trace\ImmutableSpan;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -89,6 +90,48 @@ final class MessengerWorkerIsolationTest extends MessengerTelemetryTestCase
             ['unfinished', 'process async'],
             \array_map(static fn(ImmutableSpan $span): string => $span->getName(), $this->spans->getSpans()),
         );
+        self::assertSame([], $this->logger->messages());
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function anOperationLeftUnfinishedByAFailingHandlerEndsWithItsMessage(): void
+    {
+        $consumption = $this->consumption($this->telemetry());
+        $application = TelemetryFactory::tracing(
+            new SpanOpener(
+                $this->tracers->getTracer('application'),
+                Context::storage(),
+                new InstrumentationFailureReporter($this->logger),
+            ),
+        );
+        $failure = new \RuntimeException('handler exploded');
+        $held = null;
+
+        try {
+            $consumption->run(
+                new Envelope(new SampleMessage('first')),
+                'async',
+                /** @throws \RuntimeException */
+                static function () use ($application, $failure, &$held): never {
+                    $held = $application->operation('unfinished')->baggage(['tenant' => 'first'])->start();
+
+                    throw $failure;
+                },
+            );
+            self::fail('The handler failure must escape');
+        } catch (\RuntimeException $caught) {
+            self::assertSame($failure, $caught);
+        }
+
+        self::assertInstanceOf(RunningOperation::class, $held);
+        self::assertFalse($held->span()->isRecording());
+        self::assertNull(Context::storage()->scope());
+        self::assertNull(Baggage::getCurrent()->getValue('tenant'));
+        $process = MessengerSpanAssertions::spansNamed($this->spans, 'process async')[0] ?? self::fail(
+            'no consumer span',
+        );
+        self::assertSame(StatusCode::STATUS_ERROR, $process->getStatus()->getCode());
         self::assertSame([], $this->logger->messages());
     }
 

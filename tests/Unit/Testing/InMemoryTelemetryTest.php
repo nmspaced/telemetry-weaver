@@ -8,6 +8,7 @@ use Nmspaced\TelemetryWeaver\Testing\InMemoryTelemetry;
 use Nmspaced\TelemetryWeaver\Tests\Support\MetricPoints;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryTestCase;
 use OpenTelemetry\SDK\Metrics\Data\NumberDataPoint;
+use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -37,5 +38,34 @@ final class InMemoryTelemetryTest extends TelemetryTestCase
         } finally {
             $telemetry->shutdown();
         }
+    }
+
+    #[Test]
+    public function anExecutionEndsWhatItsWorkLeftUnfinished(): void
+    {
+        $telemetry = InMemoryTelemetry::create();
+        try {
+            $execution = $telemetry->execution('request')->start();
+            $held = $telemetry->operation('unfinished')->start();
+
+            $execution->finish();
+
+            self::assertFalse($held->span()->isRecording());
+            self::assertNull($telemetry->activeTrace());
+            self::assertSame(
+                ['unfinished', 'request'],
+                \array_map(static fn(SpanDataInterface $span): string => $span->getName(), $telemetry->spans()),
+            );
+        } finally {
+            $telemetry->shutdown();
+        }
+    }
+
+    #[Test]
+    public function aScopeNeedsAName(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        InMemoryTelemetry::create('');
     }
 }

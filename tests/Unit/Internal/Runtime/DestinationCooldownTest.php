@@ -44,6 +44,18 @@ final class DestinationCooldownTest extends FlushBudgetTestCase
     }
 
     #[Test]
+    public function aShareTooSmallForAnotherSendIsTreatedAsSpent(): void
+    {
+        $budget = $this->budget(self::A, self::B);
+        $budget->begin();
+
+        $this->send($budget, self::A, seconds: 0.497, expected: 0.5);
+
+        self::assertNull($budget->allowance(self::A), 'three milliseconds cannot carry a request');
+        self::assertNull($budget->allowance(self::A), 'and the share stays spent');
+    }
+
+    #[Test]
     public function aTimedOutDestinationCoolsDownOnBoundariesButAFinalFlushStillTriesIt(): void
     {
         $budget = $this->budget(self::A, self::B);

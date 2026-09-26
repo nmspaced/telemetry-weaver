@@ -31,6 +31,26 @@ final class ConfinedExecutionTest extends PublicTelemetryTestCase
     }
 
     #[Test]
+    public function aNestedExecutionReleasesOnlyWhatIsAboveItself(): void
+    {
+        $telemetry = $this->telemetry();
+        $outer = $telemetry->execution('request')->start();
+        $outerWork = $telemetry->operation('outer-work')->start();
+        $inner = $telemetry->execution('subrequest')->start();
+        $innerWork = $telemetry->operation('inner-work')->start();
+
+        $inner->finish();
+
+        self::assertFalse($innerWork->span()->isRecording());
+        self::assertTrue($outerWork->span()->isRecording());
+        self::assertSame($outerWork->span()->spanId(), $this->activeTrace()?->spanId);
+        $outer->finish();
+        self::assertSame(['inner-work', 'subrequest', 'outer-work', 'request'], $this->exportedNames());
+        self::assertNull($this->contextStorage->scope());
+        $this->assertNoReports();
+    }
+
+    #[Test]
     public function baggageOnlyOperationsAreReleasedWithoutAnyRecordedSpans(): void
     {
         $telemetry = $this->telemetry(traces: false);

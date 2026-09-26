@@ -230,4 +230,17 @@ final class SqlSummaryTest extends TestCase
             );
         }
     }
+
+    /**
+     * A PCRE failure leaves the statement unsummarised rather than half-read. A target list long
+     * enough to exhaust the default backtrack limit is such a statement.
+     */
+    #[Test]
+    public function aStatementTheScannerCannotFinishHasNoSummary(): void
+    {
+        $sql = 'SELECT x FROM ' . \str_repeat('a,', 500_000) . 'b';
+
+        self::assertSame([], SqlScanner::tokens($sql));
+        self::assertNull(SqlSummary::fromCode($sql)->value);
+    }
 }

@@ -4,6 +4,9 @@
 
 English · [Русский](README.ru.md)
 
+[![CI](https://github.com/nmspaced/telemetry-weaver/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/nmspaced/telemetry-weaver/actions/workflows/ci.yaml?query=branch%3Amain)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fnmspaced%2Ftelemetry-weaver%2Fbadges%2Fcoverage.json)](https://github.com/nmspaced/telemetry-weaver/actions/workflows/ci.yaml?query=branch%3Amain)
+
 PHP 8.4+ · Symfony 8.1+ · OpenTelemetry PHP SDK · MIT
 
 Telemetry Weaver wires traces, metrics and logs into Symfony and takes responsibility for the

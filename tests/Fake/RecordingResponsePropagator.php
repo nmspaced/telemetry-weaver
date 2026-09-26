@@ -15,8 +15,13 @@ final class RecordingResponsePropagator implements ResponsePropagatorInterface
 {
     public int $calls = 0;
 
+    /**
+     * @param array<array-key, mixed> $extra entries written as they are, typed or not, like a
+     *                                     third-party propagator might
+     */
     public function __construct(
         private readonly ?\Throwable $failure = null,
+        private readonly array $extra = [],
     ) {}
 
     /**
@@ -37,6 +42,8 @@ final class RecordingResponsePropagator implements ResponsePropagatorInterface
         if (!\is_array($carrier) || $context === null) {
             return;
         }
+
+        $carrier += $this->extra;
 
         $spanContext = Span::fromContext($context)->getContext();
 

@@ -6,18 +6,22 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Security\UserAttributes;
 use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Security\UserAttributesSubscriber;
+use Nmspaced\TelemetryWeaver\Instrumentation\Http\Server\Tracing\RequestTrace;
 use Nmspaced\TelemetryWeaver\Tests\Fake\SpyTokenStorage;
 use Nmspaced\TelemetryWeaver\Tests\Support\HttpTelemetryTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Core\Authentication\Token\NullToken;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\User\InMemoryUser;
 
 /** User attributes set during `kernel.request` still land on the server span. */
 #[CoversClass(UserAttributesSubscriber::class)]
 #[CoversClass(UserAttributes::class)]
+#[CoversClass(RequestTrace::class)]
 final class HttpUserAttributesTest extends HttpTelemetryTestCase
 {
     private TokenStorage $tokens;
@@ -97,6 +101,41 @@ final class HttpUserAttributesTest extends HttpTelemetryTestCase
 
         self::assertSame([], $this->exported(), 'the path is excluded, so there is no span');
         self::assertSame(0, $spy->reads, 'and therefore nothing to read the token for');
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function anIdentityThatCannotBeReadIsReportedAndTheRequestContinues(): void
+    {
+        $tokens = $this->createStub(TokenStorageInterface::class);
+        $tokens->method('getToken')->willThrowException(new \RuntimeException('session store is gone'));
+        $this->dispatcher->addSubscriber(
+            new UserAttributesSubscriber(
+                $this->scopes,
+                new UserAttributes($tokens, recordUserId: true),
+                $this->reporter,
+            ),
+        );
+
+        $response = $this->handle($this->request(static fn(): Response => new Response('ok')));
+
+        self::assertSame('ok', $response->getContent());
+        self::assertNull($this->exportedSpan()->getAttributes()->get('user.id'));
+        self::assertStringContainsString('User attribute resolution failed', $this->logger->messageAt(0));
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aTokenWithoutAUserCarriesNothing(): void
+    {
+        $this->tokens->setToken(new NullToken());
+        $this->listen(recordUserId: true, recordUserRoles: true);
+
+        $this->handle($this->request(static fn(): Response => new Response()));
+
+        self::assertNull($this->exportedSpan()->getAttributes()->get('user.id'));
+        self::assertNull($this->exportedSpan()->getAttributes()->get('user.roles'));
+        $this->assertNoReports();
     }
 
     /** @param list<string> $roles */

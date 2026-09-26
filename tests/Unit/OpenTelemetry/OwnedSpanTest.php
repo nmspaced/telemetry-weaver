@@ -8,6 +8,7 @@ use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOptions;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OwnedSpan;
 use Nmspaced\TelemetryWeaver\Tests\Support\TelemetryTestCase;
 use OpenTelemetry\API\Trace\SpanInterface;
+use OpenTelemetry\Context\ContextStorageInterface;
 use OpenTelemetry\Context\ScopeInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -131,5 +132,23 @@ final class OwnedSpanTest extends TelemetryTestCase
         self::assertSame(['ours'], $this->exportedNames());
 
         $foreign->end();
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aFailedReactivationIsReportedAndLeavesTheOwnerDetached(): void
+    {
+        $storage = $this->createStub(ContextStorageInterface::class);
+        $storage->method('attach')->willThrowException(new \RuntimeException('storage is gone'));
+        $owner = $this->spans->open('operation', new SpanOptions());
+        $owner->reenterableIn($storage, $this->contextStorage->current());
+        $owner->detach();
+
+        $owner->attach();
+
+        self::assertNull($this->contextStorage->scope());
+        self::assertStringContainsString('Context activation failed', $this->logger->messageAt(0));
+        $owner->finish();
+        self::assertSame(['operation'], $this->exportedNames());
     }
 }

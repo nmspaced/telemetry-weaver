@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
 use Symfony\Component\Messenger\Bridge\AmazonSqs\Transport\AmazonSqsTransport;
 use Symfony\Component\Messenger\Bridge\Amqp\Transport\AmqpTransport;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
@@ -47,5 +48,17 @@ final class MessagingSystemTest extends TestCase
     {
         self::assertSame('symfony', new MessagingSystem()->ofReceiver('async'));
         self::assertSame('symfony', new MessagingSystem(new Container([]))->ofReceiver('async'));
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aLocatorThatFailsOrHoldsNoObjectKeepsTheFallback(): void
+    {
+        $failing = $this->createStub(ContainerInterface::class);
+        $failing->method('has')->willReturn(true);
+        $failing->method('get')->willThrowException(new \RuntimeException('receiver cannot be built'));
+
+        self::assertSame('symfony', new MessagingSystem($failing)->ofReceiver('async'));
+        self::assertSame('symfony', new MessagingSystem(new Container(['async' => 'dsn']))->ofReceiver('async'));
     }
 }

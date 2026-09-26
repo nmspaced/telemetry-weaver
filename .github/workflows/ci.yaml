@@ -164,6 +164,8 @@ jobs:
     name: coverage (PHP 8.4, highest)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      lines: ${{ steps.summary.outputs.lines }}
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -188,12 +190,72 @@ jobs:
       - name: Measure coverage
         run: composer test:coverage -- --only-summary-for-coverage-text --coverage-clover .coverage/clover.xml
 
+      # Line coverage of src/, one decimal: the project-level totals Clover writes last.
+      - name: Summarise line coverage
+        id: summary
+        run: |
+          lines=$(php -r '
+              $metrics = simplexml_load_file(".coverage/clover.xml")->project->metrics;
+              printf("%.1f", 100 * (int) $metrics["coveredstatements"] / max(1, (int) $metrics["statements"]));
+          ')
+          echo "lines=${lines}" >> "$GITHUB_OUTPUT"
+          echo "Line coverage: ${lines}%" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload the coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-clover
           path: .coverage/clover.xml
           retention-days: 14
+
+  # The README badge reads coverage.json from the `badges` branch through shields.io, so no
+  # third-party service holds the number. Only main publishes it, and only this job may write
+  # to the repository; it is not part of `ci`, which would otherwise fail on pull requests,
+  # where this job is skipped by design.
+  coverage-badge:
+    name: coverage badge
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: coverage-badge
+      cancel-in-progress: false
+    steps:
+      - name: Publish coverage.json to the badges branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERAGE: ${{ needs.coverage.outputs.lines }}
+        run: |
+          set -euo pipefail
+          color=$(awk -v value="$COVERAGE" 'BEGIN {
+              if (value >= 90) print "brightgreen"; else if (value >= 80) print "green";
+              else if (value >= 70) print "yellowgreen"; else if (value >= 60) print "yellow";
+              else print "red" }')
+
+          cd "$(mktemp -d)"
+          git init -q
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # The first run finds no branch and starts it; git's "couldn't find remote ref" is expected.
+          if git fetch -q --depth 1 origin badges 2>/dev/null; then
+              git checkout -q -b badges FETCH_HEAD
+          else
+              git checkout -q --orphan badges
+          fi
+
+          printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' "$COVERAGE" "$color" > coverage.json
+          git add coverage.json
+          if git diff --cached --quiet; then
+              echo "Coverage unchanged at ${COVERAGE}%"
+              exit 0
+          fi
+
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -q -m "coverage: ${COVERAGE}%"
+          git push -q origin badges
 
   # One check to require on the branch: matrix entries come and go, and a required
   # check that names a matrix entry silently stops being required when it is renamed.

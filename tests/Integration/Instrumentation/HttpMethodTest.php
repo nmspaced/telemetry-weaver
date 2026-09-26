@@ -92,4 +92,21 @@ final class HttpMethodTest extends TestCase
         self::assertTrue($known->contains('GET'));
         self::assertFalse($known->contains('POST'));
     }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function theProcessEnvironmentWinsOverServerVariables(): void
+    {
+        $_SERVER['OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS'] = 'GET';
+        \putenv('OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS=PURGE');
+
+        try {
+            $known = new KnownHttpMethods();
+        } finally {
+            \putenv('OTEL_INSTRUMENTATION_HTTP_KNOWN_METHODS');
+        }
+
+        self::assertTrue($known->contains('PURGE'));
+        self::assertFalse($known->contains('GET'));
+    }
 }

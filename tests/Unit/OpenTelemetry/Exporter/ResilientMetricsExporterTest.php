@@ -13,6 +13,9 @@ use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Fake\RecordingMetricExporter;
 use Nmspaced\TelemetryWeaver\Tests\Fake\ThrowingLogger;
 use Nmspaced\TelemetryWeaver\Tests\Support\Flushers;
+use OpenTelemetry\SDK\Metrics\Data\Temporality;
+use OpenTelemetry\SDK\Metrics\MetricExporterInterface;
+use OpenTelemetry\SDK\Metrics\MetricMetadataInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -136,5 +139,22 @@ final class ResilientMetricsExporterTest extends TestCase
         );
 
         self::assertFalse($exporter->export(Metrics::batch(['a'])));
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function aPullExporterKeepsEachMetricsOwnTemporalityAndHasNothingToFlush(): void
+    {
+        $metric = $this->createStub(MetricMetadataInterface::class);
+        $metric->method('temporality')->willReturn(Temporality::CUMULATIVE);
+        $exporter = new ResilientMetricsExporter(
+            $this->createStub(MetricExporterInterface::class),
+            new ExportFailureReporter($this->logger),
+            Flushers::openGate(),
+        );
+
+        self::assertSame(Temporality::CUMULATIVE, $exporter->temporality($metric));
+        self::assertTrue($exporter->forceFlush(), 'nothing is buffered, so nothing can fail');
+        self::assertSame(0, $this->logger->count());
     }
 }
