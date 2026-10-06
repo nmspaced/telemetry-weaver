@@ -42,7 +42,7 @@
         "symfony/http-kernel": "^8.1"
     },
     "require-dev": {
-        "carthage-software/mago": "^1.49",
+        "carthage-software/mago": "^1.51",
         "doctrine/dbal": "^4",
         "ergebnis/composer-normalize": "^2.53",
         "friendsofphp/php-cs-fixer": "^3.95",
@@ -51,7 +51,7 @@
         "nyholm/psr7": "^1.8",
         "open-telemetry/exporter-otlp": "^1.4",
         "phpstan/phpstan": "^2.2",
-        "phpunit/phpunit": "^13.3",
+        "phpunit/phpunit": "^13.4",
         "rector/rector": "^2.6",
         "symfony/amazon-sqs-messenger": "^8.1",
         "symfony/amqp-messenger": "^8.1",

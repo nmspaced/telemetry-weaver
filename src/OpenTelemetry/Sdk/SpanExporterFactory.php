@@ -38,7 +38,9 @@ final readonly class SpanExporterFactory
         }
 
         return $this->resilient->spans(
-            new OtlpSpanExporterFactory($this->transports->forProtocol(OtlpProtocol::of(Variables::OTEL_EXPORTER_OTLP_TRACES_PROTOCOL)))->create(),
+            new OtlpSpanExporterFactory($this->transports->forProtocol(OtlpProtocol::of(
+                Variables::OTEL_EXPORTER_OTLP_TRACES_PROTOCOL,
+            )))->create(),
         );
     }
 }

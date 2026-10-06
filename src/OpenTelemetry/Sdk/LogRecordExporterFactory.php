@@ -37,7 +37,9 @@ final readonly class LogRecordExporterFactory
         }
 
         return $this->resilient->logs(
-            new OtlpLogsExporterFactory($this->transports->forProtocol(OtlpProtocol::of(Variables::OTEL_EXPORTER_OTLP_LOGS_PROTOCOL)))->create(),
+            new OtlpLogsExporterFactory($this->transports->forProtocol(OtlpProtocol::of(
+                Variables::OTEL_EXPORTER_OTLP_LOGS_PROTOCOL,
+            )))->create(),
         );
     }
 }

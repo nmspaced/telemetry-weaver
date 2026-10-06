@@ -72,7 +72,9 @@ final readonly class MetricExporterFactory
             return null;
         }
 
-        return MetricTemporality::preferred(Configuration::getEnum(Variables::OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE));
+        return MetricTemporality::preferred(Configuration::getEnum(
+            Variables::OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE,
+        ));
     }
 
     /**
@@ -85,6 +87,8 @@ final readonly class MetricExporterFactory
             return Registry::metricExporterFactory($name)->create();
         }
 
-        return new OtlpMetricExporterFactory($this->transports->forProtocol(OtlpProtocol::of(Variables::OTEL_EXPORTER_OTLP_METRICS_PROTOCOL)))->create();
+        return new OtlpMetricExporterFactory($this->transports->forProtocol(OtlpProtocol::of(
+            Variables::OTEL_EXPORTER_OTLP_METRICS_PROTOCOL,
+        )))->create();
     }
 }

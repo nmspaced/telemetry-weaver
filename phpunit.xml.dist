@@ -11,7 +11,8 @@
          testdox="true"
          testdoxSummary="true"
 
-         executionOrder="depends,defects"
+         executionOrder="defects"
+         resolveDependencies="true"
 
          beStrictAboutOutputDuringTests="true"
          beStrictAboutTestsThatDoNotTestAnything="true"
