@@ -124,7 +124,7 @@ final class MailerInstrumentationTest extends FrameworkInstrumentationTestCase
         );
         self::assertSame([], $this->telemetry->spans());
         self::assertNotNull($queued);
-        (new MessageHandler($transport))($queued);
+        new MessageHandler($transport)($queued);
         self::assertCount(1, $this->telemetry->spans());
     }
 

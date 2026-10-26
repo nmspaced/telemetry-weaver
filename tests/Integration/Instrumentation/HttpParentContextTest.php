@@ -106,7 +106,9 @@ final class HttpParentContextTest extends HttpTelemetryTestCase
         $entries = [];
         $this->handle($this->request(static function () use (&$entries): Response {
             foreach (Baggage::getCurrent()->getAll() as $key => $entry) {
-                $entries[$key] = $entry instanceof Entry && \is_string($entry->getValue()) ? $entry->getValue() : null;
+                $entries[(string) $key] = $entry instanceof Entry && \is_string($entry->getValue())
+                    ? $entry->getValue()
+                    : null;
             }
 
             return new Response();

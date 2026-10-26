@@ -75,7 +75,8 @@ final class OperationStartFailureTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        /** @var non-empty-string $empty the guard exists for callers that bypass the type */
+        // @mago-expect analysis:docblock-type-mismatch — the guard exists for callers that bypass the type
+        /** @var non-empty-string $empty */
         $empty = '';
         DefaultTelemetry::disabled()->operation($empty);
     }
@@ -85,7 +86,8 @@ final class OperationStartFailureTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        /** @var non-empty-string $empty the guard exists for callers that bypass the type */
+        // @mago-expect analysis:docblock-type-mismatch — the guard exists for callers that bypass the type
+        /** @var non-empty-string $empty */
         $empty = '';
         DefaultTelemetry::disabled()->metrics()->duration($empty, DurationUnit::Seconds, [0.1]);
     }

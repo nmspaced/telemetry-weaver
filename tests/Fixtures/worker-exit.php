@@ -44,12 +44,11 @@ $flusher = new TelemetryFlusher($registry, $budget, $failures, $runtime);
 
 // Registered after the gate's own callback, so it observes what the process exit did.
 \register_shutdown_function(static function () use ($exported, $gate, $failures): void {
-    echo
-        \json_encode([
-            'exported' => \count($exported->getSpans()),
-            'closed' => $gate->isClosed(),
-            'failures' => $failures->total(),
-        ]);
+    echo \json_encode([
+        'exported' => \count($exported->getSpans()),
+        'closed' => $gate->isClosed(),
+        'failures' => $failures->total(),
+    ]);
 });
 
 // The span sits in the batch queue: no boundary has drained it when the worker loop returns.

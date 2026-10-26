@@ -25,7 +25,6 @@ final readonly class MessageErrorType
             return $error::class;
         }
 
-        /** @var class-string|false $parent */
         $parent = \get_parent_class($error);
 
         return $parent === false ? \Throwable::class : $parent;

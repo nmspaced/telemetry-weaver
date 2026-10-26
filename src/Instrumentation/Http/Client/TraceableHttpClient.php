@@ -111,7 +111,7 @@ final class TraceableHttpClient implements HttpClientInterface, ResetInterface
     /**
      * Null for an untraced request, which then needs no response observer.
      *
-     * @return (\Closure(ChunkInterface, AsyncContext): \Generator)|null
+     * @return (\Closure(ChunkInterface, AsyncContext): \Generator<int, ChunkInterface, mixed, void>)|null
      */
     private function observe(?ClientCall $call): ?\Closure
     {

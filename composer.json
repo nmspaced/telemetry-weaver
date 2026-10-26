@@ -42,7 +42,7 @@
         "symfony/http-kernel": "^8.1"
     },
     "require-dev": {
-        "carthage-software/mago": "^1.51",
+        "carthage-software/mago": "1.59.0",
         "doctrine/dbal": "^4",
         "ergebnis/composer-normalize": "^2.53",
         "friendsofphp/php-cs-fixer": "^3.95",

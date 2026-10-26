@@ -130,7 +130,6 @@ final class TraceableCachePoolTest extends TelemetryTestCase
         $metadata = null;
         self::assertFalse($pool->get('key', $callback, 0.0, $metadata));
         self::assertFalse($pool->get('key', $callback, 0.0, $metadata));
-        // @mago-expect analysis:impossible-type-comparison — the delegate invokes the callback once per miss
         self::assertSame(2, $calls);
         self::assertIsArray($metadata);
         self::assertSame(StatusCode::STATUS_UNSET, $this->exportedSpan()->getStatus()->getCode());
