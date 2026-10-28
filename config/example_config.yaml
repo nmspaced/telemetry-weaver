@@ -139,6 +139,12 @@ open_telemetry:
             # a 404 from a NotFoundHttpException is not a failure of the server.
             record_exception_min_status: 500
 
+        # controller.arguments and one span named after the controller, both under the
+        # server span, inside an existing trace. Traces only: http.server.request.duration
+        # already measures each route.
+        controller:
+            traces: true
+
         http_client:
             traces: true
             metrics: true

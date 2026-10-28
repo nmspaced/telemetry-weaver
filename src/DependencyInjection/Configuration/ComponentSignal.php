@@ -51,6 +51,22 @@ final class ComponentSignal
     }
 
     /**
+     * A component with a `traces` switch only, for work whose duration another component
+     * already measures.
+     *
+     * @throws \RuntimeException on misuse of the Config builder
+     */
+    public static function tracesOnly(string $name, string $info): ArrayNodeDefinition
+    {
+        $node = new ArrayNodeDefinition($name);
+
+        $node->addDefaultsIfNotSet()->info($info);
+        self::signal($node, 'traces', 'Produce spans for this component.', null);
+
+        return $node;
+    }
+
+    /**
      * Histogram boundaries for the component's operation duration, in seconds; empty keeps the default.
      *
      * @throws \RuntimeException

@@ -35,11 +35,13 @@ final readonly class InstrumentationServices
     /**
      * @param non-empty-string $component the configuration key, also the service id infix
      * @param DefaultBuckets|null $buckets the boundary preset; null when no duration is recorded
+     * @param bool $metrics false for a component without a metrics switch; its meter stays off
      */
     public static function register(
         ServicesConfigurator $services,
         string $component,
         ?DefaultBuckets $buckets = null,
+        bool $metrics = true,
     ): void {
         $services
             ->set(\sprintf('open_telemetry.%s.span_opener', $component), SpanOpenerInterface::class)
@@ -53,7 +55,10 @@ final readonly class InstrumentationServices
             ->factory(SignalMeter::create(...))
             ->arg('$delegate', service(MeterInterface::class))
             ->arg('$metricsEnabled', param('open_telemetry.metrics.enabled'))
-            ->arg('$signalEnabled', param(\sprintf('open_telemetry.instrumentation.%s.metrics', $component)));
+            ->arg(
+                '$signalEnabled',
+                $metrics ? param(\sprintf('open_telemetry.instrumentation.%s.metrics', $component)) : false,
+            );
 
         $services
             ->set(\sprintf('open_telemetry.%s.metrics', $component), SafeMetrics::class)

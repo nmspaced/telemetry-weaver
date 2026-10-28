@@ -94,6 +94,15 @@ final class RequestComponents
     }
 
     /** @throws \RuntimeException */
+    public function controller(): ArrayNodeDefinition
+    {
+        return ComponentSignal::tracesOnly(
+            'controller',
+            'Controller argument resolution and the controller call, as spans inside an existing trace. No metrics: http.server.request.duration already measures the request per route.',
+        );
+    }
+
+    /** @throws \RuntimeException */
     public function httpClient(): ArrayNodeDefinition
     {
         $node = ComponentSignal::component(
