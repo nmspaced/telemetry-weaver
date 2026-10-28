@@ -111,6 +111,46 @@ increments the session usage index. `AbstractSessionListener` answers that with
 an application deliberately made public. Turning this key on does not change what your
 application sends.
 
+## Controller
+
+*Defaults: traces on. No metrics.*
+
+| | |
+|---|---|
+| Spans | `controller.arguments`, then one named after the controller — for example `OrderController::show` |
+| Attributes | `code.function.name` (the full name, `App\Controller\OrderController::show`), `controller.operation.name` (`arguments` or `call`) |
+
+```yaml
+controller:
+    traces: false
+```
+
+The component has a `traces` switch and nothing else. `http.server.request.duration` already
+measures each route, and a controller is almost always one route, so a second histogram would
+repeat it.
+
+Both spans are children of the server span and siblings of each other, so the waterfall shows
+what the request spent before the controller, resolving its arguments, inside it, and after it.
+Each is the current span while it runs: an entity a value resolver loads by id sits under
+`controller.arguments`, and the queries, HTTP calls and log lines of the controller sit under its
+own span rather than directly under the request.
+
+Spans require an existing trace, as the serializer's do: an excluded path has no server span, so
+its controller has none either.
+
+A closure controller has no name of its own and is named after the class it was declared in, as
+`Class::{closure}`. A name carrying the file and line would make every closure its own series.
+
+An exception leaving the controller fails the call span unless it is an `HttpExceptionInterface`
+with a status below 500. A `NotFoundHttpException` is the client's mistake, and the span follows
+the server span's threshold rather than turning every 404 red.
+
+The call is wrapped on `kernel.controller_arguments`, after every other listener, and the original
+controller is put back as soon as it returns or throws. `kernel.view` and `kernel.exception`
+listeners therefore see the controller itself: `#[Template]`, `#[Cache]` and anything else that
+reads named arguments or attributes behave as without the bundle. Arguments are passed the way
+`HttpKernel` passes them, so a string still reaches an `int` parameter.
+
 ## HTTP client
 
 *Defaults: traces on, metrics on.*
