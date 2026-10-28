@@ -220,6 +220,12 @@ final class RequestComponents
             )
             ->defaultTrue()
             ->end()
+            ->booleanNode('record_caller')
+            ->info(
+                'Record the application code that issued each query as code.function.name, code.file.path and code.line.number: the first frame outside vendor/, this bundle and the kernel build and cache directories. Span only, and only for spans that are kept. Off by default: it walks the stack once per traced query.',
+            )
+            ->defaultFalse()
+            ->end()
             ->end();
 
         return $node;

@@ -6,6 +6,8 @@ namespace Nmspaced\TelemetryWeaver\Tests\Integration\Bundle;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineMiddleware;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrinePolicy;
+use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineTelemetry;
+use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\QueryCaller;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\QueryText;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\ContextOnlyOpener;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
@@ -13,6 +15,7 @@ use Nmspaced\TelemetryWeaver\Tests\Support\ContainerTestCase;
 use OpenTelemetry\API\Metrics\Noop\NoopMeter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\DependencyInjection\Reference;
 
 /** What the Doctrine compiler pass registers, and under which switches. */
 final class DoctrineRegistrationTest extends ContainerTestCase
@@ -109,5 +112,27 @@ final class DoctrineRegistrationTest extends ContainerTestCase
         ])->get(DoctrinePolicy::class);
         self::assertInstanceOf(DoctrinePolicy::class, $off);
         self::assertFalse($off->recordTransactions);
+    }
+
+    /** @throws \Throwable */
+    #[Test]
+    public function theCallerIsRecordedOnlyWhenAskedFor(): void
+    {
+        $default = $this->compile();
+        self::assertFalse($default->hasDefinition(QueryCaller::class));
+        // Named arguments are positional once compiled; the caller is the fourth.
+        self::assertArrayNotHasKey(3, $default->getDefinition(DoctrineTelemetry::class)->getArguments());
+
+        $on = $this->compile(['instrumentation' => ['doctrine' => ['record_caller' => true]]]);
+        self::assertInstanceOf(QueryCaller::class, $on->get(QueryCaller::class));
+        self::assertEquals(
+            new Reference(QueryCaller::class),
+            $on->getDefinition(DoctrineTelemetry::class)->getArgument(3),
+        );
+        self::assertSame(
+            [\sys_get_temp_dir()],
+            $on->getDefinition(QueryCaller::class)->getArgument(0),
+            'the kernel build directory, where Doctrine proxies are generated, is never the caller',
+        );
     }
 }

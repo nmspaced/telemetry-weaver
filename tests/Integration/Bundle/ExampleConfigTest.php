@@ -60,6 +60,7 @@ final class ExampleConfigTest extends ContainerTestCase
             'open_telemetry.instrumentation.doctrine.query_text',
             'open_telemetry.instrumentation.doctrine.only_with_parent',
             'open_telemetry.instrumentation.doctrine.transactions',
+            'open_telemetry.instrumentation.doctrine.record_caller',
             'open_telemetry.instrumentation.cache.excluded_pools',
             'open_telemetry.instrumentation.console.excluded_commands',
             'open_telemetry.metrics.flush_interval_ms',

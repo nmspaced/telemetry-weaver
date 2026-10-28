@@ -222,6 +222,7 @@ doctrine:
     query_text: sanitized     # sanitized | raw | off
     only_with_parent: true
     transactions: true
+    record_caller: false
 ```
 
 `query_text` controls `db.query.text`:
@@ -259,6 +260,20 @@ nothing else.
 trip, labelled by `db.operation.name`. Without it, a slow or failing commit is folded into
 whatever statement happened to precede it. Nested transactions are savepoint statements and are
 traced as statements.
+
+`record_caller` adds where a query came from to its span: `code.function.name`, `code.file.path`
+and `code.line.number` of the first frame outside `vendor/`, this bundle and the kernel build and
+cache directories, where Doctrine proxies and the container are generated. For an ORM query that
+is the repository method or the service that called `flush()`, so a slow `SELECT orders` names
+`OrderRepository::findActive()` instead of leaving you to guess. A transaction boundary gets the
+code that began or ended it.
+
+It walks the stack, so it is off by default and costs something only for spans that are kept:
+2–4 µs for an ORM query issued from a controller, 10 to 30 frames below the application, and
+about 8 µs for a stack 60 frames deep, against roughly 13 µs for the span itself. Without a span, unsampled or outside a trace, nothing
+is walked. Only the first 64 frames are read; a query buried deeper than that gets no caller. The
+attributes go on the span and never on `db.client.operation.duration`, where a file and line per
+call site would multiply the series.
 
 ## Messenger
 
