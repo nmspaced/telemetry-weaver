@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Controller;
 
+use Nmspaced\TelemetryWeaver\Instrumentation\CodeFunction;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -41,7 +42,7 @@ final readonly class ControllerTelemetrySubscriber implements EventSubscriberInt
     {
         $controller = $event->getController();
         $attributes = $event->getAttributes('*');
-        $function = ControllerFunction::of($controller);
+        $function = CodeFunction::of($controller);
 
         $event->setController(
             /** @throws \Throwable */

@@ -103,6 +103,32 @@ final class RequestComponents
     }
 
     /** @throws \RuntimeException */
+    public function eventListeners(): ArrayNodeDefinition
+    {
+        $node = ComponentSignal::tracesOnly(
+            'event_listeners',
+            'Event listener and subscriber calls, as spans inside an existing trace. Off by default: a request runs dozens of listeners, and only some of them are yours.',
+            enabled: false,
+        );
+
+        $node
+            ->children()
+            ->arrayNode('namespaces')
+            ->performNoDeepMerging()
+            ->info(
+                "Class name prefixes of the listeners to trace. Every other listener runs untraced. The bundle's own are never traced.",
+            )
+            ->stringPrototype()
+            ->cannotBeEmpty()
+            ->end()
+            ->defaultValue(['App\\'])
+            ->end()
+            ->end();
+
+        return $node;
+    }
+
+    /** @throws \RuntimeException */
     public function httpClient(): ArrayNodeDefinition
     {
         $node = ComponentSignal::component(

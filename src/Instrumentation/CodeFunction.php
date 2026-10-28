@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Nmspaced\TelemetryWeaver\Instrumentation\Controller;
+namespace Nmspaced\TelemetryWeaver\Instrumentation;
 
 /**
- * The name a controller callable is known by: `code.function.name` in full, and the span name
- * without the namespace.
+ * The name a callable — a controller, an event listener — is known by: `code.function.name` in
+ * full, and the span name without the namespace.
  *
  * Closures have no name of their own, so they are named after the class they were declared in.
  * A per-closure name would carry the file and line, and a span name is not a stack trace.
  *
  * @internal
  */
-final readonly class ControllerFunction
+final readonly class CodeFunction
 {
     private const string CLOSURE = '{closure}';
 
@@ -26,39 +26,39 @@ final readonly class ControllerFunction
         public string $spanName,
     ) {}
 
-    public static function of(callable $controller): self
+    public static function of(callable $callable): self
     {
-        if ($controller instanceof \Closure) {
-            return self::closure($controller);
+        if ($callable instanceof \Closure) {
+            return self::closure($callable);
         }
 
-        if (\is_array($controller)) {
-            [$target, $method] = $controller;
+        if (\is_array($callable)) {
+            [$target, $method] = $callable;
 
             return self::method(\is_object($target) ? \get_debug_type($target) : $target, $method);
         }
 
-        if (\is_object($controller)) {
-            return self::method(\get_debug_type($controller), '__invoke');
+        if (\is_object($callable)) {
+            return self::method(\get_debug_type($callable), '__invoke');
         }
 
-        if (!\is_string($controller)) {
+        if (!\is_string($callable)) {
             return self::named(self::CLOSURE, self::CLOSURE);
         }
 
-        $separator = \strpos($controller, '::');
+        $separator = \strpos($callable, '::');
 
         if ($separator !== false) {
-            return self::method(\substr($controller, 0, $separator), \substr($controller, $separator + 2));
+            return self::method(\substr($callable, 0, $separator), \substr($callable, $separator + 2));
         }
 
-        return self::named($controller, $controller);
+        return self::named($callable, $callable);
     }
 
-    private static function closure(\Closure $controller): self
+    private static function closure(\Closure $callable): self
     {
         // @mago-expect analysis:unhandled-thrown-type — reflecting a Closure cannot fail
-        $function = new \ReflectionFunction($controller);
+        $function = new \ReflectionFunction($callable);
         $method = $function->isAnonymous() ? self::CLOSURE : $function->getName();
         $class = $function->getClosureCalledClass()?->getName();
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nmspaced\TelemetryWeaver\Tests\Integration\Instrumentation;
 
 use Nmspaced\TelemetryWeaver\Api\TraceContext;
-use Nmspaced\TelemetryWeaver\Instrumentation\Controller\ControllerFunction;
+use Nmspaced\TelemetryWeaver\Instrumentation\CodeFunction;
 use Nmspaced\TelemetryWeaver\Instrumentation\Controller\ControllerTelemetry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Controller\ControllerTelemetrySubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Controller\TraceableArgumentResolver;
@@ -30,7 +30,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 #[CoversClass(ControllerTelemetrySubscriber::class)]
 #[CoversClass(TraceableArgumentResolver::class)]
 #[CoversClass(ControllerTelemetry::class)]
-#[CoversClass(ControllerFunction::class)]
+#[CoversClass(CodeFunction::class)]
 final class ControllerInstrumentationTest extends ControllerTelemetryTestCase
 {
     /** @throws \Throwable */

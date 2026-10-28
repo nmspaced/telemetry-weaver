@@ -54,14 +54,16 @@ final class ComponentSignal
      * A component with a `traces` switch only, for work whose duration another component
      * already measures.
      *
+     * @param bool $enabled the switch's default
+     *
      * @throws \RuntimeException on misuse of the Config builder
      */
-    public static function tracesOnly(string $name, string $info): ArrayNodeDefinition
+    public static function tracesOnly(string $name, string $info, bool $enabled = true): ArrayNodeDefinition
     {
         $node = new ArrayNodeDefinition($name);
 
         $node->addDefaultsIfNotSet()->info($info);
-        self::signal($node, 'traces', 'Produce spans for this component.', null);
+        self::signal($node, 'traces', 'Produce spans for this component.', null, $enabled);
 
         return $node;
     }
@@ -121,6 +123,7 @@ final class ComponentSignal
         string $signal,
         string $info,
         ?string $overridableOption,
+        bool $enabled = true,
     ): void {
         $signalNode = $component->children()->arrayNode($signal);
         $signalNode
@@ -135,7 +138,7 @@ final class ComponentSignal
             ->end();
 
         $signalChildren = $signalNode->children();
-        $signalChildren->booleanNode('enabled')->defaultTrue();
+        $signalChildren->booleanNode('enabled')->defaultValue($enabled);
 
         if ($overridableOption !== null) {
             $signalChildren

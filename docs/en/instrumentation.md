@@ -151,6 +151,42 @@ listeners therefore see the controller itself: `#[Template]`, `#[Cache]` and any
 reads named arguments or attributes behave as without the bundle. Arguments are passed the way
 `HttpKernel` passes them, so a string still reaches an `int` parameter.
 
+## Event listeners
+
+*Defaults: traces off. No metrics.*
+
+| | |
+|---|---|
+| Spans | one per listener call, named after the listener — for example `OrderPlacedListener::onOrderPlaced` |
+| Attributes | `code.function.name` (the full name), `listener.event.name` (`kernel.request`, `App\Event\OrderPlaced`) |
+
+```yaml
+event_listeners:
+    traces: true
+    namespaces: ['App\']
+```
+
+Off by default because a request runs dozens of listeners, almost all of them the framework's.
+`namespaces` lists the class name prefixes that are traced; everything else runs exactly as
+before, with no span. Subscribers are listeners once the container is compiled, so the same key
+covers both. The bundle's own listeners are never traced, whatever the list says: they open the
+server span and propagate it into the response, and a listener span around them would stand in
+for it.
+
+Spans require an existing trace. A listener on `kernel.terminate` runs after the server span
+has ended, and has none.
+
+Every service built as a plain `EventDispatcher` is replaced with a subclass that wraps each
+listener call: `event_dispatcher`, and the per-firewall dispatchers security listeners are
+registered on. A dispatcher built any other way is left alone. The listeners, their order,
+`stopPropagation()` and `removeListener()` stay Symfony's. One thing does change: the subclass
+does without Symfony's per-listener closure optimisation, so every listener of an event is
+created on that event's first dispatch rather than when it is first called. That is what the
+profiler's dispatcher does in debug, and in a worker it happens once per process.
+
+An exception from a listener fails its span, except an `HttpExceptionInterface` below 500, as
+for the controller.
+
 ## HTTP client
 
 *Defaults: traces on, metrics on.*

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Controller;
 
+use Nmspaced\TelemetryWeaver\Instrumentation\CodeFunction;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolverInterface;
 
@@ -32,7 +33,7 @@ final readonly class TraceableArgumentResolver implements ArgumentResolverInterf
         ?\ReflectionFunctionAbstract $reflector = null,
     ): array {
         return $this->controllerTelemetry->arguments(
-            ControllerFunction::of($controller),
+            CodeFunction::of($controller),
             /**
              * @return array<mixed>
              *

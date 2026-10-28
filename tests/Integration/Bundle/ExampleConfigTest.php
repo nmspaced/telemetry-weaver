@@ -56,6 +56,7 @@ final class ExampleConfigTest extends ContainerTestCase
             'open_telemetry.instrumentation.http_server.record_user_id',
             'open_telemetry.instrumentation.http_server.record_user_roles',
             'open_telemetry.instrumentation.controller.traces',
+            'open_telemetry.instrumentation.event_listeners.namespaces',
             'open_telemetry.instrumentation.doctrine.query_text',
             'open_telemetry.instrumentation.doctrine.only_with_parent',
             'open_telemetry.instrumentation.doctrine.transactions',

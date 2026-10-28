@@ -201,6 +201,7 @@ return new class {
             ->info('What gets instrumented. Each component enables its signals and carries its own options.')
             ->append($requestComponents->httpServer())
             ->append($requestComponents->controller())
+            ->append($requestComponents->eventListeners())
             ->append($requestComponents->httpClient())
             ->append($requestComponents->console())
             ->append($requestComponents->doctrine())

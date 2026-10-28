@@ -145,6 +145,14 @@ open_telemetry:
         controller:
             traces: true
 
+        # One span per listener call, for listeners whose class starts with one of the
+        # namespaces. Off by default: a request runs dozens of listeners, nearly all of them
+        # the framework's. Subscribers are covered too. The bundle's own never are.
+        event_listeners:
+            traces: false
+            namespaces:
+                - 'App\'
+
         http_client:
             traces: true
             metrics: true

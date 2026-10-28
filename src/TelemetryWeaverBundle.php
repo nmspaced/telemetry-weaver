@@ -8,6 +8,7 @@ use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\CacheInstrumentati
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\ConsoleInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\ControllerInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\DoctrineInstrumentationCompilerPass;
+use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\EventListenerInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\HttpClientInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\MailerInstrumentationCompilerPass;
 use Nmspaced\TelemetryWeaver\DependencyInjection\CompilerPass\MessengerInstrumentationCompilerPass;
@@ -161,6 +162,7 @@ final class TelemetryWeaverBundle extends AbstractBundle
         $container->addCompilerPass(new SerializerInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new SecurityInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new ControllerInstrumentationCompilerPass(), priority: -20);
+        $container->addCompilerPass(new EventListenerInstrumentationCompilerPass(), priority: -20);
         $container->addCompilerPass(new DoctrineInstrumentationCompilerPass(), priority: 10);
         $container->addCompilerPass(new MessengerInstrumentationCompilerPass(), priority: 10);
     }

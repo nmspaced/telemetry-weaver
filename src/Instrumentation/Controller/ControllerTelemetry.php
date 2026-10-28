@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Controller;
 
+use Nmspaced\TelemetryWeaver\Instrumentation\CodeFunction;
+use Nmspaced\TelemetryWeaver\Instrumentation\HandlerCall;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryOperation;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryTelemetry;
 use OpenTelemetry\SemConv\Attributes\CodeAttributes;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Spans argument resolution and the controller call, only inside an existing trace.
@@ -17,9 +18,6 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 final readonly class ControllerTelemetry
 {
     private const string OPERATION_NAME = 'controller.operation.name';
-
-    /** The server span's threshold: a 4xx is the client's failure, not the controller's. */
-    private const int SERVER_ERROR_STATUS = 500;
 
     public function __construct(
         private BoundaryTelemetry $telemetry,
@@ -31,7 +29,7 @@ final readonly class ControllerTelemetry
      * @return T
      * @throws \Throwable
      */
-    public function arguments(ControllerFunction $controller, \Closure $work): mixed
+    public function arguments(CodeFunction $controller, \Closure $work): mixed
     {
         return $this
             ->operation('controller.arguments', $controller, 'arguments')
@@ -44,26 +42,16 @@ final readonly class ControllerTelemetry
      * @return T
      * @throws \Throwable
      */
-    public function call(ControllerFunction $controller, \Closure $work): mixed
+    public function call(CodeFunction $controller, \Closure $work): mixed
     {
-        $operation = $this->operation($controller->spanName, $controller, 'call')->start();
-
-        try {
-            return $work();
-        } catch (\Throwable $throwable) {
-            $operation->finish(self::isFailure($throwable) ? $throwable : null);
-
-            throw $throwable;
-        } finally {
-            $operation->finish();
-        }
+        return HandlerCall::run($this->operation($controller->spanName, $controller, 'call'), $work);
     }
 
     /**
      * @param non-empty-string $name
      * @param non-empty-string $operation
      */
-    private function operation(string $name, ControllerFunction $controller, string $operation): BoundaryOperation
+    private function operation(string $name, CodeFunction $controller, string $operation): BoundaryOperation
     {
         return $this->telemetry
             ->boundary($name)
@@ -72,13 +60,5 @@ final readonly class ControllerTelemetry
                 self::OPERATION_NAME => $operation,
             ])
             ->onlyInsideTrace();
-    }
-
-    private static function isFailure(\Throwable $throwable): bool
-    {
-        return (
-            !$throwable instanceof HttpExceptionInterface
-            || $throwable->getStatusCode() >= self::SERVER_ERROR_STATUS
-        );
     }
 }

@@ -32,7 +32,7 @@ time**. Sampling, propagation, aggregation and OTLP stay with the official SDK.
   `Operation`, `Span` and `Metrics` are enough to trace and measure a business operation without
   learning about Context, scopes or exporters. `Metrics` intentionally returns OpenTelemetry's own
   metric instruments, so the full metrics API is there when you need it.
-- **Instrumentation that knows Symfony.** HTTP server and client, controllers, Doctrine, Messenger,
+- **Instrumentation that knows Symfony.** HTTP server and client, controllers, event listeners, Doctrine, Messenger,
   Console, Cache, Serializer, Mailer, Scheduler, Monolog and the PHP runtime — wired by
   compiler passes that only activate when the component is actually installed.
 - **Conservative by default.** SQL text, client IPs, user identifiers and mail subjects are
@@ -100,6 +100,7 @@ request-pipeline metrics and worker identity are the four decisions worth making
 |---|---|---|
 | HTTP server | `{method} {route}`, server kind, route template, status | `http.server.request.duration`, request/response body size |
 | Controller | argument resolution and the controller call, under the server span | — |
+| Event listeners | one span per call of your listeners and subscribers, off by default | — |
 | HTTP client | `{method}`, context propagated to the callee | `http.client.request.duration`, request/response body size |
 | Doctrine DBAL | statement spans with a query summary, transaction boundaries | `db.client.operation.duration` |
 | Messenger | dispatch, send and process spans; context travels on the message | sent, consumed, `messaging.process.duration` |

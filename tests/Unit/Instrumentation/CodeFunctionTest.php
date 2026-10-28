@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Nmspaced\TelemetryWeaver\Tests\Unit\Instrumentation\Controller;
+namespace Nmspaced\TelemetryWeaver\Tests\Unit\Instrumentation;
 
-use Nmspaced\TelemetryWeaver\Instrumentation\Controller\ControllerFunction;
+use Nmspaced\TelemetryWeaver\Instrumentation\CodeFunction;
 use Nmspaced\TelemetryWeaver\Tests\Fake\OrderController;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -13,8 +13,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Response;
 
 /** The names each shape of controller callable is reported under. */
-#[CoversClass(ControllerFunction::class)]
-final class ControllerFunctionTest extends TestCase
+#[CoversClass(CodeFunction::class)]
+final class CodeFunctionTest extends TestCase
 {
     /** @return iterable<string, array{callable, string, string}> */
     public static function controllers(): iterable
@@ -47,7 +47,7 @@ final class ControllerFunctionTest extends TestCase
     #[DataProvider('controllers')]
     public function eachShapeIsNamedByClassAndMethod(callable $controller, string $name, string $spanName): void
     {
-        $function = ControllerFunction::of($controller);
+        $function = CodeFunction::of($controller);
 
         self::assertSame($name, $function->name);
         self::assertSame($spanName, $function->spanName);
@@ -56,9 +56,9 @@ final class ControllerFunctionTest extends TestCase
     #[Test]
     public function aClosureIsNamedAfterTheClassItWasDeclaredIn(): void
     {
-        $function = ControllerFunction::of(static fn(): Response => new Response());
+        $function = CodeFunction::of(static fn(): Response => new Response());
 
         self::assertSame(self::class . '::{closure}', $function->name);
-        self::assertSame('ControllerFunctionTest::{closure}', $function->spanName);
+        self::assertSame('CodeFunctionTest::{closure}', $function->spanName);
     }
 }
