@@ -7,4 +7,3 @@
 open_telemetry:
     enabled: true
 
-# For everything that can be configured, see example_config.yaml.
