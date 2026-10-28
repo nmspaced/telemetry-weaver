@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
 use Nmspaced\TelemetryWeaver\DependencyInjection\InstrumentationServices;
 use Nmspaced\TelemetryWeaver\Instrumentation\Controller\ControllerTelemetry;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -15,5 +16,6 @@ return static function (ContainerConfigurator $container): void {
 
     $services
         ->set(ControllerTelemetry::class)
-        ->arg('$telemetry', service('open_telemetry.controller.telemetry'));
+        ->arg('$telemetry', service('open_telemetry.controller.telemetry'))
+        ->arg('$activeTrace', service(ActiveTrace::class));
 };

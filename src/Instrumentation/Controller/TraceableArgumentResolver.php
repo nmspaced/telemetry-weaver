@@ -32,6 +32,10 @@ final readonly class TraceableArgumentResolver implements ArgumentResolverInterf
         callable $controller,
         ?\ReflectionFunctionAbstract $reflector = null,
     ): array {
+        if (!$this->controllerTelemetry->isTracing()) {
+            return $this->delegate->getArguments($request, $controller, $reflector);
+        }
+
         return $this->controllerTelemetry->arguments(
             CodeFunction::of($controller),
             /**

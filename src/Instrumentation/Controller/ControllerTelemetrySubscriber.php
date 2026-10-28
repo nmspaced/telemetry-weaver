@@ -40,6 +40,10 @@ final readonly class ControllerTelemetrySubscriber implements EventSubscriberInt
 
     public function onControllerArguments(ControllerArgumentsEvent $event): void
     {
+        if (!$this->controllerTelemetry->isTracing()) {
+            return;
+        }
+
         $controller = $event->getController();
         $attributes = $event->getAttributes('*');
         $function = CodeFunction::of($controller);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nmspaced\TelemetryWeaver\Instrumentation\Controller;
 
+use Nmspaced\TelemetryWeaver\Api\ActiveTrace;
 use Nmspaced\TelemetryWeaver\Instrumentation\CodeFunction;
 use Nmspaced\TelemetryWeaver\Instrumentation\HandlerCall;
 use Nmspaced\TelemetryWeaver\Internal\Operation\BoundaryOperation;
@@ -21,7 +22,17 @@ final readonly class ControllerTelemetry
 
     public function __construct(
         private BoundaryTelemetry $telemetry,
+        private ActiveTrace $activeTrace,
     ) {}
+
+    /**
+     * Whether a span would be opened now. Without one the controller is neither wrapped nor
+     * named: the wrapping costs more than the call it would measure.
+     */
+    public function isTracing(): bool
+    {
+        return $this->activeTrace->current() !== null;
+    }
 
     /**
      * @template T

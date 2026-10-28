@@ -43,8 +43,16 @@ final class TracingEventDispatcher extends EventDispatcher
                 break;
             }
 
+            $traced = $this->listenerTelemetry->traced($listener);
+
+            if ($traced === null) {
+                $listener($event, $eventName, $this);
+
+                continue;
+            }
+
             $this->listenerTelemetry->call(
-                $listener,
+                $traced,
                 $eventName,
                 /** @throws \Throwable */
                 function () use ($listener, $event, $eventName): void {

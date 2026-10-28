@@ -6,6 +6,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Support;
 
 use Nmspaced\TelemetryWeaver\Instrumentation\EventDispatcher\ListenerTelemetry;
 use Nmspaced\TelemetryWeaver\Instrumentation\EventDispatcher\TracingEventDispatcher;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTrace;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ScopeInterface;
@@ -43,7 +44,11 @@ abstract class EventListenerTelemetryTestCase extends TelemetryTestCase
     protected function dispatcherTracing(array $namespaces): TracingEventDispatcher
     {
         return new TracingEventDispatcher(
-            new ListenerTelemetry(TelemetryFactory::tracing($this->spans, $this->reporter), $namespaces),
+            new ListenerTelemetry(
+                TelemetryFactory::tracing($this->spans, $this->reporter),
+                new OtelActiveTrace($this->contextStorage),
+                $namespaces,
+            ),
         );
     }
 

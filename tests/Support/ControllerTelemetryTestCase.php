@@ -7,6 +7,7 @@ namespace Nmspaced\TelemetryWeaver\Tests\Support;
 use Nmspaced\TelemetryWeaver\Instrumentation\Controller\ControllerTelemetry;
 use Nmspaced\TelemetryWeaver\Instrumentation\Controller\ControllerTelemetrySubscriber;
 use Nmspaced\TelemetryWeaver\Instrumentation\Controller\TraceableArgumentResolver;
+use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\OtelActiveTrace;
 use Nmspaced\TelemetryWeaver\Tests\Fake\OrderController;
 use OpenTelemetry\SDK\Trace\ImmutableSpan;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,7 +32,10 @@ abstract class ControllerTelemetryTestCase extends HttpTelemetryTestCase
     /** Installs the instrumentation again, after `boot()` has replaced the kernel. */
     protected function instrument(): void
     {
-        $telemetry = new ControllerTelemetry(TelemetryFactory::tracing($this->spans, $this->reporter));
+        $telemetry = new ControllerTelemetry(
+            TelemetryFactory::tracing($this->spans, $this->reporter),
+            new OtelActiveTrace($this->contextStorage),
+        );
 
         $this->dispatcher->addSubscriber(new ControllerTelemetrySubscriber($telemetry));
         $this->kernel = new HttpKernel(
