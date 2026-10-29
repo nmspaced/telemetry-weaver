@@ -11,6 +11,7 @@ use Doctrine\DBAL\Exception;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineMiddleware;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrinePolicy;
 use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\DoctrineTelemetry;
+use Nmspaced\TelemetryWeaver\Instrumentation\Doctrine\QueryCaller;
 use Nmspaced\TelemetryWeaver\Internal\Diagnostics\InstrumentationFailureReporter;
 use Nmspaced\TelemetryWeaver\Internal\Tracing\SpanOpenerInterface;
 use Nmspaced\TelemetryWeaver\OpenTelemetry\Adapter\SpanOpener;
@@ -95,6 +96,7 @@ abstract class DoctrineTelemetryTestCase extends TestCase
         ?MeterInterface $meter = null,
         ?SpanOpenerInterface $spanOpener = null,
         string $driver = 'pdo_pgsql',
+        ?QueryCaller $caller = null,
     ): Connection {
         $reporter = new InstrumentationFailureReporter($this->logger);
 
@@ -106,6 +108,7 @@ abstract class DoctrineTelemetryTestCase extends TestCase
                 new FrozenClock(),
             ),
             $policy ?? new DoctrinePolicy(onlyWithParent: false),
+            caller: $caller,
         );
 
         return DriverManager::getConnection(

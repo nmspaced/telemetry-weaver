@@ -10,6 +10,8 @@ return static function (ContainerConfigurator $container): void {
     $container->import('services/runtime.php');
     $container->import('services/public_api.php');
     $container->import('services/instrumentation/http_server.php');
+    $container->import('services/instrumentation/controller.php');
+    $container->import('services/instrumentation/event_listeners.php');
     $container->import('services/instrumentation/http_client.php');
     $container->import('services/instrumentation/cache.php');
     $container->import('services/instrumentation/serializer.php');

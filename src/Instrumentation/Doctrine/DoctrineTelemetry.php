@@ -29,10 +29,16 @@ final readonly class DoctrineTelemetry
 
     private Duration $duration;
 
+    private SqlDescriptions $descriptions;
+
+    /**
+     * @param QueryCaller|null $caller where queries came from, on the span only; null records nothing
+     */
     public function __construct(
         private BoundaryTelemetry $telemetry,
         private DoctrinePolicy $policy = new DoctrinePolicy(),
         OperationBuckets $buckets = DefaultBuckets::Database,
+        private ?QueryCaller $caller = null,
     ) {
         $this->duration = $telemetry->metrics()->duration(
             DbMetrics::DB_CLIENT_OPERATION_DURATION,
@@ -40,6 +46,7 @@ final readonly class DoctrineTelemetry
             $buckets->boundaries(),
             'Duration of database client operations.',
         );
+        $this->descriptions = new SqlDescriptions();
     }
 
     /**
@@ -50,15 +57,18 @@ final readonly class DoctrineTelemetry
      */
     public function run(string $sql, ConnectionAttributes $connection, \Closure $callback): mixed
     {
-        $code = SqlLexer::code($sql, $connection->system);
-        $summary = SqlSummary::fromCode($code)->value;
+        [$summary, $sanitized] = $this->descriptions->describe(
+            $sql,
+            $connection->system,
+            $this->policy->queryText === QueryText::Sanitized,
+        );
         $attributes = $connection->attributes();
         $spanAttributes = $summary === null
             ? $attributes
             : [...$attributes, DbAttributes::DB_QUERY_SUMMARY => $summary];
 
         $text = match ($this->policy->queryText) {
-            QueryText::Sanitized => SqlQueryText::sanitized($code),
+            QueryText::Sanitized => $sanitized,
             QueryText::Raw => $sql,
             QueryText::Off => null,
         };
@@ -119,6 +129,8 @@ final readonly class DoctrineTelemetry
 
         return $operation->run(
             /** @throws \Throwable */ function (OperationContext $context) use ($callback): mixed {
+                $this->recordCaller($context->span());
+
                 try {
                     return $callback($context->span());
                 } catch (\Throwable $throwable) {
@@ -129,6 +141,19 @@ final readonly class DoctrineTelemetry
                 }
             },
         );
+    }
+
+    /**
+     * Walks the stack only for a span that is kept: the walk is the costly part, and a
+     * suppressed or unsampled span would discard what it found.
+     */
+    private function recordCaller(Span $span): void
+    {
+        if ($this->caller === null || !$span->isRecording()) {
+            return;
+        }
+
+        $span->attributes($this->caller->attributes());
     }
 
     /**

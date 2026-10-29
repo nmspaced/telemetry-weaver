@@ -111,6 +111,82 @@ increments the session usage index. `AbstractSessionListener` answers that with
 an application deliberately made public. Turning this key on does not change what your
 application sends.
 
+## Controller
+
+*Defaults: traces on. No metrics.*
+
+| | |
+|---|---|
+| Spans | `controller.arguments`, then one named after the controller — for example `OrderController::show` |
+| Attributes | `code.function.name` (the full name, `App\Controller\OrderController::show`), `controller.operation.name` (`arguments` or `call`) |
+
+```yaml
+controller:
+    traces: false
+```
+
+The component has a `traces` switch and nothing else. `http.server.request.duration` already
+measures each route, and a controller is almost always one route, so a second histogram would
+repeat it.
+
+Both spans are children of the server span and siblings of each other, so the waterfall shows
+what the request spent before the controller, resolving its arguments, inside it, and after it.
+Each is the current span while it runs: an entity a value resolver loads by id sits under
+`controller.arguments`, and the queries, HTTP calls and log lines of the controller sit under its
+own span rather than directly under the request.
+
+Spans require an existing trace, as the serializer's do: an excluded path has no server span, so
+its controller has none either.
+
+A closure controller has no name of its own and is named after the class it was declared in, as
+`Class::{closure}`. A name carrying the file and line would make every closure its own series.
+
+An exception leaving the controller fails the call span unless it is an `HttpExceptionInterface`
+with a status below 500. A `NotFoundHttpException` is the client's mistake, and the span follows
+the server span's threshold rather than turning every 404 red.
+
+The call is wrapped on `kernel.controller_arguments`, after every other listener, and the original
+controller is put back as soon as it returns or throws. `kernel.view` and `kernel.exception`
+listeners therefore see the controller itself: `#[Template]`, `#[Cache]` and anything else that
+reads named arguments or attributes behave as without the bundle. Arguments are passed the way
+`HttpKernel` passes them, so a string still reaches an `int` parameter.
+
+## Event listeners
+
+*Defaults: traces off. No metrics.*
+
+| | |
+|---|---|
+| Spans | one per listener call, named after the listener — for example `OrderPlacedListener::onOrderPlaced` |
+| Attributes | `code.function.name` (the full name), `listener.event.name` (`kernel.request`, `App\Event\OrderPlaced`) |
+
+```yaml
+event_listeners:
+    traces: true
+    namespaces: ['App\']
+```
+
+Off by default because a request runs dozens of listeners, almost all of them the framework's.
+`namespaces` lists the class name prefixes that are traced; everything else runs exactly as
+before, with no span. Subscribers are listeners once the container is compiled, so the same key
+covers both. The bundle's own listeners are never traced, whatever the list says: they open the
+server span and propagate it into the response, and a listener span around them would stand in
+for it.
+
+Spans require an existing trace. A listener on `kernel.terminate` runs after the server span
+has ended, and has none.
+
+Every service built as a plain `EventDispatcher` is replaced with a subclass that wraps each
+listener call: `event_dispatcher`, and the per-firewall dispatchers security listeners are
+registered on. A dispatcher built any other way is left alone. The listeners, their order,
+`stopPropagation()` and `removeListener()` stay Symfony's. One thing does change: the subclass
+does without Symfony's per-listener closure optimisation, so every listener of an event is
+created on that event's first dispatch rather than when it is first called. That is what the
+profiler's dispatcher does in debug, and in a worker it happens once per process.
+
+An exception from a listener fails its span, except an `HttpExceptionInterface` below 500, as
+for the controller.
+
 ## HTTP client
 
 *Defaults: traces on, metrics on.*
@@ -146,6 +222,7 @@ doctrine:
     query_text: sanitized     # sanitized | raw | off
     only_with_parent: true
     transactions: true
+    record_caller: false
 ```
 
 `query_text` controls `db.query.text`:
@@ -183,6 +260,20 @@ nothing else.
 trip, labelled by `db.operation.name`. Without it, a slow or failing commit is folded into
 whatever statement happened to precede it. Nested transactions are savepoint statements and are
 traced as statements.
+
+`record_caller` adds where a query came from to its span: `code.function.name`, `code.file.path`
+and `code.line.number` of the first frame outside `vendor/`, this bundle and the kernel build and
+cache directories, where Doctrine proxies and the container are generated. For an ORM query that
+is the repository method or the service that called `flush()`, so a slow `SELECT orders` names
+`OrderRepository::findActive()` instead of leaving you to guess. A transaction boundary gets the
+code that began or ended it.
+
+It walks the stack, so it is off by default and costs something only for spans that are kept:
+2–4 µs for an ORM query issued from a controller, 10 to 30 frames below the application, and
+about 8 µs for a stack 60 frames deep, against roughly 13 µs for the span itself. Without a span, unsampled or outside a trace, nothing
+is walked. Only the first 64 frames are read; a query buried deeper than that gets no caller. The
+attributes go on the span and never on `db.client.operation.duration`, where a file and line per
+call site would multiply the series.
 
 ## Messenger
 

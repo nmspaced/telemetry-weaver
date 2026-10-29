@@ -139,6 +139,20 @@ open_telemetry:
             # a 404 from a NotFoundHttpException is not a failure of the server.
             record_exception_min_status: 500
 
+        # controller.arguments and one span named after the controller, both under the
+        # server span, inside an existing trace. Traces only: http.server.request.duration
+        # already measures each route.
+        controller:
+            traces: true
+
+        # One span per listener call, for listeners whose class starts with one of the
+        # namespaces. Off by default: a request runs dozens of listeners, nearly all of them
+        # the framework's. Subscribers are covered too. The bundle's own never are.
+        event_listeners:
+            traces: false
+            namespaces:
+                - 'App\'
+
         http_client:
             traces: true
             metrics: true
@@ -193,6 +207,12 @@ open_telemetry:
             # db.operation.name. A slow or failing COMMIT is otherwise invisible. Nested
             # transactions are savepoint statements and are traced as statements.
             transactions: true
+
+            # The application code that issued each query, on its span: code.function.name,
+            # code.file.path and code.line.number of the first frame outside vendor/, this
+            # bundle and the kernel build and cache directories. Walks the stack once per kept
+            # span (2–4 µs for a typical ORM query); never a metric label.
+            record_caller: false
 
         messenger:
             traces: true

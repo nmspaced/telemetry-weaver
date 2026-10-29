@@ -94,6 +94,41 @@ final class RequestComponents
     }
 
     /** @throws \RuntimeException */
+    public function controller(): ArrayNodeDefinition
+    {
+        return ComponentSignal::tracesOnly(
+            'controller',
+            'Controller argument resolution and the controller call, as spans inside an existing trace. No metrics: http.server.request.duration already measures the request per route.',
+        );
+    }
+
+    /** @throws \RuntimeException */
+    public function eventListeners(): ArrayNodeDefinition
+    {
+        $node = ComponentSignal::tracesOnly(
+            'event_listeners',
+            'Event listener and subscriber calls, as spans inside an existing trace. Off by default: a request runs dozens of listeners, and only some of them are yours.',
+            enabled: false,
+        );
+
+        $node
+            ->children()
+            ->arrayNode('namespaces')
+            ->performNoDeepMerging()
+            ->info(
+                "Class name prefixes of the listeners to trace. Every other listener runs untraced. The bundle's own are never traced.",
+            )
+            ->stringPrototype()
+            ->cannotBeEmpty()
+            ->end()
+            ->defaultValue(['App\\'])
+            ->end()
+            ->end();
+
+        return $node;
+    }
+
+    /** @throws \RuntimeException */
     public function httpClient(): ArrayNodeDefinition
     {
         $node = ComponentSignal::component(
@@ -184,6 +219,12 @@ final class RequestComponents
                 'Record BEGIN, COMMIT and ROLLBACK as operations of their own. Nested levels are traced as SAVEPOINT statements.',
             )
             ->defaultTrue()
+            ->end()
+            ->booleanNode('record_caller')
+            ->info(
+                'Record the application code that issued each query as code.function.name, code.file.path and code.line.number: the first frame outside vendor/, this bundle and the kernel build and cache directories. Span only, and only for spans that are kept. Off by default: it walks the stack once per traced query.',
+            )
+            ->defaultFalse()
             ->end()
             ->end();
 
