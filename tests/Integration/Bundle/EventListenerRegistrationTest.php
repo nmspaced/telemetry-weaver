@@ -60,7 +60,9 @@ final class EventListenerRegistrationTest extends ContainerTestCase
         $dispatcher = $container->get('event_dispatcher');
         self::assertInstanceOf(TracingEventDispatcher::class, $dispatcher);
 
-        $event = $dispatcher->dispatch(new Event(), 'order.placed');
+        // The event itself, not dispatch()'s result: older event-dispatcher-contracts type that as `object`.
+        $event = new Event();
+        $dispatcher->dispatch($event, 'order.placed');
 
         self::assertTrue($event->isPropagationStopped());
     }

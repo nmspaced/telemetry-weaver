@@ -11,10 +11,13 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /** A controller with a method per outcome; `$probe` runs inside each call. */
 final readonly class OrderController
 {
-    /** @param \Closure(): void $probe */
-    public function __construct(
-        private \Closure $probe = static function (): void {},
-    ) {}
+    private \Closure $probe;
+
+    /** @param (\Closure(): void)|null $probe nothing by default: before PHP 8.5 a closure is no default value */
+    public function __construct(?\Closure $probe = null)
+    {
+        $this->probe = $probe ?? static function (): void {};
+    }
 
     public function show(int $id): Response
     {
