@@ -102,7 +102,9 @@ final class MessengerLifecycleTest extends MessengerTelemetryTestCase
         $telemetry = $this->telemetry();
         $dispatcher = new EventDispatcher();
         $bus = $this->asyncBus($telemetry, $dispatcher);
-        $dispatcher->addListener(WorkerMessageReceivedEvent::class, static function (WorkerMessageReceivedEvent $event): void {
+        $dispatcher->addListener(WorkerMessageReceivedEvent::class, static function (
+            WorkerMessageReceivedEvent $event,
+        ): void {
             $event->shouldHandle(false);
             self::assertNull(OtelContext::storage()->scope());
         });

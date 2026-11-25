@@ -28,6 +28,16 @@ final readonly class CodeFunction
 
     public static function of(callable $callable): self
     {
+        if (\is_string($callable)) {
+            $separator = \strpos($callable, '::');
+
+            if ($separator !== false) {
+                return self::method(\substr($callable, 0, $separator), \substr($callable, $separator + 2));
+            }
+
+            return self::named($callable, $callable);
+        }
+
         if ($callable instanceof \Closure) {
             return self::closure($callable);
         }
@@ -38,21 +48,8 @@ final readonly class CodeFunction
             return self::method(\is_object($target) ? \get_debug_type($target) : $target, $method);
         }
 
-        if (\is_object($callable)) {
-            return self::method(\get_debug_type($callable), '__invoke');
-        }
-
-        if (!\is_string($callable)) {
-            return self::named(self::CLOSURE, self::CLOSURE);
-        }
-
-        $separator = \strpos($callable, '::');
-
-        if ($separator !== false) {
-            return self::method(\substr($callable, 0, $separator), \substr($callable, $separator + 2));
-        }
-
-        return self::named($callable, $callable);
+        // What is left of a callable is an invokable object.
+        return self::method(\get_debug_type($callable), '__invoke');
     }
 
     private static function closure(\Closure $callable): self

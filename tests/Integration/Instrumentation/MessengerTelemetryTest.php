@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 /**
  * Span structure across dispatch, send and process: kind, parenting, trace continuation,
  * multi-transport fan-out, ambient-span links and redelivery. Metrics live in {@see
- * MessengerTelemetryMetricsTest}; `messaging.system` resolution lives in {@see
+ * MessengerTelemetryMetricsTest}; `messaging.system.name` resolution lives in {@see
  * MessengerTelemetrySystemTest}.
  */
 final class MessengerTelemetryTest extends MessengerTelemetryTestCase

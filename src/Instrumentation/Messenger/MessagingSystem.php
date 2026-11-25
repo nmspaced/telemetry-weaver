@@ -10,8 +10,8 @@ use Symfony\Component\Messenger\Bridge\AmazonSqs\Transport\AmazonSqsTransport;
 use Symfony\Component\Messenger\Bridge\Amqp\Transport\AmqpTransport;
 
 /**
- * `messaging.system` for a transport, decided by its class alone (never the DSN, which holds
- * secrets). AMQP maps to `rabbitmq`, SQS to `aws_sqs`; everything else is `symfony`.
+ * `messaging.system.name` for a transport, decided by its class alone (never the DSN, which holds
+ * secrets). AMQP maps to `rabbitmq`, SQS to `aws.sqs`; everything else is `symfony`.
  */
 final readonly class MessagingSystem
 {
@@ -21,8 +21,8 @@ final readonly class MessagingSystem
      * @var array<class-string, non-empty-string>
      */
     private const array KNOWN = [
-        AmqpTransport::class => MessagingIncubatingAttributes::MESSAGING_SYSTEM_VALUE_RABBITMQ,
-        AmazonSqsTransport::class => MessagingIncubatingAttributes::MESSAGING_SYSTEM_VALUE_AWS_SQS,
+        AmqpTransport::class => MessagingIncubatingAttributes::MESSAGING_SYSTEM_NAME_VALUE_RABBITMQ,
+        AmazonSqsTransport::class => MessagingIncubatingAttributes::MESSAGING_SYSTEM_NAME_VALUE_AWS_SQS,
     ];
 
     /**

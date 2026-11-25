@@ -97,6 +97,7 @@ final class TelemetryFlusherTest extends TestCase
         self::assertSame(1, $reporter->total());
 
         $flusher->atBoundary();
+        // @mago-expect analysis:impossible-type-comparison — the closures append to $calls by reference
         self::assertSame(['traces', 'traces', 'logs', 'metrics'], $calls, 'a refused signal stays eligible');
     }
 

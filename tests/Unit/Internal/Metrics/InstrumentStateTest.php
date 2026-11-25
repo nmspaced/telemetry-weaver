@@ -34,7 +34,6 @@ final class InstrumentStateTest extends PublicTelemetryTestCase
         $counter = self::createStub(CounterInterface::class);
         $counter->method('isEnabled')->willThrowException($failure);
 
-        // @mago-expect analysis:experimental-usage — the synchronous Gauge is stable in the metrics specification; only its PHP interface still carries the marker
         $gauge = self::createStub(GaugeInterface::class);
         $gauge->method('isEnabled')->willThrowException($failure);
 

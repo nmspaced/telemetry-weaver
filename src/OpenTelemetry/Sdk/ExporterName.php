@@ -30,10 +30,9 @@ final readonly class ExporterName
             throw new \InvalidArgumentException(\sprintf('Configuration %s requires exactly 1 exporter', $variable));
         }
 
-        /** @var mixed $exporter */
-        $exporter = $exporters[0] ?? null;
+        $exporter = $exporters[0];
 
-        if (!\is_string($exporter) || $exporter === '' || $exporter === self::NONE) {
+        if ($exporter === '' || $exporter === self::NONE) {
             return null;
         }
 

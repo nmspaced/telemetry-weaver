@@ -35,7 +35,7 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
         self::assertSame(1, $process->count);
         self::assertSame(
             [
-                'messaging.system' => 'symfony',
+                'messaging.system.name' => 'symfony',
                 'messaging.operation.name' => 'process',
                 'messaging.operation.type' => 'process',
                 'messaging.destination.name' => 'async',
@@ -101,7 +101,7 @@ final class MessengerTelemetryMetricsTest extends MessengerTelemetryTestCase
         self::assertSame(1, $sent->value);
         self::assertSame(
             [
-                'messaging.system' => 'symfony',
+                'messaging.system.name' => 'symfony',
                 'messaging.operation.name' => 'send',
                 'messaging.operation.type' => 'send',
                 'messaging.destination.name' => 'async',

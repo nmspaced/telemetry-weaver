@@ -68,9 +68,9 @@ final class GlobalsOwnershipTest extends ContainerTestCase
     #[Test]
     public function theBundleOverridesAnEarlierInitializer(): void
     {
-        Globals::registerInitializer(static fn(Configurator $configurator): Configurator => $configurator->withTracerProvider(
-            new NoopTracerProvider(),
-        ));
+        Globals::registerInitializer(static fn(
+            Configurator $configurator,
+        ): Configurator => $configurator->withTracerProvider(new NoopTracerProvider()));
 
         $container = $this->boot();
 

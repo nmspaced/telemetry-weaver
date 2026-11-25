@@ -1,4 +1,4 @@
-#:schema https://mago.carthage.software/1.59.0/schema.json
+#:schema https://mago.carthage.software/1.61.0/schema.json
 
 version = "1"
 php-version = "8.4.0"
@@ -114,6 +114,21 @@ variable-name = { enabled = true }
 ignore = [
     { code = "mixed-assignment", in = [
         "tests/",
+    ] },
+    # GaugeInterface is marked experimental up to open-telemetry/api 1.11 and stable from 1.12
+    # (the synchronous Gauge is stable in the specification). An inline @mago-expect would be
+    # unfulfilled on 1.12 and required on the ^1.10 floor; drop this once the floor is ^1.12.
+    { code = "experimental-usage", in = [
+        "src/Internal/Metrics/SafeGauge.php",
+        "tests/Unit/Internal/Metrics/InstrumentStateTest.php",
+        "tests/Unit/Internal/Metrics/SafeMetricsResilienceTest.php",
+    ] },
+    # MetricMetadataInterface::temporality() is deprecated from open-telemetry/sdk 1.17, to be
+    # removed in 2.0. The fallback mirrors what the SDK itself does for an exporter without a
+    # selector until 2.0; it is not deprecated on the ^1.16 floor, so an inline @mago-expect
+    # would be unfulfilled there.
+    { code = "deprecated-method", in = [
+        "src/OpenTelemetry/Sdk/Exporter/ResilientMetricsExporter.php",
     ] },
 ]
 minimum-fail-level = "warning"

@@ -157,7 +157,6 @@ final class SafeMetricsResilienceTest extends PublicTelemetryTestCase
         $counter->method('add')->willThrowException($failure);
         $upDown = $this->createStub(UpDownCounterInterface::class);
         $upDown->method('add')->willThrowException($failure);
-        // @mago-expect analysis:experimental-usage — the synchronous Gauge is stable in the metrics spec
         $gauge = $this->createStub(GaugeInterface::class);
         $gauge->method('record')->willThrowException($failure);
         $meter = $this->createStub(MeterInterface::class);

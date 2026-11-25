@@ -104,7 +104,9 @@ final class ConsoleInstrumentationTest extends FrameworkInstrumentationTestCase
     {
         $dispatcher = new EventDispatcher();
         $dispatcher->addSubscriber(new ConsoleTelemetrySubscriber($this->telemetry, $this->reporter));
-        $dispatcher->addListener(ConsoleEvents::COMMAND, static fn(ConsoleCommandEvent $event): bool => $event->disableCommand());
+        $dispatcher->addListener(ConsoleEvents::COMMAND, static fn(
+            ConsoleCommandEvent $event,
+        ): bool => $event->disableCommand());
 
         $application = new Application();
         $application->setAutoExit(false);

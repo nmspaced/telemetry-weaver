@@ -14,7 +14,7 @@ use OpenTelemetry\SemConv\Incubating\Attributes\MessagingIncubatingAttributes;
  */
 final readonly class MessageAttributes
 {
-    /** `messaging.system` for transports whose broker the conventions do not name. */
+    /** `messaging.system.name` for transports whose broker the conventions do not name. */
     public const string SYSTEM = 'symfony';
 
     /** The message class; the conventions define no generic attribute for it. */
@@ -68,7 +68,7 @@ final readonly class MessageAttributes
         string $system = self::SYSTEM,
     ): array {
         return [
-            MessagingIncubatingAttributes::MESSAGING_SYSTEM => $system,
+            MessagingIncubatingAttributes::MESSAGING_SYSTEM_NAME => $system,
             MessagingIncubatingAttributes::MESSAGING_OPERATION_NAME => $operation,
             MessagingIncubatingAttributes::MESSAGING_OPERATION_TYPE => $type,
             MessagingIncubatingAttributes::MESSAGING_DESTINATION_NAME => $destination,

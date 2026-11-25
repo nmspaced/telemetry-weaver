@@ -23,7 +23,7 @@ final class MessagingSystemTest extends TestCase
     public static function transports(): iterable
     {
         yield 'amqp is rabbitmq' => [AmqpTransport::class, 'rabbitmq'];
-        yield 'sqs is aws_sqs' => [AmazonSqsTransport::class, 'aws_sqs'];
+        yield 'sqs is aws.sqs' => [AmazonSqsTransport::class, 'aws.sqs'];
         yield 'in-memory has no broker' => [InMemoryTransport::class, 'symfony'];
         yield 'sync has no broker' => [SyncTransport::class, 'symfony'];
     }

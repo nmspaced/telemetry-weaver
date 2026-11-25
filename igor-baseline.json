@@ -276,10 +276,6 @@
         "reason": "Terminal per-container flag: once closed, exporters and transports of that pipeline refuse I/O. A boolean that is never reopened; no request data."
       },
       {
-        "message": "Mutation of state 'finisher' in ExportGate::close()",
-        "reason": "Releases the weak reference to the pipeline's flusher when the pipeline is sealed. Clearing only; nothing is retained."
-      },
-      {
         "message": "Mutation of state 'finisher' in ExportGate::finishOnExit()",
         "reason": "One WeakReference to the container's TelemetryFlusher, set once for long-lived pipelines so PHP shutdown can run a budgeted final flush. Weak: a replaced container is not kept alive."
       },

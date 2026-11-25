@@ -28,7 +28,9 @@ final class ExampleConfigTest extends ContainerTestCase
         /** @var array{open_telemetry: array<string, mixed>} $parsed */
         $parsed = Yaml::parseFile($file);
 
-        $container = $this->compile($parsed['open_telemetry'], configure: static function (ContainerBuilder $container): void {
+        $container = $this->compile($parsed['open_telemetry'], configure: static function (
+            ContainerBuilder $container,
+        ): void {
             $container->setParameter('app.name', 'probe');
             $container->setParameter('kernel.environment', 'test');
         });
@@ -43,7 +45,9 @@ final class ExampleConfigTest extends ContainerTestCase
         /** @var array{open_telemetry: array<string, mixed>} $parsed */
         $parsed = Yaml::parseFile(__DIR__ . '/../../../config/example_config.yaml');
 
-        $container = $this->compile($parsed['open_telemetry'], configure: static function (ContainerBuilder $container): void {
+        $container = $this->compile($parsed['open_telemetry'], configure: static function (
+            ContainerBuilder $container,
+        ): void {
             $container->setParameter('app.name', 'probe');
             $container->setParameter('kernel.environment', 'test');
         });

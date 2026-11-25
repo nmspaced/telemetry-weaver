@@ -77,7 +77,9 @@ final class ControllerInstrumentationTest extends ControllerTelemetryTestCase
     #[Test]
     public function argumentsAreCoercedAsWhenTheKernelCallsTheController(): void
     {
-        $this->dispatcher->addListener(KernelEvents::CONTROLLER_ARGUMENTS, static function (ControllerArgumentsEvent $event): void {
+        $this->dispatcher->addListener(KernelEvents::CONTROLLER_ARGUMENTS, static function (
+            ControllerArgumentsEvent $event,
+        ): void {
             $event->setArguments(['42']);
         });
 

@@ -69,6 +69,7 @@ final class PublicTelemetryConcurrencyTest extends PublicTelemetryTestCase
     {
         $telemetry = $this->telemetry();
         $duration = $this->duration($telemetry);
+        /** @var \WeakMap<object, true> $live */
         $live = new \WeakMap();
         for ($index = 0; $index < 1000; ++$index) {
             $payload = new \stdClass();

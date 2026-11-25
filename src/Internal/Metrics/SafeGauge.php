@@ -11,9 +11,6 @@ use OpenTelemetry\Context\ContextInterface;
 /**
  * @internal
  */
-// @mago-expect analysis:experimental-usage — the synchronous Gauge is stable in the metrics
-// specification; only its PHP interface still carries the marker, and refusing to expose it
-// would leave applications reaching past the facade for it.
 final readonly class SafeGauge implements GaugeInterface
 {
     public function __construct(

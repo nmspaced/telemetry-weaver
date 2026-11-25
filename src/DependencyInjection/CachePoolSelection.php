@@ -57,7 +57,6 @@ final readonly class CachePoolSelection
             throw new \LogicException(\sprintf('Parameter "%s" must be an array.', $parameter));
         }
 
-        /** @var list<string> */
         return \array_values(\array_filter($pools, \is_string(...)));
     }
 }

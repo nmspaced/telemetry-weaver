@@ -12,7 +12,7 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
- * `messaging.system` resolution: a transport the locator knows about names its broker, on the span
+ * `messaging.system.name` resolution: a transport the locator knows about names its broker, on the span
  * and both metrics; an unknown one falls back to the framework's own name rather than guessing.
  * Span structure and metrics otherwise live in {@see MessengerTelemetryTest} and {@see
  * MessengerTelemetryMetricsTest}.
@@ -36,22 +36,26 @@ final class MessengerTelemetrySystemTest extends MessengerTelemetryTestCase
 
         self::assertSame(
             'rabbitmq',
-            MessengerSpanAssertions::spanNamed($this->spans, 'send async')->getAttributes()->get('messaging.system'),
+            MessengerSpanAssertions::spanNamed($this->spans, 'send async')->getAttributes()->get(
+                'messaging.system.name',
+            ),
         );
         self::assertSame(
             'rabbitmq',
-            MessengerSpanAssertions::spanNamed($this->spans, 'process async')->getAttributes()->get('messaging.system'),
+            MessengerSpanAssertions::spanNamed($this->spans, 'process async')->getAttributes()->get(
+                'messaging.system.name',
+            ),
         );
         self::assertSame(
             'rabbitmq',
             MessengerMetricAssertions::counter($this->metrics, 'messaging.client.sent.messages')->attributes->get(
-                'messaging.system',
+                'messaging.system.name',
             ),
         );
         self::assertSame(
             'rabbitmq',
             MessengerMetricAssertions::histogram($this->metrics, 'messaging.process.duration')->attributes->get(
-                'messaging.system',
+                'messaging.system.name',
             ),
         );
     }
@@ -70,11 +74,15 @@ final class MessengerTelemetrySystemTest extends MessengerTelemetryTestCase
 
         self::assertSame(
             'rabbitmq',
-            MessengerSpanAssertions::spanNamed($this->spans, 'send async')->getAttributes()->get('messaging.system'),
+            MessengerSpanAssertions::spanNamed($this->spans, 'send async')->getAttributes()->get(
+                'messaging.system.name',
+            ),
         );
         self::assertSame(
             'symfony',
-            MessengerSpanAssertions::spanNamed($this->spans, 'process async')->getAttributes()->get('messaging.system'),
+            MessengerSpanAssertions::spanNamed($this->spans, 'process async')->getAttributes()->get(
+                'messaging.system.name',
+            ),
             'the receiver is not in the locator, so nothing is known about it',
         );
         self::assertSame([], $this->logger->messages());
